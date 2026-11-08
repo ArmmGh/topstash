@@ -130,6 +130,7 @@ final class NotchPanelController {
                 // The cursor came back during the fade.
                 closeTask?.cancel()
                 closeTask = nil
+                appModel.refreshSaveCard()
                 panel.mode = .open
             } else if let hovered {
                 startHoverDelay(for: hovered)
@@ -192,6 +193,8 @@ final class NotchPanelController {
         place(window, on: screen, centeredOn: target.rect)
         openDisplayID = displayID
 
+        // Re-evaluated on every open, because the clipboard may have changed while closed.
+        appModel.refreshSaveCard()
         panel.mode = .open
         // Never makeKey or activate: the frontmost app keeps keyboard focus.
         window.orderFrontRegardless()
