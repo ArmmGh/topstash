@@ -3,9 +3,10 @@ import CoreGraphics
 /// Size constants for the notch panel. All sizes live here.
 enum PanelLayout {
     /// The fixed window frame, big enough for the panel with a full recent list and for the search
-    /// shape, plus shadow padding. It never changes or animates; only the SwiftUI content does.
+    /// shape, with their outward top corners, plus shadow padding. It never changes or animates;
+    /// only the SwiftUI content does.
     static let windowSize = CGSize(
-        width: max(480, searchSize.width + 2 * (topCornerRadius + shadowPadding)),
+        width: max(panelWidth, searchSize.width) + 2 * (topCornerRadius + shadowPadding),
         height: max(maxPanelHeight, searchSize.height) + shadowPadding
     )
     /// Room around the shape for the shadow drawn in SwiftUI (#11).
@@ -32,12 +33,27 @@ enum PanelLayout {
     static let cardCornerRadius: CGFloat = 12
     /// Fits three preview lines plus the character count.
     static let saveCardHeight: CGFloat = 84
+    static let cardHorizontalPadding: CGFloat = 14
+    static let cardVerticalPadding: CGFloat = 10
+    /// Between the card's icon and its text.
+    static let cardIconSpacing: CGFloat = 10
+    static let cardIconWidth: CGFloat = 24
+    /// Between the lines of the card's text.
+    static let cardLineSpacing: CGFloat = 4
+    /// Between the "Saved" checkmark and its label.
+    static let savedCheckmarkSpacing: CGFloat = 8
+    /// Between small items on one line: the card's hint and its settings link, the search status's
+    /// symbol and label.
+    static let inlineSpacing: CGFloat = 4
 
     /// How many of the newest notes the panel lists under the save card.
     static let recentCount = 5
     static let rowHeight: CGFloat = 40
     static let rowSpacing: CGFloat = 2
     static let rowCornerRadius: CGFloat = 8
+    /// Between a row's title and preview.
+    static let rowLineSpacing: CGFloat = 2
+    static let rowHorizontalPadding: CGFloat = 10
     /// Space between the save card and the recent list.
     static let sectionSpacing: CGFloat = 8
 
@@ -66,6 +82,9 @@ enum PanelLayout {
     /// The shape in search mode: the search field above the scrollable list of every note.
     static let searchSize = CGSize(width: 400, height: 520)
     static let searchFieldHeight: CGFloat = 32
+    static let searchFieldHorizontalPadding: CGFloat = 12
+    /// Between the search field's text and the shortcut's status (#10).
+    static let searchStatusSpacing: CGFloat = 8
 
     /// Width of the invisible hover strip on screens without a notch.
     static let fallbackHoverWidth: CGFloat = 200

@@ -16,7 +16,7 @@ struct SaveCard: View {
             Button(action: action) {
                 card {
                     icon("tray.and.arrow.down")
-                    VStack(alignment: .leading, spacing: 4) {
+                    VStack(alignment: .leading, spacing: PanelLayout.cardLineSpacing) {
                         Text(Self.previewText(text))
                             .font(.system(size: 12))
                             .lineLimit(3)
@@ -32,7 +32,7 @@ struct SaveCard: View {
             Button(action: action) {
                 card(combiningAccessibility: false) {
                     icon("tray.and.arrow.down")
-                    VStack(alignment: .leading, spacing: 4) {
+                    VStack(alignment: .leading, spacing: PanelLayout.cardLineSpacing) {
                         label("Text ready to save")
                         settingsHint("Allow paste access to see a preview")
                     }
@@ -42,7 +42,7 @@ struct SaveCard: View {
         case .accessDenied:
             card(combiningAccessibility: false) {
                 icon("hand.raised")
-                VStack(alignment: .leading, spacing: 4) {
+                VStack(alignment: .leading, spacing: PanelLayout.cardLineSpacing) {
                     label("Topstash can't read the clipboard")
                     settingsHint("Allow paste access to save from here")
                 }
@@ -78,13 +78,13 @@ struct SaveCard: View {
         combiningAccessibility: Bool = true,
         @ViewBuilder _ content: () -> some View
     ) -> some View {
-        HStack(alignment: .center, spacing: 10) {
+        HStack(alignment: .center, spacing: PanelLayout.cardIconSpacing) {
             content()
             Spacer(minLength: 0)
         }
         .foregroundStyle(.white)
-        .padding(.horizontal, 14)
-        .padding(.vertical, 10)
+        .padding(.horizontal, PanelLayout.cardHorizontalPadding)
+        .padding(.vertical, PanelLayout.cardVerticalPadding)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(.white.opacity(0.12), in: RoundedRectangle(cornerRadius: PanelLayout.cardCornerRadius))
         .contentShape(RoundedRectangle(cornerRadius: PanelLayout.cardCornerRadius))
@@ -93,7 +93,7 @@ struct SaveCard: View {
 
     /// A secondary line with a link to the Paste privacy setting (#4).
     private func settingsHint(_ text: String) -> some View {
-        HStack(spacing: 4) {
+        HStack(spacing: PanelLayout.inlineSpacing) {
             Text(text)
                 .foregroundStyle(.white.opacity(0.55))
             Button("Open Settings") {
@@ -110,7 +110,7 @@ struct SaveCard: View {
     private func icon(_ systemName: String) -> some View {
         Image(systemName: systemName)
             .font(.system(size: 18, weight: .semibold))
-            .frame(width: 24)
+            .frame(width: PanelLayout.cardIconWidth)
     }
 
     private func label(_ text: String) -> some View {
@@ -151,7 +151,7 @@ struct SaveCardSlot: View {
                     .transition(Motion.saveCard(reduceMotion: reduceMotion))
             }
             // Always in the hierarchy, so the bounce plays when `saveCount` changes.
-            HStack(spacing: 8) {
+            HStack(spacing: PanelLayout.savedCheckmarkSpacing) {
                 Image(systemName: SaveCardState.savedResult.symbol)
                     .font(.system(size: 26, weight: .semibold))
                     .symbolEffect(.bounce, value: bounceTrigger)
@@ -176,7 +176,7 @@ struct SaveStatusBadge: View {
 
     var body: some View {
         if let result = state.result {
-            HStack(spacing: 4) {
+            HStack(spacing: PanelLayout.inlineSpacing) {
                 Image(systemName: result.symbol)
                     .symbolEffect(.bounce, value: bounceTrigger)
                 Text(result.text)

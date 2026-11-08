@@ -13,7 +13,7 @@ struct SearchView: View {
     var body: some View {
         @Bindable var panel = appModel.panel
         VStack(spacing: PanelLayout.sectionSpacing) {
-            HStack(spacing: 8) {
+            HStack(spacing: PanelLayout.searchStatusSpacing) {
                 TextField("Search notes", text: $panel.query)
                     .textFieldStyle(.plain)
                     .font(.system(size: 14))
@@ -25,7 +25,7 @@ struct SearchView: View {
                         .transition(.opacity)
                 }
             }
-            .padding(.horizontal, 12)
+            .padding(.horizontal, PanelLayout.searchFieldHorizontalPadding)
             .frame(height: PanelLayout.searchFieldHeight)
             .background(.white.opacity(0.12), in: RoundedRectangle(cornerRadius: PanelLayout.cardCornerRadius))
             .animation(Motion.searchStatus, value: panel.searchStatus)

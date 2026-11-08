@@ -13,7 +13,7 @@ struct NoteRow: View {
 
     var body: some View {
         Button(action: action) {
-            VStack(alignment: .leading, spacing: 2) {
+            VStack(alignment: .leading, spacing: PanelLayout.rowLineSpacing) {
                 Text(note.title)
                     .font(.system(size: 13, weight: .semibold))
                     .foregroundStyle(.white)
@@ -29,7 +29,7 @@ struct NoteRow: View {
             }
             .lineLimit(1)
             .truncationMode(.tail)
-            .padding(.horizontal, 10)
+            .padding(.horizontal, PanelLayout.rowHorizontalPadding)
             .frame(maxWidth: .infinity, alignment: .leading)
             .frame(height: PanelLayout.rowHeight)
             .contentShape(RoundedRectangle(cornerRadius: PanelLayout.rowCornerRadius))
