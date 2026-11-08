@@ -107,29 +107,13 @@ struct PanelView: View {
         .frame(width: PanelLayout.panelWidth, height: shapeSize.height, alignment: .top)
     }
 
-    @ViewBuilder
     private var recentList: some View {
         // Always read through `appModel.store`, which is replaced when the folder changes (#9).
-        let notes = appModel.store.recent(limit: PanelLayout.recentCount)
-        if notes.isEmpty {
-            Text("No notes yet")
-                .font(.system(size: 12))
-                .foregroundStyle(.white.opacity(0.6))
-                .frame(maxWidth: .infinity, minHeight: PanelLayout.rowHeight)
-        } else {
-            VStack(spacing: PanelLayout.rowSpacing) {
-                ForEach(notes) { note in
-                    NoteRow(
-                        note: note,
-                        isCopied: panel.copiedNote == note.id,
-                        openInEditor: { appModel.openInEditor(note) },
-                        delete: { appModel.delete(note) }
-                    ) {
-                        appModel.copy(note)
-                    }
-                }
-            }
-        }
+        NoteList(
+            appModel: appModel,
+            notes: appModel.store.recent(limit: PanelLayout.recentCount),
+            emptyText: "No notes yet"
+        )
     }
 
     /// Expands the panel into the search view (#5).

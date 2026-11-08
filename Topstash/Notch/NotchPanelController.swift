@@ -103,11 +103,8 @@ final class NotchPanelController {
             place(window, on: screen, centeredOn: area.rect)
         } else {
             // The panel's screen is gone: close right away, without the fade.
-            closeTask?.cancel()
-            closeTask = nil
             panel.mode = .closed
-            window.orderOut(nil)
-            self.openDisplayID = nil
+            orderOutNow()
         }
     }
 
@@ -122,9 +119,7 @@ final class NotchPanelController {
         guard !isMenuTracking else { return }
         let location = NSEvent.mouseLocation
         let hovered = hoverAreas.first { $0.rect.contains(location) }
-        // Over the hover area or the visible shape of the screen the panel is shown on.
-        let overOpenPanel = openDisplayID != nil
-            && (hovered?.displayID == openDisplayID || visibleRect.contains(location))
+        let overOpenPanel = isOverOpenPanel(location)
 
         switch panel.mode {
         case .open:
@@ -216,16 +211,28 @@ final class NotchPanelController {
         window.orderFrontRegardless()
     }
 
+    /// Whether `location` is over the hover area or the visible shape of the screen the panel is shown on.
+    private func isOverOpenPanel(_ location: NSPoint) -> Bool {
+        guard let openDisplayID else { return false }
+        let overHoverArea = hoverArea(on: openDisplayID)?.rect.contains(location) ?? false
+        return overHoverArea || visibleRect.contains(location)
+    }
+
     /// The content fades out, the shape collapses into the hover area, then the window is ordered out.
     private func close() {
         panel.mode = .closed
         closeTask?.cancel()
         closeTask = .afterDelay(Motion.closeDuration) { [weak self] in
-            guard let self else { return }
-            self.closeTask = nil
-            self.openDisplayID = nil
-            self.window?.orderOut(nil)
+            self?.orderOutNow()
         }
+    }
+
+    /// Orders the window out at once, ending a running close.
+    private func orderOutNow() {
+        closeTask?.cancel()
+        closeTask = nil
+        openDisplayID = nil
+        window?.orderOut(nil)
     }
 
     // MARK: - Search
@@ -282,10 +289,7 @@ final class NotchPanelController {
         guard closing else { return }
         // Ordered out right away, without the fade, so the next keystroke goes back to the
         // frontmost app's window instead of the fading panel.
-        closeTask?.cancel()
-        closeTask = nil
-        openDisplayID = nil
-        window?.orderOut(nil)
+        orderOutNow()
     }
 
     // MARK: - Context menu (#6)
@@ -362,9 +366,7 @@ final class NotchPanelController {
     /// then on the normal hover rules apply.
     private func feedbackEnded() {
         guard panel.mode == .feedback else { return }
-        let location = NSEvent.mouseLocation
-        let overHoverArea = openDisplayID.flatMap(hoverArea(on:))?.rect.contains(location) ?? false
-        if overHoverArea || visibleRect.contains(location) {
+        if isOverOpenPanel(NSEvent.mouseLocation) {
             appModel.refreshSaveCard()
             panel.mode = .open
         } else {

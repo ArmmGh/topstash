@@ -29,30 +29,8 @@ struct SearchView: View {
         .onExitCommand { panel.mode = .closed }
     }
 
-    @ViewBuilder
     private var results: some View {
         // Always read through `appModel.store`, which is replaced when the folder changes (#9).
-        let notes = appModel.store.search(panel.query)
-        if notes.isEmpty {
-            Text("No matches")
-                .font(.system(size: 12))
-                .foregroundStyle(.white.opacity(0.6))
-                .frame(maxWidth: .infinity, minHeight: PanelLayout.rowHeight)
-        } else {
-            ScrollView {
-                LazyVStack(spacing: PanelLayout.rowSpacing) {
-                    ForEach(notes) { note in
-                        NoteRow(
-                            note: note,
-                            isCopied: panel.copiedNote == note.id,
-                            openInEditor: { appModel.openInEditor(note) },
-                            delete: { appModel.delete(note) }
-                        ) {
-                            appModel.copy(note)
-                        }
-                    }
-                }
-            }
-        }
+        NoteList(appModel: appModel, notes: appModel.store.search(panel.query), emptyText: "No matches", scrolls: true)
     }
 }
