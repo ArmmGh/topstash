@@ -578,6 +578,20 @@ extension NotesStoreTests {
         #expect(reloaded.body.contains("new prompt"))
         #expect(!reloaded.body.contains("old prompt"))
         #expect(reloaded.noteID == note.noteID)
+        #expect(store.contains("new prompt"))
+        #expect(!store.contains("old prompt"))
+    }
+
+    @Test func duplicateDetectionCoversFilesWrittenOutsideTheApp() throws {
+        let store = makeStore()
+        let url = try writeExternal("imported.md", "Explain this code.\n")
+        store.reload()
+
+        let result = try store.save("  Explain this code.  ")
+
+        #expect(result == .alreadySaved(try #require(store.notes.first)))
+        #expect(store.notes.map(\.fileURL.lastPathComponent) == [url.lastPathComponent])
+        #expect(try temp.fileNames() == [url.lastPathComponent])
     }
 
     @Test func appendedTextShowsAfterReload() throws {
