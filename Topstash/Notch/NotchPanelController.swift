@@ -5,25 +5,20 @@ import TopstashCore
 /// Tracks the mouse, applies the hover delay, and shows or hides the notch panel on the hovered screen.
 @MainActor
 final class NotchPanelController {
-    /// One hover area per connected screen.
-    private struct HoverTarget {
-        let displayID: CGDirectDisplayID
-        let rect: NSRect
-    }
-
     private let appModel: AppModel
     private let defaults: UserDefaults
     private let logger = Logger(category: "NotchPanel")
 
     private var window: NotchPanel?
-    private var targets: [HoverTarget] = []
+    /// One per connected screen.
+    private var hoverAreas: [HoverArea] = []
     /// The screen the panel is shown on, while the window is ordered in.
     private var openDisplayID: CGDirectDisplayID?
 
     private var monitors: [Any] = []
     private var screenObserver: (any NSObjectProtocol)?
     private var hoverTask: Task<Void, Never>?
-    /// The target the pending hover delay belongs to.
+    /// The screen whose hover area the pending hover delay belongs to.
     private var hoverDisplayID: CGDirectDisplayID?
     private var closeTask: Task<Void, Never>?
     /// Installed only while in search mode: closes the panel on a click outside or when it resigns key.
@@ -51,7 +46,7 @@ final class NotchPanelController {
         panel.onModeChange = { [weak self] old, new in
             self?.modeChanged(from: old, to: new)
         }
-        rebuildTargets()
+        rebuildHoverAreas()
 
         // Mouse-moved monitors don't need Accessibility permission, and they still see the cursor
         // when a full-screen app hides the menu bar. The local monitor covers the cursor being over
@@ -91,21 +86,21 @@ final class NotchPanelController {
         NSScreen.screens.first { Self.displayID(of: $0) == displayID }
     }
 
-    private func rebuildTargets() {
-        targets = NSScreen.screens.compactMap { screen in
+    private func rebuildHoverAreas() {
+        hoverAreas = NSScreen.screens.compactMap { screen in
             guard let displayID = Self.displayID(of: screen) else { return nil }
-            return HoverTarget(displayID: displayID, rect: HoverArea.rect(for: screen))
+            return HoverArea(displayID: displayID, rect: HoverArea.rect(for: screen))
         }
-        logger.info("Hover areas rebuilt for \(self.targets.count) screen(s)")
+        logger.info("Hover areas rebuilt for \(self.hoverAreas.count) screen(s)")
     }
 
     private func screensChanged() {
-        rebuildTargets()
+        rebuildHoverAreas()
         cancelHoverDelay()
 
         guard let window, let openDisplayID else { return }
-        if let screen = Self.screen(withID: openDisplayID), let target = target(withID: openDisplayID) {
-            place(window, on: screen, centeredOn: target.rect)
+        if let screen = Self.screen(withID: openDisplayID), let area = hoverArea(on: openDisplayID) {
+            place(window, on: screen, centeredOn: area.rect)
         } else {
             // The panel's screen is gone: close right away, without the fade.
             closeTask?.cancel()
@@ -116,8 +111,8 @@ final class NotchPanelController {
         }
     }
 
-    private func target(withID displayID: CGDirectDisplayID) -> HoverTarget? {
-        targets.first { $0.displayID == displayID }
+    private func hoverArea(on displayID: CGDirectDisplayID) -> HoverArea? {
+        hoverAreas.first { $0.displayID == displayID }
     }
 
     // MARK: - Hover
@@ -126,7 +121,7 @@ final class NotchPanelController {
         // The menu is its own window, so the cursor on it counts as outside the panel.
         guard !isMenuTracking else { return }
         let location = NSEvent.mouseLocation
-        let hovered = targets.first { $0.rect.contains(location) }
+        let hovered = hoverAreas.first { $0.rect.contains(location) }
         // Over the hover area or the visible shape of the screen the panel is shown on.
         let overOpenPanel = openDisplayID != nil
             && (hovered?.displayID == openDisplayID || visibleRect.contains(location))
@@ -157,14 +152,14 @@ final class NotchPanelController {
         }
     }
 
-    private func startHoverDelay(for target: HoverTarget) {
-        // Keep a running delay for the same target; restart it when the cursor moves to another one.
-        if hoverTask != nil, hoverDisplayID == target.displayID { return }
+    private func startHoverDelay(for area: HoverArea) {
+        // Keep a running delay for the same screen; restart it when the cursor moves to another one.
+        if hoverTask != nil, hoverDisplayID == area.displayID { return }
         cancelHoverDelay()
 
         // Read on every hover, so a change in Settings (#9) applies without a restart.
         let delay = Preferences.hoverDelay(defaults)
-        let displayID = target.displayID
+        let displayID = area.displayID
         hoverDisplayID = displayID
         hoverTask = .afterDelay(delay) { [weak self] in
             guard let self else { return }
@@ -203,13 +198,13 @@ final class NotchPanelController {
     private func open(on displayID: CGDirectDisplayID, as mode: PanelModel.Mode = .open) {
         guard let window,
               let screen = Self.screen(withID: displayID),
-              let target = target(withID: displayID)
+              let area = hoverArea(on: displayID)
         else { return }
         closeTask?.cancel()
         closeTask = nil
         isDismissed = false
 
-        place(window, on: screen, centeredOn: target.rect)
+        place(window, on: screen, centeredOn: area.rect)
         openDisplayID = displayID
 
         // Re-evaluated on every open, because the clipboard may have changed while closed.
@@ -368,7 +363,7 @@ final class NotchPanelController {
     private func feedbackEnded() {
         guard panel.mode == .feedback else { return }
         let location = NSEvent.mouseLocation
-        let overHoverArea = openDisplayID.flatMap(target(withID:))?.rect.contains(location) ?? false
+        let overHoverArea = openDisplayID.flatMap(hoverArea(on:))?.rect.contains(location) ?? false
         if overHoverArea || visibleRect.contains(location) {
             appModel.refreshSaveCard()
             panel.mode = .open

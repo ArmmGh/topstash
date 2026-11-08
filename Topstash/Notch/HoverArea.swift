@@ -1,6 +1,11 @@
 import AppKit
 
-enum HoverArea {
+/// The area of one screen that opens the panel when hovered.
+struct HoverArea {
+    let displayID: CGDirectDisplayID
+    /// In global screen coordinates.
+    let rect: NSRect
+
     /// The hover rectangle for a screen, in global screen coordinates: the notch rectangle on a
     /// notched screen, otherwise an invisible notch-sized strip at the top center.
     static func rect(for screen: NSScreen) -> NSRect {

@@ -61,10 +61,10 @@ final class AppModel {
     /// Nothing about the note or the order of notes changes.
     func copy(_ note: Note) {
         clipboard.write(note.body)
-        panel.copiedNoteID = note.id
+        panel.copiedNote = note.id
         copiedResetTask?.cancel()
         copiedResetTask = .afterDelay(Motion.copiedDuration) { [weak self] in
-            self?.panel.copiedNoteID = nil
+            self?.panel.copiedNote = nil
         }
         // The clipboard now holds a saved note, so the card reads "Already saved".
         refreshSaveCard()
@@ -156,7 +156,7 @@ final class AppModel {
         // Stops the old watcher first.
         startWatching(url)
         // "Copied" belongs to a note of the old folder, and the clipboard may count as saved now.
-        panel.copiedNoteID = nil
+        panel.copiedNote = nil
         refreshSaveCard()
     }
 

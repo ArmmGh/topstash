@@ -2,6 +2,7 @@ import AppKit
 import CoreGraphics
 import Foundation
 import Observation
+import TopstashCore
 
 /// UI state of the notch panel.
 @MainActor @Observable
@@ -30,8 +31,8 @@ final class PanelModel {
     }
     /// Size of the visible shape, reported by `PanelView`.
     var contentSize: CGSize = .zero
-    /// The row showing "Copied", cleared by `AppModel.copy` after a moment.
-    var copiedNoteID: URL?
+    /// The `Note.id` (file URL) of the row showing "Copied", cleared by `AppModel.copy` after a moment.
+    var copiedNote: Note.ID?
     /// Set by `AppModel.refreshSaveCard()` and by saving from the card.
     /// Setting `.saved` (only ever done for a new save, by click or shortcut) plays the save feedback (#11).
     var saveCard: SaveCardState = .nothingToSave {

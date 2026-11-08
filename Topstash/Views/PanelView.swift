@@ -121,7 +121,7 @@ struct PanelView: View {
                 ForEach(notes) { note in
                     NoteRow(
                         note: note,
-                        isCopied: panel.copiedNoteID == note.id,
+                        isCopied: panel.copiedNote == note.id,
                         openInEditor: { appModel.openInEditor(note) },
                         delete: { appModel.delete(note) }
                     ) {
