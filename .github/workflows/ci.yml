@@ -1,8 +1,4 @@
 # Builds and tests the app on every push and pull request to main.
-#
-# NOTE: This workflow will fail until ticket 01 adds project.yml (and the app
-# and test targets). It starts passing once `xcodegen generate` has a project
-# to generate.
 name: CI
 
 on:

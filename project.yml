@@ -1,0 +1,83 @@
+name: Topstash
+
+options:
+  bundleIdPrefix: io.github.armmgh
+  deploymentTarget:
+    macOS: "14.0"
+  createIntermediateGroups: true
+
+settings:
+  base:
+    MACOSX_DEPLOYMENT_TARGET: "14.0"
+    SWIFT_VERSION: "6.0"
+    ENABLE_HARDENED_RUNTIME: YES
+    DEAD_CODE_STRIPPING: YES
+
+targets:
+  Topstash:
+    type: application
+    platform: macOS
+    sources:
+      - Topstash
+    dependencies:
+      - target: TopstashCore
+        embed: true
+    info:
+      path: Topstash/Info.plist
+      properties:
+        CFBundleDisplayName: Topstash
+        CFBundleShortVersionString: "0.1.0"
+        CFBundleVersion: "1"
+        LSUIElement: true
+        LSApplicationCategoryType: public.app-category.productivity
+        NSDocumentsFolderUsageDescription: Topstash saves your notes as Markdown files in a folder you choose.
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: io.github.armmgh.topstash
+        PRODUCT_NAME: Topstash
+        GENERATE_INFOPLIST_FILE: NO
+        CODE_SIGN_STYLE: Automatic
+        CODE_SIGN_IDENTITY: "-"
+        ENABLE_APP_SANDBOX: NO
+
+  TopstashCore:
+    type: framework
+    platform: macOS
+    sources:
+      - TopstashCore
+    settings:
+      base:
+        GENERATE_INFOPLIST_FILE: YES
+        PRODUCT_BUNDLE_IDENTIFIER: io.github.armmgh.topstash.core
+        PRODUCT_NAME: TopstashCore
+        CODE_SIGN_IDENTITY: "-"
+        DEFINES_MODULE: YES
+
+  TopstashTests:
+    type: bundle.unit-test
+    platform: macOS
+    sources:
+      - TopstashTests
+    dependencies:
+      - target: TopstashCore
+    settings:
+      base:
+        GENERATE_INFOPLIST_FILE: YES
+        PRODUCT_BUNDLE_IDENTIFIER: io.github.armmgh.topstash.tests
+        CODE_SIGN_IDENTITY: "-"
+
+schemes:
+  Topstash:
+    build:
+      targets:
+        Topstash: all
+        TopstashTests: [test]
+    run:
+      config: Debug
+    test:
+      config: Debug
+      gather_coverage_data: false
+      targets:
+        - TopstashTests
+    archive:
+      config: Release
