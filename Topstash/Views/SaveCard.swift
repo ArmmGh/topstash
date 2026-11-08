@@ -1,6 +1,7 @@
+import AppKit
 import SwiftUI
 
-/// The card that saves the clipboard text as a note. Only `.preview` is a button.
+/// The card that saves the clipboard text as a note. Only `.preview` and `.readyWithoutPreview` are buttons.
 struct SaveCard: View {
     let state: SaveCardState
     let action: () -> Void
@@ -27,6 +28,26 @@ struct SaveCard: View {
                 }
             }
             .buttonStyle(.plain)
+        case .readyWithoutPreview:
+            Button(action: action) {
+                card(combiningAccessibility: false) {
+                    icon("tray.and.arrow.down")
+                    VStack(alignment: .leading, spacing: 4) {
+                        label("Text ready to save")
+                        settingsHint("Allow paste access to see a preview")
+                    }
+                }
+            }
+            .buttonStyle(.plain)
+        case .accessDenied:
+            card(combiningAccessibility: false) {
+                icon("hand.raised")
+                VStack(alignment: .leading, spacing: 4) {
+                    label("Topstash can't read the clipboard")
+                    settingsHint("Allow paste access to save from here")
+                }
+            }
+            .foregroundStyle(.white.opacity(0.75))
         case .alreadySaved:
             card {
                 icon("checkmark")
@@ -52,7 +73,11 @@ struct SaveCard: View {
         }
     }
 
-    private func card(@ViewBuilder _ content: () -> some View) -> some View {
+    /// `combiningAccessibility: false` keeps the settings link a separate accessibility element.
+    private func card(
+        combiningAccessibility: Bool = true,
+        @ViewBuilder _ content: () -> some View
+    ) -> some View {
         HStack(alignment: .center, spacing: 10) {
             content()
             Spacer(minLength: 0)
@@ -63,7 +88,23 @@ struct SaveCard: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(.white.opacity(0.12), in: RoundedRectangle(cornerRadius: PanelLayout.cardCornerRadius))
         .contentShape(RoundedRectangle(cornerRadius: PanelLayout.cardCornerRadius))
-        .accessibilityElement(children: .combine)
+        .accessibilityElement(children: combiningAccessibility ? .combine : .contain)
+    }
+
+    /// A secondary line with a link to the Paste privacy setting (#4).
+    private func settingsHint(_ text: String) -> some View {
+        HStack(spacing: 4) {
+            Text(text)
+                .foregroundStyle(.white.opacity(0.55))
+            Button("Open Settings") {
+                NSWorkspace.shared.open(Clipboard.pastePrivacySettingsURL)
+            }
+            .buttonStyle(.plain)
+            .underline()
+            .foregroundStyle(.white.opacity(0.85))
+        }
+        .font(.system(size: 11))
+        .lineLimit(1)
     }
 
     private func icon(_ systemName: String) -> some View {

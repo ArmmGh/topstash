@@ -105,7 +105,7 @@ A small macOS app that lives in the MacBook notch. When I hover over the notch, 
   - **Clipboard:** a thin wrapper around `NSPasteboard.general`. It provides:
     - `hasText()` via `availableType(from: [.string])`, which inspects types, not contents. The `detect` APIs only recognize patterns such as URLs and numbers, not "any text", so they can't answer this.
     - `readText()`.
-    - `canReadWithoutPrompt` based on `accessBehavior`.
+    - `access` (`allowed`, `wouldPrompt`, `denied`) based on `accessBehavior` on macOS 15.4 and later; always `allowed` before that.
     - `write(text)`.
   - **NotchPanelController:** for each screen, works out the hover area: the notch rectangle when there is one (from `safeAreaInsets` and the auxiliary top areas), otherwise a notch-sized strip at the top center. It tracks the mouse with global and local `mouseMoved` event monitors (no Accessibility permission, and no invisible window over the menu bar), applies the hover delay, places and shows or hides the panel, and rebuilds the hover areas when the screen setup changes.
   - **NotchPanel:** a borderless `NSPanel` that doesn't activate the app or take focus. It sits above the menu bar, appears on all Spaces and over full-screen apps, and hosts SwiftUI content. It becomes key only while the search field needs typing.
@@ -127,6 +127,7 @@ A small macOS app that lives in the MacBook notch. When I hover over the notch, 
 - **Save card states:**
   - Has text and can read: preview plus character count; clicking saves.
   - Has text but reading would trigger the alert: "Text ready to save" plus a hint linking to `x-apple.systempreferences:com.apple.settings.PrivacySecurity.extension?Privacy_Pasteboard`. Clicking reads the clipboard and saves.
+  - Has text but paste access is denied: "Topstash can't read the clipboard" plus the same link; clicking does nothing.
   - Already saved: a label only; clicking does nothing.
   - Nothing to save: greyed out.
 - **Hover delay:** 250 ms by default, adjustable in Settings.
