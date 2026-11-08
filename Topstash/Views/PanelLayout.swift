@@ -29,6 +29,11 @@ enum PanelLayout {
     static let maxPanelHeight: CGFloat = notchClearance + saveCardHeight + sectionSpacing
         + CGFloat(recentCount) * rowHeight + CGFloat(recentCount - 1) * rowSpacing + contentPadding
 
+    /// Width of the invisible hover strip on screens without a notch.
+    static let fallbackHoverWidth: CGFloat = 200
+    /// Height of that strip when the screen's menu bar is hidden.
+    static let hiddenMenuBarHoverHeight: CGFloat = 24
+
     /// How long the content takes to fade out before the window is ordered out.
     static let fadeDuration: Double = 0.2
 }

@@ -1,9 +1,14 @@
 import AppKit
 
 enum HoverArea {
-    /// The notch rectangle in global screen coordinates, or `nil` for a screen without a notch.
-    /// #8 adds a fallback strip for those.
-    static func rect(for screen: NSScreen) -> NSRect? {
+    /// The hover rectangle for a screen, in global screen coordinates: the notch rectangle on a
+    /// notched screen, otherwise an invisible notch-sized strip at the top center.
+    static func rect(for screen: NSScreen) -> NSRect {
+        notchRect(for: screen) ?? fallbackRect(for: screen)
+    }
+
+    /// The notch rectangle, or `nil` for a screen without a notch.
+    private static func notchRect(for screen: NSScreen) -> NSRect? {
         let notchHeight = screen.safeAreaInsets.top
         guard notchHeight > 0,
               let left = screen.auxiliaryTopLeftArea,
@@ -17,5 +22,15 @@ enum HoverArea {
         let maxX = frame.maxX - right.width
         guard maxX > minX else { return nil }
         return NSRect(x: minX, y: frame.maxY - notchHeight, width: maxX - minX, height: notchHeight)
+    }
+
+    /// A strip `fallbackHoverWidth` wide, centered at the top, as tall as the menu bar
+    /// (or `hiddenMenuBarHoverHeight` when the menu bar is hidden).
+    private static func fallbackRect(for screen: NSScreen) -> NSRect {
+        let frame = screen.frame
+        let menuBarHeight = frame.maxY - screen.visibleFrame.maxY
+        let height = menuBarHeight > 0 ? menuBarHeight : PanelLayout.hiddenMenuBarHoverHeight
+        let width = PanelLayout.fallbackHoverWidth
+        return NSRect(x: frame.midX - width / 2, y: frame.maxY - height, width: width, height: height)
     }
 }
