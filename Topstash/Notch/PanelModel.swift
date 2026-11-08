@@ -16,4 +16,18 @@ final class PanelModel {
     var contentSize: CGSize = .zero
     /// The row showing "Copied", cleared by `AppModel.copy` after a moment.
     var copiedNoteID: URL?
+    /// Set by `AppModel.refreshSaveCard()` and by saving from the card.
+    var saveCard: SaveCardState = .nothingToSave
+}
+
+/// What the save card shows. Only `.preview` is clickable.
+enum SaveCardState: Equatable {
+    /// The clipboard text, unsaved.
+    case preview(text: String, characterCount: Int)
+    case alreadySaved
+    case nothingToSave
+    /// Transient, after a successful save.
+    case saved
+    /// Transient, after a save threw.
+    case failed
 }

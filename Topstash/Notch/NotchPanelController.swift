@@ -25,6 +25,11 @@ final class NotchPanelController {
     /// The target the pending hover delay belongs to.
     private var hoverDisplayID: CGDirectDisplayID?
     private var closeTask: Task<Void, Never>?
+    private var menuObservers: [any NSObjectProtocol] = []
+    /// True while any menu of the app is open.
+    private var isMenuTracking = false
+    /// Set by `dismiss()` until the panel opens again.
+    private var isDismissed = false
 
     private var panel: PanelModel { appModel.panel }
 
@@ -60,6 +65,9 @@ final class NotchPanelController {
         ) { [weak self] _ in
             MainActor.assumeIsolated { self?.screensChanged() }
         }
+
+        observeMenuTracking()
+        appModel.closePanel = { [weak self] in self?.dismiss() }
     }
 
     // MARK: - Screens
@@ -104,6 +112,8 @@ final class NotchPanelController {
     // MARK: - Hover
 
     private func mouseMoved() {
+        // The menu is its own window, so the cursor on it counts as outside the panel.
+        guard !isMenuTracking else { return }
         let location = NSEvent.mouseLocation
         let hovered = targets.first { $0.rect.contains(location) }
         // Over the hover area or the visible shape of the screen the panel is shown on.
@@ -116,10 +126,11 @@ final class NotchPanelController {
                 close()
             }
         case .closed:
-            if closeTask != nil, overOpenPanel {
+            if closeTask != nil, !isDismissed, overOpenPanel {
                 // The cursor came back during the fade.
                 closeTask?.cancel()
                 closeTask = nil
+                appModel.refreshSaveCard()
                 panel.mode = .open
             } else if let hovered {
                 startHoverDelay(for: hovered)
@@ -177,10 +188,13 @@ final class NotchPanelController {
         else { return }
         closeTask?.cancel()
         closeTask = nil
+        isDismissed = false
 
         place(window, on: screen, centeredOn: target.rect)
         openDisplayID = displayID
 
+        // Re-evaluated on every open, because the clipboard may have changed while closed.
+        appModel.refreshSaveCard()
         panel.mode = .open
         // Never makeKey or activate: the frontmost app keeps keyboard focus.
         window.orderFrontRegardless()
@@ -196,5 +210,32 @@ final class NotchPanelController {
             self.openDisplayID = nil
             self.window?.orderOut(nil)
         }
+    }
+
+    // MARK: - Context menu (#6)
+
+    /// Observes every menu of the app: a note row's context menu, and the menu bar extra's.
+    private func observeMenuTracking() {
+        let center = NotificationCenter.default
+        menuObservers = [
+            center.addObserver(forName: NSMenu.didBeginTrackingNotification, object: nil, queue: .main) { [weak self] _ in
+                MainActor.assumeIsolated { self?.isMenuTracking = true }
+            },
+            center.addObserver(forName: NSMenu.didEndTrackingNotification, object: nil, queue: .main) { [weak self] _ in
+                MainActor.assumeIsolated {
+                    guard let self else { return }
+                    self.isMenuTracking = false
+                    // Close if the cursor ended up outside the panel.
+                    self.mouseMoved()
+                }
+            },
+        ]
+    }
+
+    /// Closes after an action (Open in Editor). The cursor still over the fading panel doesn't bring it back.
+    private func dismiss() {
+        guard panel.mode != .closed else { return }
+        isDismissed = true
+        close()
     }
 }

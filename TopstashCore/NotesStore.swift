@@ -4,7 +4,7 @@ import os
 
 public enum SaveResult: Equatable, Sendable {
     case saved(Note)
-    /// Returned from #3 on.
+    /// The text was already saved. Holds the existing note; nothing was written.
     case alreadySaved(Note)
     case empty
 }
@@ -17,11 +17,19 @@ public final class NotesStore {
 
     private let now: () -> Date
     private let timeZone: TimeZone
+    private let trash: (URL) throws -> Void
 
-    public init(folder: URL, now: @escaping () -> Date = Date.init, timeZone: TimeZone = .current) {
+    /// `trash` moves a file to the Trash. Tests pass their own, so they never touch the real Trash.
+    public init(
+        folder: URL,
+        now: @escaping () -> Date = Date.init,
+        timeZone: TimeZone = .current,
+        trash: @escaping (URL) throws -> Void = NotesStore.moveToTrash
+    ) {
         self.folder = folder
         self.now = now
         self.timeZone = timeZone
+        self.trash = trash
         reload()
     }
 
@@ -67,10 +75,12 @@ public final class NotesStore {
     }
 
     /// Saves `text` exactly as given to a new note file, creating the folder if it's missing.
-    /// Empty or whitespace-only text returns `.empty` and writes nothing. Folder and write errors are thrown.
+    /// Empty or whitespace-only text returns `.empty`, and text that `contains` finds returns
+    /// `.alreadySaved` with the existing note; neither writes anything. Folder and write errors are thrown.
     @discardableResult
     public func save(_ text: String) throws -> SaveResult {
         guard !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return .empty }
+        if let existing = existingNote(for: text) { return .alreadySaved(existing) }
         try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
         // Whole seconds, so the note matches what the frontmatter stores.
         let created = Date(timeIntervalSince1970: now().timeIntervalSince1970.rounded(.down))
@@ -82,5 +92,44 @@ public final class NotesStore {
         let index = notes.firstIndex { NoteFile.isOrderedBefore(note, $0) } ?? notes.endIndex
         notes.insert(note, at: index)
         return .saved(note)
+    }
+
+    // MARK: - Deleting (#6)
+
+    /// Moves the note's file to the Trash and removes the note from `notes`.
+    /// A file that's already gone only removes the note. Other errors are thrown, and the note stays.
+    public func delete(_ note: Note) throws {
+        do {
+            try trash(note.fileURL)
+        } catch where FileManager.default.fileExists(atPath: note.fileURL.path(percentEncoded: false)) {
+            throw error
+        } catch {
+            // Already removed on disk: nothing to move.
+        }
+        notes.removeAll { $0.id == note.id }
+    }
+
+    /// The default `trash`.
+    public nonisolated static func moveToTrash(_ url: URL) throws {
+        try FileManager.default.trashItem(at: url, resultingItemURL: nil)
+    }
+
+    // MARK: - Duplicates (#3)
+
+    /// Whether a note already holds `text`, ignoring only leading and trailing whitespace and newlines.
+    /// Text that trims to empty never matches.
+    public func contains(_ text: String) -> Bool {
+        existingNote(for: text) != nil
+    }
+
+    /// The newest note whose body equals `text` after trimming both. A linear scan over `notes`.
+    private func existingNote(for text: String) -> Note? {
+        let trimmed = Self.trimmed(text)
+        guard !trimmed.isEmpty else { return nil }
+        return notes.first { Self.trimmed($0.body) == trimmed }
+    }
+
+    private static func trimmed(_ text: String) -> String {
+        text.trimmingCharacters(in: .whitespacesAndNewlines)
     }
 }

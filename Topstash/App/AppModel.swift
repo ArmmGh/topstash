@@ -1,4 +1,4 @@
-import Foundation
+import AppKit
 import Observation
 import os
 import TopstashCore
@@ -70,5 +70,83 @@ final class AppModel {
             guard !Task.isCancelled, let self else { return }
             self.panel.copiedNoteID = nil
         }
+        // The clipboard now holds a saved note, so the card reads "Already saved".
+        refreshSaveCard()
+    }
+
+    // MARK: - Save card (#3)
+
+    /// How long the card shows "Saved" before it's refreshed.
+    static let savedDuration: Duration = .seconds(1)
+    /// How long the card shows "Couldn't save" before it's refreshed.
+    static let failedDuration: Duration = .seconds(2)
+
+    @ObservationIgnored
+    private var saveCardResetTask: Task<Void, Never>?
+
+    /// Sets the save card from the clipboard. Called when the panel opens, after `copy`,
+    /// and when a transient "Saved" or "Couldn't save" ends.
+    func refreshSaveCard() {
+        let text = clipboard.readText() ?? ""
+        if text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            panel.saveCard = .nothingToSave
+        } else if store.contains(text) {
+            panel.saveCard = .alreadySaved
+        } else {
+            panel.saveCard = .preview(text: text, characterCount: text.count)
+        }
+    }
+
+    /// The save card's click. Shows the result of this save, not the state shown before the click,
+    /// because the clipboard can change in between.
+    func saveClipboardFromCard() {
+        saveCardResetTask?.cancel()
+        saveCardResetTask = nil
+        switch saveClipboard() {
+        case .success(.saved):
+            showTransientSaveCard(.saved, for: Self.savedDuration)
+        case .success(.alreadySaved):
+            panel.saveCard = .alreadySaved
+        case .success(.empty):
+            panel.saveCard = .nothingToSave
+        case .failure:
+            // `saveClipboard` logs the error.
+            showTransientSaveCard(.failed, for: Self.failedDuration)
+        }
+    }
+
+    private func showTransientSaveCard(_ state: SaveCardState, for duration: Duration) {
+        panel.saveCard = state
+        saveCardResetTask = Task { [weak self] in
+            try? await Task.sleep(for: duration)
+            guard !Task.isCancelled, let self else { return }
+            self.saveCardResetTask = nil
+            self.refreshSaveCard()
+        }
+    }
+
+    // MARK: - Context menu (#6)
+
+    /// Closes the panel. Set by `NotchPanelController`, which owns the window.
+    @ObservationIgnored
+    var closePanel: () -> Void = {}
+
+    /// Opens the note's file in the default app for `.md`, then closes the panel.
+    /// If no app handles `.md`, macOS shows its own app chooser.
+    func openInEditor(_ note: Note) {
+        NSWorkspace.shared.open(note.fileURL)
+        closePanel()
+    }
+
+    /// Moves the note's file to the Trash. On failure, logs and beeps.
+    func delete(_ note: Note) {
+        do {
+            try store.delete(note)
+        } catch {
+            logger.error("Deleting \(note.fileURL.path(percentEncoded: false), privacy: .public) failed: \(error)")
+            NSSound.beep()
+        }
+        // The clipboard text may no longer count as saved.
+        refreshSaveCard()
     }
 }
