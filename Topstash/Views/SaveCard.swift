@@ -135,7 +135,7 @@ struct SaveCard: View {
 
 /// The save card's place in the panel, with the save feedback (#11): on `.saved` the card flies up
 /// into the notch while a checkmark bounces in its place, then the card returns with the next state.
-/// `PanelModel` fires the haptic and `PanelView` the notch's gulp. Reduce Motion cross-fades instead.
+/// `AppModel` fires the haptic and `PanelView` the notch's gulp. Reduce Motion cross-fades instead.
 struct SaveCardSlot: View {
     let panel: PanelModel
     let action: () -> Void
@@ -152,10 +152,7 @@ struct SaveCardSlot: View {
         ZStack {
             if !isSaved {
                 SaveCard(state: panel.saveCard, action: action)
-                    .transition(Motion.saveCard(
-                        reduceMotion: reduceMotion,
-                        flyUpOffset: PanelLayout.saveCardFlyUpOffset
-                    ))
+                    .transition(Motion.saveCard(reduceMotion: reduceMotion))
             }
             // Always in the hierarchy, so the bounce plays when `saveCount` changes.
             HStack(spacing: 8) {

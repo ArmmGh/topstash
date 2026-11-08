@@ -95,7 +95,10 @@ struct PanelView: View {
 
     private var recentContent: some View {
         VStack(spacing: PanelLayout.sectionSpacing) {
-            SaveCardSlot(panel: panel) { appModel.saveClipboardFromCard() }
+            SaveCardSlot(panel: panel) {
+                // Shows this save's result, not the state shown before the click: the clipboard can change in between.
+                appModel.showSaveResult(appModel.saveClipboard())
+            }
             // The shortcut's feedback (#10) shows only the card.
             if !panel.showsOnlySaveCard {
                 recentList

@@ -9,15 +9,14 @@ import TopstashCore
 @MainActor
 final class FolderWatcher {
     let folder: URL
-    private let latency: TimeInterval
+    private static let latency: TimeInterval = 0.3
     private let onChange: @MainActor () -> Void
     private var stream: FSEventStreamRef?
 
     private static let logger = Logger(category: "FolderWatcher")
 
-    init(folder: URL, latency: TimeInterval = 0.3, onChange: @escaping @MainActor () -> Void) {
+    init(folder: URL, onChange: @escaping @MainActor () -> Void) {
         self.folder = folder
-        self.latency = latency
         self.onChange = onChange
     }
 
@@ -53,7 +52,7 @@ final class FolderWatcher {
             &context,
             [folder.path(percentEncoded: false)] as CFArray,
             FSEventStreamEventId(kFSEventStreamEventIdSinceNow),
-            latency,
+            Self.latency,
             flags
         ) else {
             Self.logger.error("Couldn't create an FSEvents stream for \(self.folder.path(percentEncoded: false), privacy: .public)")

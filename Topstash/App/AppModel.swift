@@ -103,12 +103,6 @@ final class AppModel {
         }
     }
 
-    /// The save card's click. Shows the result of this save, not the state shown before the click,
-    /// because the clipboard can change in between.
-    func saveClipboardFromCard() {
-        showSaveResult(saveClipboard())
-    }
-
     /// Shows a save's result on the card: the card's click, and the shortcut (#10).
     /// "Saved", "Nothing to save", and "Couldn't save" are transient: they revert to the clipboard's
     /// state after a moment, unless `reverts` is false (the shortcut's feedback panel, which hides
@@ -120,6 +114,7 @@ final class AppModel {
         case .success(.saved):
             // The checkmark shows for the save feedback's length (#11), then the card returns.
             showSaveCard(.saved, revertingAfter: reverts ? Motion.saveFeedbackDuration : nil)
+            playSaveFeedback()
         case .success(.alreadySaved):
             panel.saveCard = .alreadySaved
         case .success(.empty):
@@ -130,6 +125,13 @@ final class AppModel {
             // `saveClipboard` logs the error.
             showSaveCard(.failed, revertingAfter: reverts ? Motion.failedDuration : nil)
         }
+    }
+
+    /// The haptic, and through `panel.saveCount` the checkmark bounce and the notch's gulp (#11).
+    /// Here rather than in a view, so it plays however the save happened and whatever is on screen.
+    private func playSaveFeedback() {
+        panel.saveCount += 1
+        NSHapticFeedbackManager.defaultPerformer.perform(.generic, performanceTime: .now)
     }
 
     private func showSaveCard(_ state: SaveCardState, revertingAfter seconds: Double?) {

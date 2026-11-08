@@ -79,10 +79,12 @@ enum Motion {
 
     /// The save card: it flies up into the notch when saved and comes back like panel content.
     /// Only cross-fades with Reduce Motion.
-    static func saveCard(reduceMotion: Bool, flyUpOffset: CGFloat) -> AnyTransition {
+    static func saveCard(reduceMotion: Bool) -> AnyTransition {
         let removal: AnyTransition = reduceMotion
             ? .opacity
-            : .scale(scale: flyUpScale).combined(with: .offset(y: flyUpOffset)).combined(with: .opacity)
+            : .scale(scale: flyUpScale)
+                .combined(with: .offset(y: PanelLayout.saveCardFlyUpOffset))
+                .combined(with: .opacity)
         return .asymmetric(
             insertion: contentInsertion(reduceMotion: reduceMotion),
             removal: removal.animation(reduceMotion ? reduced : flyUp)
