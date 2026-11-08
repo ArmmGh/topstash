@@ -351,3 +351,71 @@ struct NotesStoreTests {
         #expect(try temp.fileNames() == [existing.fileURL.lastPathComponent])
     }
 }
+
+// MARK: - Deleting (#6)
+
+extension NotesStoreTests {
+    /// A store whose Trash is `trash`, so tests never touch the real Trash.
+    func makeStore(trashingInto trash: TemporaryFolder) -> NotesStore {
+        NotesStore(folder: temp.url, now: { Self.fixedDate }, timeZone: Self.yerevan) { url in
+            try FileManager.default.moveItem(at: url, to: trash.url.appending(path: url.lastPathComponent))
+        }
+    }
+
+    @Test func deleteMovesTheFileToTheTrashAndRemovesOnlyThatNote() throws {
+        let trash = TemporaryFolder()
+        let store = makeStore(trashingInto: trash)
+        let keep = try savedNote(store.save("Keep me"))
+        let doomed = try savedNote(store.save("Delete me"))
+        let alsoKeep = try savedNote(store.save("Keep me too"))
+        let keptBytes = try [keep, alsoKeep].map(fileBytes)
+
+        try store.delete(doomed)
+
+        #expect(try temp.fileNames() == [alsoKeep, keep].map(\.fileURL.lastPathComponent))
+        #expect(try trash.fileNames() == [doomed.fileURL.lastPathComponent])
+        #expect(store.notes == [keep, alsoKeep])
+        #expect(try [keep, alsoKeep].map(fileBytes) == keptBytes)
+    }
+
+    @Test func deletingANoteWhoseFileIsAlreadyGoneRemovesTheNoteWithoutThrowing() throws {
+        let trash = TemporaryFolder()
+        let store = makeStore(trashingInto: trash)
+        let keep = try savedNote(store.save("Keep me"))
+        let gone = try savedNote(store.save("Removed on disk"))
+        try FileManager.default.removeItem(at: gone.fileURL)
+
+        try store.delete(gone)
+
+        #expect(store.notes == [keep])
+        #expect(try trash.fileNames().isEmpty)
+    }
+
+    struct TrashFailed: Error {}
+
+    @Test func aFailedTrashThrowsAndKeepsTheNoteAndItsFile() throws {
+        let store = NotesStore(folder: temp.url, now: { Self.fixedDate }, timeZone: Self.yerevan) { _ in
+            throw TrashFailed()
+        }
+        let note = try savedNote(store.save("Can't trash me"))
+
+        #expect(throws: TrashFailed.self) { try store.delete(note) }
+
+        #expect(store.notes == [note])
+        #expect(try temp.fileNames() == [note.fileURL.lastPathComponent])
+    }
+
+    @Test func savingTheSameTextAfterDeletingCreatesANewFile() throws {
+        let trash = TemporaryFolder()
+        let store = makeStore(trashingInto: trash)
+        let deleted = try savedNote(store.save("Save me twice"))
+        try store.delete(deleted)
+
+        #expect(!store.contains("Save me twice"))
+        let again = try savedNote(store.save("Save me twice"))
+
+        #expect(store.notes == [again])
+        #expect(try temp.fileNames() == [again.fileURL.lastPathComponent])
+        #expect(again.noteID != deleted.noteID)
+    }
+}

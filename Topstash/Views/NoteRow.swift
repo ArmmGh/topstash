@@ -2,10 +2,13 @@ import SwiftUI
 import TopstashCore
 
 /// One note in the recent list: its title and preview. Clicking it copies the note.
+/// Right-clicking offers "Open in Editor" and "Delete".
 struct NoteRow: View {
     let note: Note
     /// Shows "Copied" in place of the preview.
     let isCopied: Bool
+    let openInEditor: () -> Void
+    let delete: () -> Void
     let action: () -> Void
 
     var body: some View {
@@ -32,5 +35,10 @@ struct NoteRow: View {
             .contentShape(RoundedRectangle(cornerRadius: PanelLayout.rowCornerRadius))
         }
         .buttonStyle(.plain)
+        .contextMenu {
+            Button("Open in Editor", action: openInEditor)
+            Divider()
+            Button("Delete", role: .destructive, action: delete)
+        }
     }
 }
