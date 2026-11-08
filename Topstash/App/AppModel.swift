@@ -132,20 +132,52 @@ final class AppModel {
     func showSaveResult(_ result: Result<SaveResult, any Error>, reverts: Bool = true) {
         saveCardResetTask?.cancel()
         saveCardResetTask = nil
-        switch result {
-        case .success(.saved):
-            // The checkmark shows for the save feedback's length (#11), then the card returns.
-            showSaveCard(.saved, revertingAfter: reverts ? Motion.saveFeedbackDuration : nil)
+        let state = Self.cardState(for: result)
+        panel.saveCard = state
+        if state == .saved {
             playSaveFeedback()
-        case .success(.alreadySaved):
-            panel.saveCard = .alreadySaved
-        case .success(.empty):
-            // Also what a read denied at the paste privacy alert returns. The refresh afterwards
-            // picks up `.accessDenied` if the user changed the setting.
-            showSaveCard(.nothingToSave, revertingAfter: reverts ? Motion.nothingToSaveDuration : nil)
-        case .failure:
-            // `saveClipboard` logs the error.
-            showSaveCard(.failed, revertingAfter: reverts ? Motion.failedDuration : nil)
+        }
+        let revertDelay: Double? = switch state {
+        // The checkmark shows for the save feedback's length (#11), then the card returns.
+        case .saved: Motion.saveFeedbackDuration
+        // The refresh afterwards picks up `.accessDenied` if the user denied access at the alert.
+        case .nothingToSave: Motion.nothingToSaveDuration
+        case .failed: Motion.failedDuration
+        // "Already saved" is the clipboard's state anyway.
+        default: nil
+        }
+        guard reverts, let revertDelay else { return }
+        saveCardResetTask = .afterDelay(revertDelay) { [weak self] in
+            self?.saveCardResetTask = nil
+            self?.refreshSaveCard()
+        }
+    }
+
+    /// Shows the shortcut's result while searching (#10). The search view has no card, so it shows
+    /// the result next to the search field for `Motion.feedbackDuration`. The search stays open and focused.
+    func showSaveResultInSearch(_ result: Result<SaveResult, any Error>) {
+        let state = Self.cardState(for: result)
+        panel.searchStatus = state
+        if state == .saved {
+            playSaveFeedback()
+        }
+        searchStatusResetTask?.cancel()
+        searchStatusResetTask = .afterDelay(Motion.feedbackDuration) { [weak self] in
+            self?.panel.searchStatus = nil
+        }
+    }
+
+    @ObservationIgnored
+    private var searchStatusResetTask: Task<Void, Never>?
+
+    /// `.empty` is also what a read denied at the paste privacy alert returns.
+    /// On `.failure`, `saveClipboard` has logged the error.
+    private static func cardState(for result: Result<SaveResult, any Error>) -> SaveCardState {
+        switch result {
+        case .success(.saved): .saved
+        case .success(.alreadySaved): .alreadySaved
+        case .success(.empty): .nothingToSave
+        case .failure: .failed
         }
     }
 
@@ -162,15 +194,6 @@ final class AppModel {
     private func playSaveFeedback() {
         panel.saveCount += 1
         NSHapticFeedbackManager.defaultPerformer.perform(.generic, performanceTime: .now)
-    }
-
-    private func showSaveCard(_ state: SaveCardState, revertingAfter seconds: Double?) {
-        panel.saveCard = state
-        guard let seconds else { return }
-        saveCardResetTask = .afterDelay(seconds) { [weak self] in
-            self?.saveCardResetTask = nil
-            self?.refreshSaveCard()
-        }
     }
 
     // MARK: - Notes folder (#9)

@@ -55,6 +55,8 @@ enum Motion {
     static let press: Animation = .snappy(duration: pressDuration)
     /// The saved card shrinking up into the notch.
     static let flyUp: Animation = .easeIn(duration: flyUpDuration)
+    /// The shortcut's status in search mode (#10) fading in and out.
+    static let searchStatus: Animation = .easeOut(duration: reducedDuration)
 
     // MARK: Amounts
 

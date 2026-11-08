@@ -49,24 +49,26 @@ struct SaveCard: View {
             }
             .foregroundStyle(.white.opacity(0.75))
         case .alreadySaved:
-            card {
-                icon("checkmark")
-                label("Already saved")
-            }
-            .foregroundStyle(.white.opacity(0.75))
+            resultCard
+                .foregroundStyle(.white.opacity(0.75))
         case .nothingToSave:
-            card {
-                icon("tray")
-                label("Nothing to save")
-            }
-            .foregroundStyle(.white.opacity(0.35))
+            resultCard
+                .foregroundStyle(.white.opacity(0.35))
         case .saved:
             // `SaveCardSlot` shows its checkmark instead of a card.
             EmptyView()
         case .failed:
+            resultCard
+        }
+    }
+
+    /// A card with only the state's result label.
+    @ViewBuilder
+    private var resultCard: some View {
+        if let result = state.result {
             card {
-                icon("exclamationmark.triangle")
-                label("Couldn't save")
+                icon(result.symbol)
+                label(result.text)
             }
         }
     }
@@ -150,10 +152,10 @@ struct SaveCardSlot: View {
             }
             // Always in the hierarchy, so the bounce plays when `saveCount` changes.
             HStack(spacing: 8) {
-                Image(systemName: "checkmark.circle.fill")
+                Image(systemName: SaveCardState.savedResult.symbol)
                     .font(.system(size: 26, weight: .semibold))
                     .symbolEffect(.bounce, value: bounceTrigger)
-                Text("Saved")
+                Text(SaveCardState.savedResult.text)
                     .font(.system(size: 14, weight: .medium))
             }
             .foregroundStyle(.white)
@@ -164,4 +166,42 @@ struct SaveCardSlot: View {
         .frame(height: PanelLayout.saveCardHeight)
         .animation(isSaved ? (reduceMotion ? Motion.reduced : Motion.flyUp) : Motion.contentIn, value: isSaved)
     }
+}
+
+/// The shortcut's result in search mode (#10), where there's no card: the card's label, compact,
+/// next to the search field.
+struct SaveStatusBadge: View {
+    let state: SaveCardState
+    let bounceTrigger: Int
+
+    var body: some View {
+        if let result = state.result {
+            HStack(spacing: 4) {
+                Image(systemName: result.symbol)
+                    .symbolEffect(.bounce, value: bounceTrigger)
+                Text(result.text)
+            }
+            .font(.system(size: 11, weight: .medium))
+            .foregroundStyle(.white.opacity(0.75))
+            .lineLimit(1)
+            .fixedSize()
+            .accessibilityElement(children: .combine)
+        }
+    }
+}
+
+extension SaveCardState {
+    /// The label and symbol of a save's result, shared by the card, the checkmark, and the search
+    /// view's status. `nil` for the states that aren't a result.
+    fileprivate var result: (text: String, symbol: String)? {
+        switch self {
+        case .saved: Self.savedResult
+        case .alreadySaved: ("Already saved", "checkmark")
+        case .nothingToSave: ("Nothing to save", "tray")
+        case .failed: ("Couldn't save", "exclamationmark.triangle")
+        case .preview, .readyWithoutPreview, .accessDenied: nil
+        }
+    }
+
+    fileprivate static let savedResult = (text: "Saved", symbol: "checkmark.circle.fill")
 }

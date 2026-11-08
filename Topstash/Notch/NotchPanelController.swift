@@ -327,8 +327,10 @@ final class NotchPanelController {
     func saveFromShortcut() {
         let result = appModel.saveClipboard()
         switch panel.mode {
-        case .open, .search:
+        case .open:
             appModel.showSaveResult(result)
+        case .search:
+            appModel.showSaveResultInSearch(result)
         case .feedback:
             appModel.showSaveResult(result, reverts: false)
             startFeedbackTimer()
