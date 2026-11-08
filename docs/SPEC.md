@@ -88,7 +88,7 @@ A small macOS app that lives in the MacBook notch. When I hover over the notch, 
 - **Project setup:** XcodeGen (`project.yml`) generates the Xcode project, and the app builds with `xcodebuild`.
 - **Dependencies:** only `KeyboardShortcuts` (sindresorhus, MIT) for the global shortcut and its recorder control in Settings. Launch at login uses the built-in `SMAppService`. Frontmatter is parsed by hand (only three fields), with no YAML library. No notch library: DynamicNotchKit and NotchKit were evaluated, but they target showing content from the notch when the app decides to, not opening on hover after a delay, and their fallback for screens without a notch is a visible pill, which is out of scope.
 - **App shell:** the app is an agent app (`LSUIElement`), so it has no Dock icon. A SwiftUI `MenuBarExtra` provides Settings, Open notes folder, and Quit. A SwiftUI `Settings` scene stores the notes folder and the hover delay with `@AppStorage`. Launch at login is not stored: its state is always read from `SMAppService.mainApp.status`, because the user can also change it in System Settings.
-- **Architecture:** plain Model + View with `@Observable`, with no MVVM layer. The Model (`Note`, `NotesStore`, `NoteFile`) lives in a `TopstashCore` framework (Foundation only), so tests use only its public API and never launch the app. Everything UI-facing is `@MainActor`. Ticket #1 has the full file layout and signatures. Modules:
+- **Architecture:** plain Model + View with `@Observable`, with no MVVM layer. The Model (`Note`, `NotesStore`, `NoteFile`) lives in a `TopstashCore` framework (Foundation and CryptoKit only, no AppKit or SwiftUI; logging via `os.Logger`), so tests use only its public API and never launch the app. Everything UI-facing is `@MainActor`. Ticket #1 has the full file layout and signatures. Modules:
   - **NotesStore** (`@Observable`, deep module, the main seam): owns the in-memory list of notes for one folder. Its interface:
     - `notes`: all notes, newest first.
     - `recent(limit)`: the newest notes, up to the limit.
@@ -149,7 +149,7 @@ Decided after researching open-source notch apps (NotchKit and DynamicNotchKit, 
 
 ## Testing Decisions
 
-- **One seam: `NotesStore`, pointed at a real temporary folder.** Nothing is mocked: no fake file system and no fake clipboard. Tests call only the public interface and check two things: what the store returns and which files are on disk. Implementation details, such as NoteFile's internals or private helpers, are never tested directly.
+- **One seam: `NotesStore`, pointed at a real temporary folder.** Nothing is mocked: no fake file system and no fake clipboard. Tests call only the public interface and check two things: what the store returns and which files are on disk. Implementation details, such as NoteFile's internals or private helpers, are never tested directly. The one exception to "nothing is mocked": `NotesStore.init(trash:)` takes the function that moves a file to the Trash (the real `trashItem` by default), so delete tests move files into a second temporary folder and never touch the user's real Trash.
 - **Framework:** Swift Testing, in a `TopstashTests` bundle with no test host that links only `TopstashCore`.
 - **Behaviors covered:**
   - Saving creates exactly one `.md` file with valid frontmatter, and its body is identical to the input, including whitespace and code fences.
