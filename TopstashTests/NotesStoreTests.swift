@@ -419,3 +419,192 @@ extension NotesStoreTests {
         #expect(again.noteID != deleted.noteID)
     }
 }
+
+// MARK: - Files written outside the app (#7)
+
+extension NotesStoreTests {
+    /// Writes `contents` to `name` in the temp folder, as another program would.
+    @discardableResult
+    func writeExternal(_ name: String, _ contents: String) throws -> URL {
+        try writeExternal(name, Data(contents.utf8))
+    }
+
+    @discardableResult
+    func writeExternal(_ name: String, _ data: Data) throws -> URL {
+        let url = temp.url.appending(path: name, directoryHint: .notDirectory)
+        try data.write(to: url)
+        return url
+    }
+
+    @Test func fileWithoutFrontmatterLoadsWithItsWholeContentAsTheBody() throws {
+        let contents = "# Imported prompt\n\nExplain this code.\n"
+        try writeExternal("imported.md", contents)
+
+        let notes = makeStore().notes
+
+        #expect(notes.count == 1)
+        #expect(notes.first?.body == contents)
+        #expect(notes.first?.type == "text")
+        #expect(notes.first?.title == "Imported prompt")
+    }
+
+    @Test func fileWithoutFrontmatterUsesItsCreationDateAndAStableHexID() throws {
+        let url = try writeExternal("imported.md", "Explain this code.")
+        let creationDate = Date(timeIntervalSince1970: 1_700_000_000)
+        try FileManager.default.setAttributes([.creationDate: creationDate], ofItemAtPath: url.path(percentEncoded: false))
+        let store = makeStore()
+
+        let first = try #require(store.notes.first)
+        store.reload()
+        let second = try #require(store.notes.first)
+
+        #expect(first.created == creationDate)
+        #expect(first.noteID.count == 8)
+        #expect(first.noteID.allSatisfy { "0123456789abcdef".contains($0) })
+        #expect(second.noteID == first.noteID)
+    }
+
+    @Test func frontmatterWithoutCreatedUsesTheCreationDate() throws {
+        let url = try writeExternal("partial.md", "---\nid: abcd1234\ntitle: ignored\nno colon here\n---\nThe body")
+        let creationDate = Date(timeIntervalSince1970: 1_700_000_000)
+        try FileManager.default.setAttributes([.creationDate: creationDate], ofItemAtPath: url.path(percentEncoded: false))
+
+        let note = try #require(makeStore().notes.first)
+
+        #expect(note.created == creationDate)
+        #expect(note.noteID == "abcd1234")
+        #expect(note.type == "text")
+        #expect(note.body == "The body")
+    }
+
+    @Test func frontmatterWithCRLFLineEndingsIsParsed() throws {
+        try writeExternal("windows.md", "---\r\nid: abcd1234\r\ncreated: 2026-11-08T19:52:14+04:00\r\ntype: text\r\n---\r\nLine one\r\nLine two")
+
+        let note = try #require(makeStore().notes.first)
+
+        #expect(note.noteID == "abcd1234")
+        #expect(note.created == Self.fixedDate)
+        #expect(note.body == "Line one\r\nLine two")
+    }
+
+    @Test func fileWithANonTextTypeIsSkipped() throws {
+        try writeExternal("image.md", "---\nid: abcd1234\ncreated: 2026-11-08T19:52:14+04:00\ntype: image\n---\nimage.png")
+
+        #expect(makeStore().notes.isEmpty)
+    }
+
+    @Test(arguments: [
+        (name: "unclosed.md", contents: Data("---\nid: abcd1234\nThe body never starts".utf8)),
+        (name: "latin1.md", contents: Data([0x63, 0x61, 0x66, 0xE9, 0x0A])),
+        (name: "zero-bytes.md", contents: Data()),
+        (name: "whitespace.md", contents: Data(" \n\t\r\n ".utf8)),
+        (name: "frontmatter-only.md", contents: Data("---\nid: abcd1234\n---\n  \n".utf8)),
+        (name: "notes.txt", contents: Data("Plain text that isn't Markdown".utf8)),
+    ])
+    func brokenOrUnrelatedFilesAreSkipped(name: String, contents: Data) throws {
+        let good = try writeExternal("good.md", "A good note")
+        try writeExternal(name, contents)
+
+        let notes = makeStore().notes
+
+        #expect(notes.map(\.fileURL.lastPathComponent) == [good.lastPathComponent])
+    }
+
+    @Test func upperCaseMDExtensionLoads() throws {
+        try writeExternal("PROMPT.MD", "Upper case extension")
+
+        #expect(makeStore().notes.map(\.body) == ["Upper case extension"])
+    }
+
+    @Test func loadingNeverChangesTheFiles() throws {
+        let files: [(name: String, contents: Data)] = [
+            ("plain.md", Data("No frontmatter\r\nat all   \n".utf8)),
+            ("partial.md", Data("---\nid: abcd1234\n---\nNo created".utf8)),
+            ("unclosed.md", Data("---\nnever closed".utf8)),
+            ("image.md", Data("---\ntype: image\n---\nimage.png".utf8)),
+        ]
+        var before: [String: (data: Data, modified: Date?)] = [:]
+        for file in files {
+            let url = try writeExternal(file.name, file.contents)
+            before[file.name] = (file.contents, try url.resourceValues(forKeys: [.contentModificationDateKey]).contentModificationDate)
+        }
+
+        let store = makeStore()
+        store.reload()
+
+        #expect(try temp.fileNames() == files.map(\.name).sorted())
+        for file in files {
+            let url = temp.url.appending(path: file.name, directoryHint: .notDirectory)
+            #expect(try Data(contentsOf: url) == before[file.name]?.data)
+            #expect(try url.resourceValues(forKeys: [.contentModificationDateKey]).contentModificationDate == before[file.name]?.modified)
+        }
+    }
+
+    // MARK: Changes on disk
+
+    @Test func fileAddedOnDiskAppearsAfterReload() throws {
+        let store = makeStore()
+        #expect(store.notes.isEmpty)
+
+        try writeExternal("added.md", "Added by another program")
+        store.reload()
+
+        #expect(store.notes.map(\.body) == ["Added by another program"])
+    }
+
+    @Test func fileDeletedOnDiskDisappearsAfterReload() throws {
+        let store = makeStore()
+        let kept = try savedNote(store.save("Kept"))
+        let deleted = try savedNote(store.save("Deleted"))
+
+        try FileManager.default.removeItem(at: deleted.fileURL)
+        store.reload()
+
+        #expect(store.notes == [kept])
+    }
+
+    @Test func bodyEditedOnDiskShowsTheNewBodyAfterReload() throws {
+        let store = makeStore()
+        let note = try savedNote(store.save("old prompt"))
+
+        // An in-place edit, like `sed -i` or an editor saving over the file.
+        let edited = String(decoding: try fileBytes(note), as: UTF8.self)
+            .replacingOccurrences(of: "old prompt", with: "new prompt")
+        try Data(edited.utf8).write(to: note.fileURL)
+        store.reload()
+
+        let reloaded = try #require(store.notes.first)
+        #expect(store.notes.count == 1)
+        #expect(reloaded.body.contains("new prompt"))
+        #expect(!reloaded.body.contains("old prompt"))
+        #expect(reloaded.noteID == note.noteID)
+        #expect(store.contains("new prompt"))
+        #expect(!store.contains("old prompt"))
+    }
+
+    @Test func duplicateDetectionCoversFilesWrittenOutsideTheApp() throws {
+        let store = makeStore()
+        let url = try writeExternal("imported.md", "Explain this code.\n")
+        store.reload()
+
+        let result = try store.save("  Explain this code.  ")
+
+        #expect(result == .alreadySaved(try #require(store.notes.first)))
+        #expect(store.notes.map(\.fileURL.lastPathComponent) == [url.lastPathComponent])
+        #expect(try temp.fileNames() == [url.lastPathComponent])
+    }
+
+    @Test func appendedTextShowsAfterReload() throws {
+        let store = makeStore()
+        let url = try writeExternal("appended.md", "first line\n")
+        store.reload()
+
+        let handle = try FileHandle(forWritingTo: url)
+        try handle.seekToEnd()
+        try handle.write(contentsOf: Data("more\n".utf8))
+        try handle.close()
+        store.reload()
+
+        #expect(store.notes.map(\.body) == ["first line\nmore\n"])
+    }
+}

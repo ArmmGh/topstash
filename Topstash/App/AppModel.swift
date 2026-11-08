@@ -30,6 +30,22 @@ final class AppModel {
         } catch {
             logger.error("Couldn't create the notes folder \(folder.path(percentEncoded: false), privacy: .public): \(error)")
         }
+        startWatching(folder)
+    }
+
+    /// Reloads the store whenever the folder changes on disk. Our own saves trigger a reload too,
+    /// which is harmless: `reload()` assigns `notes` only when something changed.
+    @ObservationIgnored
+    private var watcher: FolderWatcher?
+
+    /// Replaces the current watcher (#9 calls this when the folder changes).
+    private func startWatching(_ folder: URL) {
+        watcher?.stop()
+        let watcher = FolderWatcher(folder: folder) { [weak self] in
+            self?.store.reload()
+        }
+        watcher.start()
+        self.watcher = watcher
     }
 
     /// Reads the clipboard and saves its text as a note.
