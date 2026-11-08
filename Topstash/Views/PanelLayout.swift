@@ -2,9 +2,14 @@ import CoreGraphics
 
 /// Size constants for the notch panel. All sizes live here.
 enum PanelLayout {
-    /// The fixed window frame, tall enough for the panel with a full recent list.
-    /// It never changes or animates; only the SwiftUI content does.
-    static let windowSize = CGSize(width: 480, height: maxPanelHeight)
+    /// The fixed window frame, big enough for the panel with a full recent list and for the search
+    /// shape, plus shadow padding. It never changes or animates; only the SwiftUI content does.
+    static let windowSize = CGSize(
+        width: max(480, searchSize.width + 2 * shadowPadding),
+        height: max(maxPanelHeight, searchSize.height) + shadowPadding
+    )
+    /// Room around the shape for the shadow drawn in SwiftUI (#11).
+    static let shadowPadding: CGFloat = 30
 
     /// The width of the visible black shape. Its height follows the content.
     static let panelWidth: CGFloat = 380
@@ -25,9 +30,17 @@ enum PanelLayout {
     /// Space between the save card and the recent list.
     static let sectionSpacing: CGFloat = 8
 
-    /// The shape's height with `recentCount` rows.
+    /// The "Show all (N)" button under the recent list.
+    static let showAllHeight: CGFloat = 28
+
+    /// The shape's height with `recentCount` rows and the "Show all" button.
     static let maxPanelHeight: CGFloat = notchClearance + saveCardHeight + sectionSpacing
-        + CGFloat(recentCount) * rowHeight + CGFloat(recentCount - 1) * rowSpacing + contentPadding
+        + CGFloat(recentCount) * rowHeight + CGFloat(recentCount - 1) * rowSpacing
+        + sectionSpacing + showAllHeight + contentPadding
+
+    /// The shape in search mode: the search field above the scrollable list of every note.
+    static let searchSize = CGSize(width: 400, height: 520)
+    static let searchFieldHeight: CGFloat = 32
 
     /// Width of the invisible hover strip on screens without a notch.
     static let fallbackHoverWidth: CGFloat = 200

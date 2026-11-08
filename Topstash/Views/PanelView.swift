@@ -6,18 +6,29 @@ struct PanelView: View {
     let appModel: AppModel
 
     private var panel: PanelModel { appModel.panel }
-    private var isOpen: Bool { panel.mode == .open }
+    private var isOpen: Bool { panel.mode != .closed }
+    private var isSearching: Bool { panel.mode == .search }
 
     var body: some View {
         VStack(spacing: 0) {
-            VStack(spacing: PanelLayout.sectionSpacing) {
-                SaveCard { _ = appModel.saveClipboard() }
-                    .frame(height: PanelLayout.saveCardHeight)
-                recentList
+            Group {
+                if isSearching {
+                    SearchView(appModel: appModel)
+                } else {
+                    VStack(spacing: PanelLayout.sectionSpacing) {
+                        SaveCard { _ = appModel.saveClipboard() }
+                            .frame(height: PanelLayout.saveCardHeight)
+                        recentList
+                        showAllButton
+                    }
+                }
             }
             .padding(.top, PanelLayout.notchClearance)
             .padding([.horizontal, .bottom], PanelLayout.contentPadding)
-            .frame(width: PanelLayout.panelWidth)
+            .frame(
+                width: isSearching ? PanelLayout.searchSize.width : PanelLayout.panelWidth,
+                height: isSearching ? PanelLayout.searchSize.height : nil
+            )
             .background(.black, in: UnevenRoundedRectangle(
                 bottomLeadingRadius: PanelLayout.bottomCornerRadius,
                 bottomTrailingRadius: PanelLayout.bottomCornerRadius
@@ -49,5 +60,20 @@ struct PanelView: View {
                 }
             }
         }
+    }
+
+    /// Expands the panel into the search view (#5).
+    private var showAllButton: some View {
+        Button {
+            panel.mode = .search
+        } label: {
+            Text("Show all (\(appModel.store.notes.count))")
+                .font(.system(size: 12, weight: .medium))
+                .foregroundStyle(.white.opacity(0.7))
+                .frame(maxWidth: .infinity)
+                .frame(height: PanelLayout.showAllHeight)
+                .contentShape(RoundedRectangle(cornerRadius: PanelLayout.rowCornerRadius))
+        }
+        .buttonStyle(.plain)
     }
 }
