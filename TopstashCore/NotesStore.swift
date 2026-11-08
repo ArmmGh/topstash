@@ -61,7 +61,7 @@ public final class NotesStore {
         }
     }
 
-    private static let logger = Logger(subsystem: "io.github.armmgh.topstash", category: "NotesStore")
+    private static let logger = Logger(category: "NotesStore")
 
     /// The fallback `created` for a file without one: its creation date, else its modification date.
     private static func fileDate(of url: URL) -> Date? {

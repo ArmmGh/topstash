@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// Every animation curve and duration of the notch panel (#11). See docs/SPEC.md, "Design & Motion".
+/// Every animation curve and duration of the notch panel (#11), in seconds. See docs/SPEC.md, "Design & Motion".
 @MainActor
 enum Motion {
     // MARK: Durations
@@ -22,6 +22,13 @@ enum Motion {
 
     /// How long the global shortcut's feedback (#10) stays before the panel hides.
     static let feedbackDuration: Double = 1.2
+
+    /// How long a row shows "Copied".
+    static let copiedDuration: Double = 1.2
+    /// How long the card shows "Nothing to save" after a click before it's refreshed.
+    static let nothingToSaveDuration: Double = 1
+    /// How long the card shows "Couldn't save" before it's refreshed.
+    static let failedDuration: Double = 2
 
     /// From closing to `orderOut`: the content fades out, then the shape collapses.
     static let closeDuration: Double = contentOutDuration + max(collapseDuration, reducedDuration)

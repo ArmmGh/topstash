@@ -11,13 +11,10 @@ final class AppModel {
     let panel: PanelModel
     let clipboard: Clipboard
 
-    /// How long a row shows "Copied".
-    static let copiedDuration: Duration = .seconds(1.2)
-
     @ObservationIgnored
     private var copiedResetTask: Task<Void, Never>?
     @ObservationIgnored
-    private let logger = Logger(subsystem: "io.github.armmgh.topstash", category: "AppModel")
+    private let logger = Logger(category: "AppModel")
 
     /// Creates the notes folder if it's missing.
     init(defaults: UserDefaults = .standard) {
@@ -66,22 +63,14 @@ final class AppModel {
         clipboard.write(note.body)
         panel.copiedNoteID = note.id
         copiedResetTask?.cancel()
-        copiedResetTask = Task { [weak self] in
-            try? await Task.sleep(for: Self.copiedDuration)
-            guard !Task.isCancelled, let self else { return }
-            self.panel.copiedNoteID = nil
+        copiedResetTask = .afterDelay(Motion.copiedDuration) { [weak self] in
+            self?.panel.copiedNoteID = nil
         }
         // The clipboard now holds a saved note, so the card reads "Already saved".
         refreshSaveCard()
     }
 
     // MARK: - Save card (#3)
-
-    /// How long the card shows "Nothing to save" after a click before it's refreshed.
-    /// "Saved" lasts `Motion.saveFeedbackDuration` (#11).
-    static let savedDuration: Duration = .seconds(1)
-    /// How long the card shows "Couldn't save" before it's refreshed.
-    static let failedDuration: Duration = .seconds(2)
 
     @ObservationIgnored
     private var saveCardResetTask: Task<Void, Never>?
@@ -130,27 +119,25 @@ final class AppModel {
         switch result {
         case .success(.saved):
             // The checkmark shows for the save feedback's length (#11), then the card returns.
-            showSaveCard(.saved, revertingAfter: reverts ? .seconds(Motion.saveFeedbackDuration) : nil)
+            showSaveCard(.saved, revertingAfter: reverts ? Motion.saveFeedbackDuration : nil)
         case .success(.alreadySaved):
             panel.saveCard = .alreadySaved
         case .success(.empty):
             // Also what a read denied at the paste privacy alert returns. The refresh afterwards
             // picks up `.accessDenied` if the user changed the setting.
-            showSaveCard(.nothingToSave, revertingAfter: reverts ? Self.savedDuration : nil)
+            showSaveCard(.nothingToSave, revertingAfter: reverts ? Motion.nothingToSaveDuration : nil)
         case .failure:
             // `saveClipboard` logs the error.
-            showSaveCard(.failed, revertingAfter: reverts ? Self.failedDuration : nil)
+            showSaveCard(.failed, revertingAfter: reverts ? Motion.failedDuration : nil)
         }
     }
 
-    private func showSaveCard(_ state: SaveCardState, revertingAfter duration: Duration?) {
+    private func showSaveCard(_ state: SaveCardState, revertingAfter seconds: Double?) {
         panel.saveCard = state
-        guard let duration else { return }
-        saveCardResetTask = Task { [weak self] in
-            try? await Task.sleep(for: duration)
-            guard !Task.isCancelled, let self else { return }
-            self.saveCardResetTask = nil
-            self.refreshSaveCard()
+        guard let seconds else { return }
+        saveCardResetTask = .afterDelay(seconds) { [weak self] in
+            self?.saveCardResetTask = nil
+            self?.refreshSaveCard()
         }
     }
 

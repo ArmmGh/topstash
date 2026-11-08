@@ -16,8 +16,9 @@ enum Preferences {
         return URL.documentsDirectory.appending(path: "Topstash", directoryHint: .isDirectory)
     }
 
-    static func hoverDelay(_ defaults: UserDefaults = .standard) -> Duration {
+    /// In seconds.
+    static func hoverDelay(_ defaults: UserDefaults = .standard) -> Double {
         let milliseconds = defaults.object(forKey: hoverDelayMillisecondsKey) as? Int ?? defaultHoverDelayMilliseconds
-        return .milliseconds(max(0, milliseconds))
+        return Double(max(0, milliseconds)) / 1000
     }
 }

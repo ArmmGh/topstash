@@ -1,6 +1,7 @@
 import CoreServices
 import Foundation
 import os
+import TopstashCore
 
 /// Watches the notes folder with FSEvents and calls `onChange` once per batch of changes.
 /// File-level events catch in-place edits (`echo >> note.md`) that a directory `DispatchSource` misses.
@@ -12,7 +13,7 @@ final class FolderWatcher {
     private let onChange: @MainActor () -> Void
     private var stream: FSEventStreamRef?
 
-    private static let logger = Logger(subsystem: "io.github.armmgh.topstash", category: "FolderWatcher")
+    private static let logger = Logger(category: "FolderWatcher")
 
     init(folder: URL, latency: TimeInterval = 0.3, onChange: @escaping @MainActor () -> Void) {
         self.folder = folder

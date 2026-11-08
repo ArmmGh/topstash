@@ -1,5 +1,6 @@
 import AppKit
 import os
+import TopstashCore
 
 /// Tracks the mouse, applies the hover delay, and shows or hides the notch panel on the hovered screen.
 @MainActor
@@ -12,7 +13,7 @@ final class NotchPanelController {
 
     private let appModel: AppModel
     private let defaults: UserDefaults
-    private let logger = Logger(subsystem: "io.github.armmgh.topstash", category: "NotchPanel")
+    private let logger = Logger(category: "NotchPanel")
 
     private var window: NotchPanel?
     private var targets: [HoverTarget] = []
@@ -165,9 +166,8 @@ final class NotchPanelController {
         let delay = Preferences.hoverDelay(defaults)
         let displayID = target.displayID
         hoverDisplayID = displayID
-        hoverTask = Task { [weak self] in
-            try? await Task.sleep(for: delay)
-            guard !Task.isCancelled, let self else { return }
+        hoverTask = .afterDelay(delay) { [weak self] in
+            guard let self else { return }
             self.hoverTask = nil
             self.hoverDisplayID = nil
             self.open(on: displayID)
@@ -225,9 +225,8 @@ final class NotchPanelController {
     private func close() {
         panel.mode = .closed
         closeTask?.cancel()
-        closeTask = Task { [weak self] in
-            try? await Task.sleep(for: .seconds(Motion.closeDuration))
-            guard !Task.isCancelled, let self else { return }
+        closeTask = .afterDelay(Motion.closeDuration) { [weak self] in
+            guard let self else { return }
             self.closeTask = nil
             self.openDisplayID = nil
             self.window?.orderOut(nil)
@@ -357,9 +356,8 @@ final class NotchPanelController {
     /// Restarts the countdown, so another press shows its own result for the full duration.
     private func startFeedbackTimer() {
         feedbackTask?.cancel()
-        feedbackTask = Task { [weak self] in
-            try? await Task.sleep(for: .seconds(Motion.feedbackDuration))
-            guard !Task.isCancelled, let self else { return }
+        feedbackTask = .afterDelay(Motion.feedbackDuration) { [weak self] in
+            guard let self else { return }
             self.feedbackTask = nil
             self.feedbackEnded()
         }
