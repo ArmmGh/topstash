@@ -39,10 +39,14 @@ final class PanelModel {
     var onModeChange: ((_ old: Mode, _ new: Mode) -> Void)?
 }
 
-/// What the save card shows. Only `.preview` is clickable.
+/// What the save card shows. Only `.preview` and `.readyWithoutPreview` are clickable.
 enum SaveCardState: Equatable {
     /// The clipboard text, unsaved.
     case preview(text: String, characterCount: Int)
+    /// The clipboard has text, but reading it would show the paste privacy alert (#4).
+    case readyWithoutPreview
+    /// The clipboard has text, but the user denied paste access (#4).
+    case accessDenied
     case alreadySaved
     case nothingToSave
     /// Transient, after a successful save.

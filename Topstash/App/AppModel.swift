@@ -86,7 +86,22 @@ final class AppModel {
 
     /// Sets the save card from the clipboard. Called when the panel opens, after `copy`,
     /// and when a transient "Saved" or "Couldn't save" ends.
+    /// Reads the clipboard's contents only when that can't show the paste privacy alert (#4).
     func refreshSaveCard() {
+        guard clipboard.hasText() else {
+            panel.saveCard = .nothingToSave
+            return
+        }
+        switch clipboard.access {
+        case .allowed:
+            break
+        case .wouldPrompt:
+            panel.saveCard = .readyWithoutPreview
+            return
+        case .denied:
+            panel.saveCard = .accessDenied
+            return
+        }
         let text = clipboard.readText() ?? ""
         if text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
             panel.saveCard = .nothingToSave
@@ -108,7 +123,9 @@ final class AppModel {
         case .success(.alreadySaved):
             panel.saveCard = .alreadySaved
         case .success(.empty):
-            panel.saveCard = .nothingToSave
+            // Also what a read denied at the paste privacy alert returns. The refresh afterwards
+            // picks up `.accessDenied` if the user changed the setting.
+            showTransientSaveCard(.nothingToSave, for: Self.savedDuration)
         case .failure:
             // `saveClipboard` logs the error.
             showTransientSaveCard(.failed, for: Self.failedDuration)
