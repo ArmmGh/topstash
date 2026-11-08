@@ -77,7 +77,8 @@ final class AppModel {
 
     // MARK: - Save card (#3)
 
-    /// How long the card shows "Saved" before it's refreshed.
+    /// How long the card shows "Nothing to save" after a click before it's refreshed.
+    /// "Saved" lasts `Motion.saveFeedbackDuration` (#11).
     static let savedDuration: Duration = .seconds(1)
     /// How long the card shows "Couldn't save" before it's refreshed.
     static let failedDuration: Duration = .seconds(2)
@@ -128,7 +129,8 @@ final class AppModel {
         saveCardResetTask = nil
         switch result {
         case .success(.saved):
-            showSaveCard(.saved, revertingAfter: reverts ? Self.savedDuration : nil)
+            // The checkmark shows for the save feedback's length (#11), then the card returns.
+            showSaveCard(.saved, revertingAfter: reverts ? .seconds(Motion.saveFeedbackDuration) : nil)
         case .success(.alreadySaved):
             panel.saveCard = .alreadySaved
         case .success(.empty):

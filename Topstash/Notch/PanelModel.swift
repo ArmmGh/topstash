@@ -1,3 +1,4 @@
+import AppKit
 import CoreGraphics
 import Foundation
 import Observation
@@ -32,11 +33,28 @@ final class PanelModel {
     /// The row showing "Copied", cleared by `AppModel.copy` after a moment.
     var copiedNoteID: URL?
     /// Set by `AppModel.refreshSaveCard()` and by saving from the card.
-    var saveCard: SaveCardState = .nothingToSave
+    /// Setting `.saved` (only ever done for a new save, by click or shortcut) plays the save feedback (#11).
+    var saveCard: SaveCardState = .nothingToSave {
+        didSet {
+            if saveCard == .saved {
+                saveCount += 1
+                // Here rather than in a view, so it fires however the save happened and whatever is on screen.
+                NSHapticFeedbackManager.defaultPerformer.perform(.generic, performanceTime: .now)
+            }
+        }
+    }
     /// The search field's text.
     var query = ""
     /// True in `.feedback`, and kept while closing from it, so the list doesn't pop in during the fade.
     private(set) var showsOnlySaveCard = false
+
+    // MARK: Shape and motion (#11)
+
+    /// The shape's size while closed: the hover area of the screen the panel is on (the notch,
+    /// or the strip on screens without one). Set by `NotchPanelController` when it places the window.
+    var closedSize = CGSize(width: PanelLayout.fallbackHoverWidth, height: PanelLayout.hiddenMenuBarHoverHeight)
+    /// Counts saves shown on the card. Its changes trigger the checkmark bounce and the notch's gulp.
+    private(set) var saveCount = 0
 
     /// Called after `mode` changes, with the old and new mode. `NotchPanelController` uses it to
     /// make the window key and watch for closing events while searching. Don't set `mode` from it.

@@ -195,6 +195,8 @@ final class NotchPanelController {
         let size = PanelLayout.windowSize
         let origin = NSPoint(x: hoverRect.midX - size.width / 2, y: screen.frame.maxY - size.height)
         window.setFrame(NSRect(origin: origin, size: size), display: false)
+        // The shape grows out of, and collapses back into, this screen's hover area (#11).
+        panel.closedSize = hoverRect.size
     }
 
     /// Opens as `.open`, or as `.feedback` for the shortcut, which keeps the card the shortcut set.
@@ -219,11 +221,12 @@ final class NotchPanelController {
         window.orderFrontRegardless()
     }
 
+    /// The content fades out, the shape collapses into the hover area, then the window is ordered out.
     private func close() {
         panel.mode = .closed
         closeTask?.cancel()
         closeTask = Task { [weak self] in
-            try? await Task.sleep(for: .seconds(PanelLayout.fadeDuration))
+            try? await Task.sleep(for: .seconds(Motion.closeDuration))
             guard !Task.isCancelled, let self else { return }
             self.closeTask = nil
             self.openDisplayID = nil
@@ -355,7 +358,7 @@ final class NotchPanelController {
     private func startFeedbackTimer() {
         feedbackTask?.cancel()
         feedbackTask = Task { [weak self] in
-            try? await Task.sleep(for: .seconds(PanelLayout.feedbackDuration))
+            try? await Task.sleep(for: .seconds(Motion.feedbackDuration))
             guard !Task.isCancelled, let self else { return }
             self.feedbackTask = nil
             self.feedbackEnded()

@@ -27,7 +27,7 @@ struct SaveCard: View {
                     }
                 }
             }
-            .buttonStyle(.plain)
+            .buttonStyle(PressDipButtonStyle())
         case .readyWithoutPreview:
             Button(action: action) {
                 card(combiningAccessibility: false) {
@@ -38,7 +38,7 @@ struct SaveCard: View {
                     }
                 }
             }
-            .buttonStyle(.plain)
+            .buttonStyle(PressDipButtonStyle())
         case .accessDenied:
             card(combiningAccessibility: false) {
                 icon("hand.raised")
@@ -61,6 +61,7 @@ struct SaveCard: View {
             }
             .foregroundStyle(.white.opacity(0.35))
         case .saved:
+            // Kept for completeness: `SaveCardSlot` shows a checkmark instead of this card.
             card {
                 icon("checkmark.circle.fill")
                 label("Saved")
@@ -129,5 +130,52 @@ struct SaveCard: View {
     /// "1 character", "1,234 characters".
     static func characterCountText(_ count: Int) -> String {
         "\(count.formatted()) \(count == 1 ? "character" : "characters")"
+    }
+}
+
+/// The save card's place in the panel, with the save feedback (#11): on `.saved` the card flies up
+/// into the notch while a checkmark bounces in its place, then the card returns with the next state.
+/// `PanelModel` fires the haptic and `PanelView` the notch's gulp. Reduce Motion cross-fades instead.
+struct SaveCardSlot: View {
+    let panel: PanelModel
+    let action: () -> Void
+
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    /// Bumped when the slot appears already saved: the shortcut (#10) saves before its feedback panel
+    /// opens, so there's no card to fly up, but the checkmark still bounces.
+    @State private var appearBounces = 0
+
+    private var isSaved: Bool { panel.saveCard == .saved }
+    private var bounceTrigger: Int { reduceMotion ? 0 : panel.saveCount + appearBounces }
+
+    var body: some View {
+        ZStack {
+            if !isSaved {
+                SaveCard(state: panel.saveCard, action: action)
+                    .transition(Motion.saveCard(
+                        reduceMotion: reduceMotion,
+                        flyUpOffset: PanelLayout.saveCardFlyUpOffset
+                    ))
+            }
+            // Always in the hierarchy, so the bounce plays when `saveCount` changes.
+            HStack(spacing: 8) {
+                Image(systemName: "checkmark.circle.fill")
+                    .font(.system(size: 26, weight: .semibold))
+                    .symbolEffect(.bounce, value: bounceTrigger)
+                Text("Saved")
+                    .font(.system(size: 14, weight: .medium))
+            }
+            .foregroundStyle(.white)
+            .opacity(isSaved ? 1 : 0)
+            .accessibilityElement(children: .combine)
+            .accessibilityHidden(!isSaved)
+        }
+        .frame(height: PanelLayout.saveCardHeight)
+        .onAppear {
+            if isSaved {
+                appearBounces += 1
+            }
+        }
+        .animation(isSaved ? (reduceMotion ? Motion.reduced : Motion.flyUp) : Motion.contentIn, value: isSaved)
     }
 }
