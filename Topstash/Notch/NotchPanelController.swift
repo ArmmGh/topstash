@@ -221,6 +221,11 @@ final class NotchPanelController {
     /// The content fades out, the shape collapses into the hover area, then the window is ordered out.
     private func close() {
         panel.mode = .closed
+        orderOutAfterClosing()
+    }
+
+    /// Orders the window out once the close animation has run. `panel.mode` is already `.closed`.
+    private func orderOutAfterClosing() {
         closeTask?.cancel()
         closeTask = .afterDelay(Motion.closeDuration) { [weak self] in
             self?.orderOutNow()
@@ -286,10 +291,16 @@ final class NotchPanelController {
         }
         searchResignObserver = nil
 
-        guard closing else { return }
-        // Ordered out right away, without the fade, so the next keystroke goes back to the
-        // frontmost app's window instead of the fading panel.
-        orderOutNow()
+        guard closing, let window else { return }
+        // The next keystroke must go to the frontmost app's window, not the closing panel. Ordering
+        // the key panel out hands key status back at once; ordering it straight back in doesn't take
+        // it again (`canBecomeKey` is false outside search, and `orderFrontRegardless` never makes
+        // key). Then the content and shape animate out like any close (#11).
+        window.orderOut(nil)
+        window.orderFrontRegardless()
+        // Esc or a click outside means "close": the cursor still over the panel doesn't reopen it.
+        isDismissed = true
+        orderOutAfterClosing()
     }
 
     // MARK: - Context menu (#6)
