@@ -11,7 +11,7 @@ struct PanelView: View {
     var body: some View {
         VStack(spacing: 0) {
             VStack(spacing: PanelLayout.sectionSpacing) {
-                SaveCard { _ = appModel.saveClipboard() }
+                SaveCard(state: panel.saveCard) { appModel.saveClipboardFromCard() }
                     .frame(height: PanelLayout.saveCardHeight)
                 recentList
             }
