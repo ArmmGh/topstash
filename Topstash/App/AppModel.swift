@@ -154,8 +154,9 @@ final class AppModel {
     func setFolder(_ url: URL) throws {
         try FileManager.default.createDirectory(at: url, withIntermediateDirectories: true)
         defaults.set(url.path(percentEncoded: false), forKey: Preferences.notesFolderPathKey)
+        // #9's order: stop watching the old folder, then load the new one and watch it.
+        watcher?.stop()
         store = NotesStore(folder: url)
-        // Stops the old watcher first.
         startWatching(url)
         // "Copied" belongs to a note of the old folder, and the clipboard may count as saved now.
         panel.copiedNote = nil
