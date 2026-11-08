@@ -1,0 +1,36 @@
+import SwiftUI
+import TopstashCore
+
+/// One note in the recent list: its title and preview. Clicking it copies the note.
+struct NoteRow: View {
+    let note: Note
+    /// Shows "Copied" in place of the preview.
+    let isCopied: Bool
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            VStack(alignment: .leading, spacing: 2) {
+                Text(note.title)
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(.white)
+                Group {
+                    if isCopied {
+                        Label("Copied", systemImage: "checkmark")
+                    } else {
+                        Text(note.preview)
+                    }
+                }
+                .font(.system(size: 11))
+                .foregroundStyle(.white.opacity(0.6))
+            }
+            .lineLimit(1)
+            .truncationMode(.tail)
+            .padding(.horizontal, 10)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .frame(height: PanelLayout.rowHeight)
+            .contentShape(RoundedRectangle(cornerRadius: PanelLayout.rowCornerRadius))
+        }
+        .buttonStyle(.plain)
+    }
+}

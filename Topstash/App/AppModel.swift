@@ -11,6 +11,11 @@ final class AppModel {
     let panel: PanelModel
     let clipboard: Clipboard
 
+    /// How long a row shows "Copied".
+    static let copiedDuration: Duration = .seconds(1.2)
+
+    @ObservationIgnored
+    private var copiedResetTask: Task<Void, Never>?
     @ObservationIgnored
     private let logger = Logger(subsystem: "io.github.armmgh.topstash", category: "AppModel")
 
@@ -35,6 +40,19 @@ final class AppModel {
         } catch {
             logger.error("Saving the clipboard failed: \(error)")
             return .failure(error)
+        }
+    }
+
+    /// Copies the note's full body to the clipboard and shows "Copied" on its row for a moment.
+    /// Nothing about the note or the order of notes changes.
+    func copy(_ note: Note) {
+        clipboard.write(note.body)
+        panel.copiedNoteID = note.id
+        copiedResetTask?.cancel()
+        copiedResetTask = Task { [weak self] in
+            try? await Task.sleep(for: Self.copiedDuration)
+            guard !Task.isCancelled, let self else { return }
+            self.panel.copiedNoteID = nil
         }
     }
 }

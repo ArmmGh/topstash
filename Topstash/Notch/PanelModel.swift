@@ -1,4 +1,5 @@
 import CoreGraphics
+import Foundation
 import Observation
 
 /// UI state of the notch panel.
@@ -13,4 +14,6 @@ final class PanelModel {
     var mode: Mode = .closed
     /// Size of the visible shape, reported by `PanelView`.
     var contentSize: CGSize = .zero
+    /// The row showing "Copied", cleared by `AppModel.copy` after a moment.
+    var copiedNoteID: URL?
 }

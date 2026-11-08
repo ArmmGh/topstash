@@ -2,11 +2,12 @@ import CoreGraphics
 
 /// Size constants for the notch panel. All sizes live here.
 enum PanelLayout {
-    /// The fixed window frame. It never changes or animates; only the SwiftUI content does.
-    static let windowSize = CGSize(width: 480, height: 240)
+    /// The fixed window frame, tall enough for the panel with a full recent list.
+    /// It never changes or animates; only the SwiftUI content does.
+    static let windowSize = CGSize(width: 480, height: maxPanelHeight)
 
-    /// The visible black shape when the panel is open.
-    static let panelSize = CGSize(width: 380, height: 130)
+    /// The width of the visible black shape. Its height follows the content.
+    static let panelWidth: CGFloat = 380
     static let bottomCornerRadius: CGFloat = 20
 
     /// Space kept clear at the top of the shape for the hardware notch.
@@ -14,6 +15,19 @@ enum PanelLayout {
     static let contentPadding: CGFloat = 14
 
     static let cardCornerRadius: CGFloat = 12
+    static let saveCardHeight: CGFloat = 64
+
+    /// How many of the newest notes the panel lists under the save card.
+    static let recentCount = 5
+    static let rowHeight: CGFloat = 40
+    static let rowSpacing: CGFloat = 2
+    static let rowCornerRadius: CGFloat = 8
+    /// Space between the save card and the recent list.
+    static let sectionSpacing: CGFloat = 8
+
+    /// The shape's height with `recentCount` rows.
+    static let maxPanelHeight: CGFloat = notchClearance + saveCardHeight + sectionSpacing
+        + CGFloat(recentCount) * rowHeight + CGFloat(recentCount - 1) * rowSpacing + contentPadding
 
     /// How long the content takes to fade out before the window is ordered out.
     static let fadeDuration: Double = 0.2

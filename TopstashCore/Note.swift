@@ -14,6 +14,8 @@ public struct Note: Identifiable, Hashable, Sendable {
 
     /// Derived from the body, never stored.
     public var title: String { NoteFile.title(of: body) }
+    /// The text after the title line on one line, at most 140 characters. Empty for a one-line note.
+    public var preview: String { NoteFile.preview(of: body) }
 
     init(noteID: String, created: Date, type: String, body: String, fileURL: URL) {
         self.noteID = noteID

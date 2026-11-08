@@ -9,4 +9,10 @@ struct Clipboard {
     func readText() -> String? {
         pasteboard.string(forType: .string)
     }
+
+    /// Replaces the clipboard contents with `text` as `.string`.
+    func write(_ text: String) {
+        pasteboard.clearContents()
+        pasteboard.setString(text, forType: .string)
+    }
 }

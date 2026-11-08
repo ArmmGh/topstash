@@ -1,6 +1,6 @@
 import Foundation
 
-/// Turns a note into Markdown with frontmatter and builds its filename. Used only by `NotesStore`.
+/// Turns a note into Markdown with frontmatter and back, and builds its filename. Used only by `NotesStore`.
 enum NoteFile {
     static let noteType = "text"
 
@@ -22,6 +22,40 @@ enum NoteFile {
     static func contents(noteID: String, created: Date, timeZone: TimeZone, body: String) -> Data {
         let header = "---\nid: \(noteID)\ncreated: \(createdString(created, timeZone: timeZone))\ntype: \(noteType)\n---\n"
         return Data((header + body).utf8)
+    }
+
+    /// Reads a file written by `contents(...)`: frontmatter with `id`, `created` and `type`, then the body
+    /// exactly as stored. `nil` if the frontmatter is missing or incomplete. Fallbacks for other files are #7.
+    static func note(from data: Data, fileURL: URL) -> Note? {
+        guard let text = String(data: data, encoding: .utf8), text.hasPrefix("---\n") else { return nil }
+        let fieldsStart = text.index(text.startIndex, offsetBy: 4)
+        guard let end = text.range(of: "\n---\n", options: .literal, range: fieldsStart ..< text.endIndex)
+        else { return nil }
+
+        var fields: [String: String] = [:]
+        for line in text[fieldsStart ..< end.lowerBound].split(separator: "\n") {
+            guard let colon = line.firstIndex(of: ":") else { continue }
+            let key = line[..<colon].trimmingCharacters(in: .whitespaces)
+            fields[key] = line[line.index(after: colon)...].trimmingCharacters(in: .whitespaces)
+        }
+
+        guard let noteID = fields["id"], !noteID.isEmpty,
+              let createdString = fields["created"],
+              let created = ISO8601DateFormatter().date(from: createdString)
+        else { return nil }
+        return Note(
+            noteID: noteID,
+            created: created,
+            type: fields["type"] ?? noteType,
+            body: String(text[end.upperBound...]),
+            fileURL: fileURL
+        )
+    }
+
+    /// Newest `created` first; ties broken by filename, descending, so the order is always the same.
+    static func isOrderedBefore(_ lhs: Note, _ rhs: Note) -> Bool {
+        if lhs.created != rhs.created { return lhs.created > rhs.created }
+        return lhs.fileURL.lastPathComponent > rhs.fileURL.lastPathComponent
     }
 
     /// A free file URL in `folder` named `yyyy-MM-dd-HHmm-<slug>.md`, from `created` in `timeZone`.
@@ -46,11 +80,24 @@ enum NoteFile {
     /// The title line before it's cut: the first line that isn't blank and isn't only a code fence,
     /// with leading `#` heading markers and surrounding whitespace removed. `nil` if no line qualifies.
     static func titleLine(of body: String) -> String? {
+        splitAtTitleLine(body)?.title
+    }
+
+    /// The text after the title line with every whitespace run collapsed to one space, trimmed,
+    /// and cut to 140 characters. Empty when nothing follows the title line.
+    static func preview(of body: String) -> String {
+        guard let rest = splitAtTitleLine(body)?.rest else { return "" }
+        let words = rest.split(whereSeparator: { $0.isWhitespace || $0.isNewline })
+        return String(words.joined(separator: " ").prefix(140))
+    }
+
+    /// The title line and everything after it.
+    private static func splitAtTitleLine(_ body: String) -> (title: String, rest: Substring)? {
         for line in body.split(omittingEmptySubsequences: false, whereSeparator: \.isNewline) {
             let trimmed = line.trimmingCharacters(in: .whitespaces)
             if trimmed.isEmpty || isCodeFence(trimmed) { continue }
             let title = trimmed.drop { $0 == "#" }.trimmingCharacters(in: .whitespaces)
-            if !title.isEmpty { return title }
+            if !title.isEmpty { return (title, body[line.endIndex...]) }
         }
         return nil
     }

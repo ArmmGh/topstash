@@ -10,8 +10,19 @@ struct NotesStoreTests {
     static let fixedDate = Date(timeIntervalSince1970: 1_794_153_134)
     static let yerevan = TimeZone(identifier: "Asia/Yerevan")!
 
-    func makeStore(folder: URL? = nil, timeZone: TimeZone = yerevan) -> NotesStore {
-        NotesStore(folder: folder ?? temp.url, now: { Self.fixedDate }, timeZone: timeZone)
+    func makeStore(folder: URL? = nil, timeZone: TimeZone = yerevan, clock: Clock? = nil) -> NotesStore {
+        let now: () -> Date = if let clock { { clock.now } } else { { Self.fixedDate } }
+        return NotesStore(folder: folder ?? temp.url, now: now, timeZone: timeZone)
+    }
+
+    /// A clock that starts at `fixedDate` and moves only when told to.
+    @MainActor
+    final class Clock {
+        var now = NotesStoreTests.fixedDate
+
+        func advance(seconds: TimeInterval) {
+            now.addTimeInterval(seconds)
+        }
     }
 
     struct NotSaved: Error {
@@ -99,6 +110,22 @@ struct NotesStoreTests {
         #expect(note.fileURL.lastPathComponent == "2026-11-08-1952-\(slug).md")
     }
 
+    @Test(arguments: [
+        (body: "Just a title", preview: ""),
+        (body: "  Title with trailing blank lines  \n\n \n", preview: ""),
+        (body: "Title\n  second   line\n\n\tthird\r\nfourth  ", preview: "second line third fourth"),
+        (body: "\n\n## Heading\nbody text", preview: "body text"),
+        (body: "```bash\nnpm test\n```", preview: "```"),
+        (body: "Title\n" + String(repeating: "abcdefghij", count: 20), preview: String(repeating: "abcdefghij", count: 14)),
+    ])
+    func previewIsTheTextAfterTheTitleLineOnOneLine(body: String, preview: String) throws {
+        let store = makeStore()
+
+        let note = try savedNote(store.save(body))
+
+        #expect(note.preview == preview)
+    }
+
     @Test func longFirstLineCutsTitleAt80AndSlugAt50() throws {
         let store = makeStore()
         let line = String(repeating: "abcdefghij", count: 30)
@@ -150,13 +177,107 @@ struct NotesStoreTests {
         #expect(try temp.fileNames(in: folder) == [note.fileURL.lastPathComponent])
     }
 
-    @Test func savedNoteBecomesFirstInNotes() throws {
+    @Test func notesAreNewestFirstWhenSavedAndWhenLoaded() throws {
+        let clock = Clock()
+        let store = makeStore(clock: clock)
+
+        // Same minute, so the filenames alone would put "older" before "newer".
+        let older = try savedNote(store.save("Older"))
+        clock.advance(seconds: 10)
+        let newer = try savedNote(store.save("Newer"))
+        clock.advance(seconds: 10)
+        let newest = try savedNote(store.save("Newest"))
+
+        #expect(store.notes == [newest, newer, older])
+        #expect(makeStore().notes == [newest, newer, older])
+    }
+
+    // MARK: - Loading
+
+    @Test func newStoreLoadsNotesSavedByAnotherStore() throws {
+        let clock = Clock()
+        let writer = makeStore(clock: clock)
+        let bodies = [
+            "Refactor this module",
+            "  leading and trailing whitespace \t ",
+            "\n\nfirst\n\n\nafter blank lines\n\n",
+            "```swift\nlet x = 1\n```",
+            "windows\r\nline\r\nendings\r\n",
+            "---\nlooks like frontmatter\n---\nbody",
+            "emoji 🚀👩‍💻 and Привет",
+        ]
+        for body in bodies {
+            _ = try savedNote(writer.save(body))
+            clock.advance(seconds: 60)
+        }
+
+        let reader = makeStore()
+
+        #expect(reader.notes.count == bodies.count)
+        #expect(reader.notes == writer.notes)
+    }
+
+    @Test func onlyVisibleTopLevelMarkdownFilesAreLoaded() throws {
+        let note = try savedNote(makeStore().save("Top level"))
+        let data = try fileBytes(note)
+        let fileManager = FileManager.default
+        func write(_ path: String) throws {
+            let url = temp.url.appending(path: path, directoryHint: .notDirectory)
+            try fileManager.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
+            try data.write(to: url)
+        }
+        try write("UPPER.MD")
+        try write("not-markdown.txt")
+        try write(".hidden.md")
+        try write("sub/nested.md")
+        try write(".obsidian/hidden-dir.md")
+        try write("looks-like-a-note.md/inside.md")
+
+        let names = makeStore().notes.map(\.fileURL.lastPathComponent)
+
+        #expect(names == ["UPPER.MD", note.fileURL.lastPathComponent])
+    }
+
+    @Test func storeOnAMissingFolderHasNoNotesAndDoesNotCreateIt() throws {
+        let folder = temp.url.appending(path: "missing", directoryHint: .isDirectory)
+
+        let store = makeStore(folder: folder)
+        store.reload()
+
+        #expect(store.notes.isEmpty)
+        #expect(!FileManager.default.fileExists(atPath: folder.path(percentEncoded: false)))
+    }
+
+    @Test func notesWithTheSameCreatedAreOrderedByFilenameDescending() throws {
         let store = makeStore()
 
-        let older = try savedNote(store.save("Older"))
-        let newer = try savedNote(store.save("Newer"))
+        let charlie = try savedNote(store.save("Charlie"))
+        let alpha = try savedNote(store.save("Alpha"))
+        let bravo = try savedNote(store.save("Bravo"))
 
-        #expect(store.notes == [newer, older])
+        #expect(store.notes == [charlie, bravo, alpha])
+        #expect(makeStore().notes == [charlie, bravo, alpha])
+    }
+
+    @Test(arguments: [
+        (limit: 2, expectedCount: 2),
+        (limit: 3, expectedCount: 3),
+        (limit: 5, expectedCount: 3),
+        (limit: 0, expectedCount: 0),
+        (limit: -1, expectedCount: 0),
+    ])
+    func recentReturnsTheNewestNotesUpToTheLimit(limit: Int, expectedCount: Int) throws {
+        let clock = Clock()
+        let store = makeStore(clock: clock)
+        let first = try savedNote(store.save("First"))
+        clock.advance(seconds: 60)
+        let second = try savedNote(store.save("Second"))
+        clock.advance(seconds: 60)
+        let third = try savedNote(store.save("Third"))
+
+        let recent = store.recent(limit: limit)
+
+        #expect(recent == Array([third, second, first].prefix(expectedCount)))
     }
 
     @Test func createdMatchesTheSecondsWrittenToTheFile() throws {
