@@ -1,4 +1,4 @@
-import Foundation
+import AppKit
 import Observation
 import os
 import TopstashCore
@@ -53,6 +53,29 @@ final class AppModel {
             try? await Task.sleep(for: Self.copiedDuration)
             guard !Task.isCancelled, let self else { return }
             self.panel.copiedNoteID = nil
+        }
+    }
+
+    // MARK: - Context menu (#6)
+
+    /// Closes the panel. Set by `NotchPanelController`, which owns the window.
+    @ObservationIgnored
+    var closePanel: () -> Void = {}
+
+    /// Opens the note's file in the default app for `.md`, then closes the panel.
+    /// If no app handles `.md`, macOS shows its own app chooser.
+    func openInEditor(_ note: Note) {
+        NSWorkspace.shared.open(note.fileURL)
+        closePanel()
+    }
+
+    /// Moves the note's file to the Trash. On failure, logs and beeps.
+    func delete(_ note: Note) {
+        do {
+            try store.delete(note)
+        } catch {
+            logger.error("Deleting \(note.fileURL.path(percentEncoded: false), privacy: .public) failed: \(error)")
+            NSSound.beep()
         }
     }
 }

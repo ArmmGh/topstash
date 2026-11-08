@@ -16,11 +16,19 @@ public final class NotesStore {
 
     private let now: () -> Date
     private let timeZone: TimeZone
+    private let trash: (URL) throws -> Void
 
-    public init(folder: URL, now: @escaping () -> Date = Date.init, timeZone: TimeZone = .current) {
+    /// `trash` moves a file to the Trash. Tests pass their own, so they never touch the real Trash.
+    public init(
+        folder: URL,
+        now: @escaping () -> Date = Date.init,
+        timeZone: TimeZone = .current,
+        trash: @escaping (URL) throws -> Void = NotesStore.moveToTrash
+    ) {
         self.folder = folder
         self.now = now
         self.timeZone = timeZone
+        self.trash = trash
         reload()
     }
 
@@ -70,5 +78,25 @@ public final class NotesStore {
         let index = notes.firstIndex { NoteFile.isOrderedBefore(note, $0) } ?? notes.endIndex
         notes.insert(note, at: index)
         return .saved(note)
+    }
+
+    // MARK: - Deleting (#6)
+
+    /// Moves the note's file to the Trash and removes the note from `notes`.
+    /// A file that's already gone only removes the note. Other errors are thrown, and the note stays.
+    public func delete(_ note: Note) throws {
+        do {
+            try trash(note.fileURL)
+        } catch where FileManager.default.fileExists(atPath: note.fileURL.path(percentEncoded: false)) {
+            throw error
+        } catch {
+            // Already removed on disk: nothing to move.
+        }
+        notes.removeAll { $0.id == note.id }
+    }
+
+    /// The default `trash`.
+    public nonisolated static func moveToTrash(_ url: URL) throws {
+        try FileManager.default.trashItem(at: url, resultingItemURL: nil)
     }
 }
