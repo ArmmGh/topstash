@@ -25,6 +25,9 @@ final class NotchPanelController {
     /// The target the pending hover delay belongs to.
     private var hoverDisplayID: CGDirectDisplayID?
     private var closeTask: Task<Void, Never>?
+    /// Installed only while in search mode: closes the panel on a click outside or when it resigns key.
+    private var searchMouseMonitor: Any?
+    private var searchResignObserver: (any NSObjectProtocol)?
     private var menuObservers: [any NSObjectProtocol] = []
     /// True while any menu of the app is open.
     private var isMenuTracking = false
@@ -39,7 +42,12 @@ final class NotchPanelController {
     }
 
     func start() {
-        window = NotchPanel(rootView: PanelView(appModel: appModel))
+        window = NotchPanel(rootView: PanelView(appModel: appModel)) { [weak self] in
+            self?.panel.mode == .search
+        }
+        panel.onModeChange = { [weak self] old, new in
+            self?.modeChanged(from: old, to: new)
+        }
         rebuildTargets()
 
         // Mouse-moved monitors don't need Accessibility permission, and they still see the cursor
@@ -125,6 +133,9 @@ final class NotchPanelController {
             if !overOpenPanel {
                 close()
             }
+        case .search:
+            // Stays open when the cursor leaves; see `beginSearch()` for what closes it.
+            break
         case .closed:
             if closeTask != nil, !isDismissed, overOpenPanel {
                 // The cursor came back during the fade.
@@ -196,7 +207,7 @@ final class NotchPanelController {
         // Re-evaluated on every open, because the clipboard may have changed while closed.
         appModel.refreshSaveCard()
         panel.mode = .open
-        // Never makeKey or activate: the frontmost app keeps keyboard focus.
+        // Never makeKey or activate: the frontmost app keeps keyboard focus. Only search mode makes it key.
         window.orderFrontRegardless()
     }
 
@@ -210,6 +221,62 @@ final class NotchPanelController {
             self.openDisplayID = nil
             self.window?.orderOut(nil)
         }
+    }
+
+    // MARK: - Search
+
+    private func modeChanged(from old: PanelModel.Mode, to new: PanelModel.Mode) {
+        if new == .search {
+            beginSearch()
+        } else if old == .search {
+            endSearch(closing: new == .closed)
+        }
+    }
+
+    /// Makes the panel key so the search field gets typing. The panel is `.nonactivatingPanel`, so
+    /// Topstash isn't activated and the frontmost app stays frontmost.
+    private func beginSearch() {
+        guard let window else { return }
+        window.makeKey()
+
+        // Global monitors see only events sent to other apps, so any click they report is outside the panel.
+        searchMouseMonitor = NSEvent.addGlobalMonitorForEvents(
+            matching: [.leftMouseDown, .rightMouseDown]
+        ) { [weak self] _ in
+            MainActor.assumeIsolated { self?.closeSearch() }
+        }
+        searchResignObserver = NotificationCenter.default.addObserver(
+            forName: NSWindow.didResignKeyNotification,
+            object: window,
+            queue: .main
+        ) { [weak self] _ in
+            MainActor.assumeIsolated { self?.closeSearch() }
+        }
+    }
+
+    /// Esc, a click outside, or the panel resigning key.
+    private func closeSearch() {
+        guard panel.mode == .search else { return }
+        panel.mode = .closed
+    }
+
+    private func endSearch(closing: Bool) {
+        if let searchMouseMonitor {
+            NSEvent.removeMonitor(searchMouseMonitor)
+        }
+        searchMouseMonitor = nil
+        if let searchResignObserver {
+            NotificationCenter.default.removeObserver(searchResignObserver)
+        }
+        searchResignObserver = nil
+
+        guard closing else { return }
+        // Ordered out right away, without the fade, so the next keystroke goes back to the
+        // frontmost app's window instead of the fading panel.
+        closeTask?.cancel()
+        closeTask = nil
+        openDisplayID = nil
+        window?.orderOut(nil)
     }
 
     // MARK: - Context menu (#6)

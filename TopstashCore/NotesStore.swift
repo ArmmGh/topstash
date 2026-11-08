@@ -74,6 +74,15 @@ public final class NotesStore {
         Array(notes.prefix(max(limit, 0)))
     }
 
+    /// The notes whose body contains every whitespace-separated term of `query`, in any order and
+    /// ignoring case (not diacritics). Partial words match. Newest first, like `notes`.
+    public func search(_ query: String) -> [Note] {
+        let terms = query.split(whereSeparator: \.isWhitespace)
+        return notes.filter { note in
+            terms.allSatisfy { note.body.range(of: $0, options: .caseInsensitive) != nil }
+        }
+    }
+
     /// Saves `text` exactly as given to a new note file, creating the folder if it's missing.
     /// Empty or whitespace-only text returns `.empty`, and text that `contains` finds returns
     /// `.alreadySaved` with the existing note; neither writes anything. Folder and write errors are thrown.
