@@ -115,9 +115,10 @@ final class NotchPanelController {
     // MARK: - Hover
 
     private func mouseMoved() {
+        let location = NSEvent.mouseLocation
+        updateClickThrough(at: location)
         // The menu is its own window, so the cursor on it counts as outside the panel.
         guard !isMenuTracking else { return }
-        let location = NSEvent.mouseLocation
         let hovered = hoverAreas.first { $0.rect.contains(location) }
         let overOpenPanel = isOverOpenPanel(location)
 
@@ -180,6 +181,17 @@ final class NotchPanelController {
         return NSRect(x: frame.midX - size.width / 2, y: frame.maxY - size.height, width: size.width, height: size.height)
     }
 
+    /// The window is much bigger than the visible shape, so it takes mouse events only while the
+    /// cursor is over the shape; elsewhere clicks reach the windows below. Called on every mouse
+    /// move (the global monitor sees moves over the window while it ignores events) and on open.
+    private func updateClickThrough(at location: NSPoint) {
+        guard let window, openDisplayID != nil else { return }
+        let ignores = !visibleRect.contains(location)
+        if window.ignoresMouseEvents != ignores {
+            window.ignoresMouseEvents = ignores
+        }
+    }
+
     /// Top edge on the screen's top edge, centered on the hover area. The size never changes.
     private func place(_ window: NotchPanel, on screen: NSScreen, centeredOn hoverRect: NSRect) {
         let size = PanelLayout.windowSize
@@ -207,6 +219,9 @@ final class NotchPanelController {
             appModel.refreshSaveCard()
         }
         panel.mode = mode
+        // `contentSize` follows the new mode after the next layout; until the cursor moves, the
+        // shape counts as its closed size, which contains the cursor when it opened by hovering.
+        updateClickThrough(at: NSEvent.mouseLocation)
         // Never makeKey or activate: the frontmost app keeps keyboard focus. Only search mode makes it key.
         window.orderFrontRegardless()
     }
