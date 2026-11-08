@@ -43,7 +43,12 @@ struct PanelView: View {
         } else {
             VStack(spacing: PanelLayout.rowSpacing) {
                 ForEach(notes) { note in
-                    NoteRow(note: note, isCopied: panel.copiedNoteID == note.id) {
+                    NoteRow(
+                        note: note,
+                        isCopied: panel.copiedNoteID == note.id,
+                        openInEditor: { appModel.openInEditor(note) },
+                        delete: { appModel.delete(note) }
+                    ) {
                         appModel.copy(note)
                     }
                 }
