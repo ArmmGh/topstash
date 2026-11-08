@@ -1,0 +1,31 @@
+name: Feature request
+description: Suggest an idea or improvement.
+labels: [enhancement, needs-triage]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for the suggestion. Please search existing issues first, and check the
+        "Out of Scope" section of `docs/SPEC.md` to see if it has already been considered.
+  - type: textarea
+    id: problem
+    attributes:
+      label: What problem does this solve?
+      description: Describe what you're trying to do and what gets in the way today.
+    validations:
+      required: true
+  - type: textarea
+    id: solution
+    attributes:
+      label: What would you like to happen?
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives you've considered
+  - type: textarea
+    id: extra
+    attributes:
+      label: Anything else
+      description: Mockups, examples from other apps, or other context.
