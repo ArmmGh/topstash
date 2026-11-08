@@ -22,6 +22,7 @@ final class AppModel {
     /// Creates the notes folder if it's missing.
     init(defaults: UserDefaults = .standard) {
         let folder = Preferences.notesFolder(defaults)
+        self.defaults = defaults
         store = NotesStore(folder: folder)
         panel = PanelModel()
         clipboard = Clipboard()
@@ -140,6 +141,25 @@ final class AppModel {
             self.saveCardResetTask = nil
             self.refreshSaveCard()
         }
+    }
+
+    // MARK: - Notes folder (#9)
+
+    @ObservationIgnored
+    private let defaults: UserDefaults
+
+    /// Switches to another notes folder: creates it if it's missing, stores its path, loads its notes,
+    /// and moves the folder watcher to it. If the folder can't be created, this throws and the old
+    /// folder stays active.
+    func setFolder(_ url: URL) throws {
+        try FileManager.default.createDirectory(at: url, withIntermediateDirectories: true)
+        defaults.set(url.path(percentEncoded: false), forKey: Preferences.notesFolderPathKey)
+        store = NotesStore(folder: url)
+        // Stops the old watcher first.
+        startWatching(url)
+        // "Copied" belongs to a note of the old folder, and the clipboard may count as saved now.
+        panel.copiedNoteID = nil
+        refreshSaveCard()
     }
 
     // MARK: - Context menu (#6)
