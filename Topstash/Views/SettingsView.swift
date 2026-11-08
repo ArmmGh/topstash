@@ -1,8 +1,9 @@
 import AppKit
+import KeyboardShortcuts
 import ServiceManagement
 import SwiftUI
 
-/// The Settings window: notes folder, hover delay, and launch at login.
+/// The Settings window: notes folder, save shortcut, hover delay, and launch at login.
 struct SettingsView: View {
     let appModel: AppModel
 
@@ -15,6 +16,7 @@ struct SettingsView: View {
     var body: some View {
         Form {
             folderSection
+            shortcutSection
             hoverDelaySection
             launchAtLoginSection
         }
@@ -67,6 +69,15 @@ struct SettingsView: View {
             folderError = nil
         } catch {
             folderError = "Couldn't use this folder: \(error.localizedDescription)"
+        }
+    }
+
+    // MARK: - Shortcut (#10)
+
+    private var shortcutSection: some View {
+        Section {
+            // KeyboardShortcuts stores the shortcut in UserDefaults and re-registers it right away.
+            KeyboardShortcuts.Recorder("Save clipboard", name: .saveClipboard)
         }
     }
 

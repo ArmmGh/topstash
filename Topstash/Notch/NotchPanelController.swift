@@ -33,6 +33,8 @@ final class NotchPanelController {
     private var isMenuTracking = false
     /// Set by `dismiss()` until the panel opens again.
     private var isDismissed = false
+    /// Ends the shortcut's feedback (#10).
+    private var feedbackTask: Task<Void, Never>?
 
     private var panel: PanelModel { appModel.panel }
 
@@ -136,6 +138,9 @@ final class NotchPanelController {
         case .search:
             // Stays open when the cursor leaves; see `beginSearch()` for what closes it.
             break
+        case .feedback:
+            // `feedbackEnded()` decides when the time is up.
+            break
         case .closed:
             if closeTask != nil, !isDismissed, overOpenPanel {
                 // The cursor came back during the fade.
@@ -192,7 +197,8 @@ final class NotchPanelController {
         window.setFrame(NSRect(origin: origin, size: size), display: false)
     }
 
-    private func open(on displayID: CGDirectDisplayID) {
+    /// Opens as `.open`, or as `.feedback` for the shortcut, which keeps the card the shortcut set.
+    private func open(on displayID: CGDirectDisplayID, as mode: PanelModel.Mode = .open) {
         guard let window,
               let screen = Self.screen(withID: displayID),
               let target = target(withID: displayID)
@@ -205,8 +211,10 @@ final class NotchPanelController {
         openDisplayID = displayID
 
         // Re-evaluated on every open, because the clipboard may have changed while closed.
-        appModel.refreshSaveCard()
-        panel.mode = .open
+        if mode == .open {
+            appModel.refreshSaveCard()
+        }
+        panel.mode = mode
         // Never makeKey or activate: the frontmost app keeps keyboard focus. Only search mode makes it key.
         window.orderFrontRegardless()
     }
@@ -226,6 +234,10 @@ final class NotchPanelController {
     // MARK: - Search
 
     private func modeChanged(from old: PanelModel.Mode, to new: PanelModel.Mode) {
+        if old == .feedback {
+            feedbackTask?.cancel()
+            feedbackTask = nil
+        }
         if new == .search {
             beginSearch()
         } else if old == .search {
@@ -304,5 +316,63 @@ final class NotchPanelController {
         guard panel.mode != .closed else { return }
         isDismissed = true
         close()
+    }
+
+    // MARK: - Global shortcut (#10)
+
+    /// Saves the clipboard like a click on the card. A closed panel drops down briefly on the
+    /// screen with the cursor to show the result; an open one updates its card in place.
+    /// Never makes the panel key or activates the app, so typing continues in the frontmost app.
+    func saveFromShortcut() {
+        let result = appModel.saveClipboard()
+        switch panel.mode {
+        case .open, .search:
+            appModel.showSaveResult(result)
+        case .feedback:
+            appModel.showSaveResult(result, reverts: false)
+            startFeedbackTimer()
+        case .closed:
+            guard let displayID = displayIDUnderCursor() else {
+                logger.error("No screen to show the shortcut's feedback on")
+                return
+            }
+            // A hover delay running from before would replace the feedback with the normal panel.
+            cancelHoverDelay()
+            appModel.showSaveResult(result, reverts: false)
+            open(on: displayID, as: .feedback)
+            startFeedbackTimer()
+        }
+    }
+
+    /// The screen containing the cursor, else the main screen.
+    private func displayIDUnderCursor() -> CGDirectDisplayID? {
+        let location = NSEvent.mouseLocation
+        let screen = NSScreen.screens.first { NSMouseInRect(location, $0.frame, false) } ?? NSScreen.main
+        return screen.flatMap(Self.displayID(of:))
+    }
+
+    /// Restarts the countdown, so another press shows its own result for the full duration.
+    private func startFeedbackTimer() {
+        feedbackTask?.cancel()
+        feedbackTask = Task { [weak self] in
+            try? await Task.sleep(for: .seconds(PanelLayout.feedbackDuration))
+            guard !Task.isCancelled, let self else { return }
+            self.feedbackTask = nil
+            self.feedbackEnded()
+        }
+    }
+
+    /// Hides the panel, or switches to `.open` if the cursor is over it or its hover area. From
+    /// then on the normal hover rules apply.
+    private func feedbackEnded() {
+        guard panel.mode == .feedback else { return }
+        let location = NSEvent.mouseLocation
+        let overHoverArea = openDisplayID.flatMap(target(withID:))?.rect.contains(location) ?? false
+        if overHoverArea || visibleRect.contains(location) {
+            appModel.refreshSaveCard()
+            panel.mode = .open
+        } else {
+            close()
+        }
     }
 }

@@ -18,8 +18,11 @@ struct PanelView: View {
                     VStack(spacing: PanelLayout.sectionSpacing) {
                         SaveCard(state: panel.saveCard) { appModel.saveClipboardFromCard() }
                             .frame(height: PanelLayout.saveCardHeight)
-                        recentList
-                        showAllButton
+                        // The shortcut's feedback (#10) shows only the card.
+                        if !panel.showsOnlySaveCard {
+                            recentList
+                            showAllButton
+                        }
                     }
                 }
             }

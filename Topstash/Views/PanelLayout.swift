@@ -50,4 +50,7 @@ enum PanelLayout {
 
     /// How long the content takes to fade out before the window is ordered out.
     static let fadeDuration: Double = 0.2
+
+    /// How long the global shortcut's feedback (#10) stays before the panel hides.
+    static let feedbackDuration: Double = 1.2
 }

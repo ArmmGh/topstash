@@ -13,6 +13,12 @@ settings:
     ENABLE_HARDENED_RUNTIME: YES
     DEAD_CODE_STRIPPING: YES
 
+# The only package dependency (spec: Dependencies). Linked to the app target only.
+packages:
+  KeyboardShortcuts:
+    url: https://github.com/sindresorhus/KeyboardShortcuts
+    from: "2.4.0"
+
 targets:
   Topstash:
     type: application
@@ -22,6 +28,7 @@ targets:
     dependencies:
       - target: TopstashCore
         embed: true
+      - package: KeyboardShortcuts
     info:
       path: Topstash/Info.plist
       properties:

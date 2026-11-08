@@ -5,12 +5,13 @@ import Observation
 /// UI state of the notch panel.
 @MainActor @Observable
 final class PanelModel {
-    // #10 adds .feedback.
     enum Mode: Equatable {
         case closed
         case open
         /// The search field and the full list. The panel is key and stays open when the cursor leaves.
         case search
+        /// Only the save card, showing the result of the global shortcut (#10). Never key.
+        case feedback
     }
 
     /// Closing resets `query`, so the next open shows the recent list with an empty query.
@@ -18,6 +19,8 @@ final class PanelModel {
         didSet {
             if mode == .closed {
                 query = ""
+            } else {
+                showsOnlySaveCard = mode == .feedback
             }
             if mode != oldValue {
                 onModeChange?(oldValue, mode)
@@ -32,6 +35,8 @@ final class PanelModel {
     var saveCard: SaveCardState = .nothingToSave
     /// The search field's text.
     var query = ""
+    /// True in `.feedback`, and kept while closing from it, so the list doesn't pop in during the fade.
+    private(set) var showsOnlySaveCard = false
 
     /// Called after `mode` changes, with the old and new mode. `NotchPanelController` uses it to
     /// make the window key and watch for closing events while searching. Don't set `mode` from it.

@@ -1,4 +1,5 @@
 import AppKit
+import KeyboardShortcuts
 
 @MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate {
@@ -10,5 +11,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let panelController = NotchPanelController(appModel: appModel)
         panelController.start()
         self.panelController = panelController
+
+        // A Carbon hot key: works while any app is frontmost, without Accessibility permission.
+        // The handler runs on the main thread.
+        KeyboardShortcuts.onKeyUp(for: .saveClipboard) { [weak panelController] in
+            panelController?.saveFromShortcut()
+        }
     }
 }

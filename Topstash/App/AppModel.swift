@@ -116,25 +116,34 @@ final class AppModel {
     /// The save card's click. Shows the result of this save, not the state shown before the click,
     /// because the clipboard can change in between.
     func saveClipboardFromCard() {
+        showSaveResult(saveClipboard())
+    }
+
+    /// Shows a save's result on the card: the card's click, and the shortcut (#10).
+    /// "Saved", "Nothing to save", and "Couldn't save" are transient: they revert to the clipboard's
+    /// state after a moment, unless `reverts` is false (the shortcut's feedback panel, which hides
+    /// or refreshes the card itself when its time is up).
+    func showSaveResult(_ result: Result<SaveResult, any Error>, reverts: Bool = true) {
         saveCardResetTask?.cancel()
         saveCardResetTask = nil
-        switch saveClipboard() {
+        switch result {
         case .success(.saved):
-            showTransientSaveCard(.saved, for: Self.savedDuration)
+            showSaveCard(.saved, revertingAfter: reverts ? Self.savedDuration : nil)
         case .success(.alreadySaved):
             panel.saveCard = .alreadySaved
         case .success(.empty):
             // Also what a read denied at the paste privacy alert returns. The refresh afterwards
             // picks up `.accessDenied` if the user changed the setting.
-            showTransientSaveCard(.nothingToSave, for: Self.savedDuration)
+            showSaveCard(.nothingToSave, revertingAfter: reverts ? Self.savedDuration : nil)
         case .failure:
             // `saveClipboard` logs the error.
-            showTransientSaveCard(.failed, for: Self.failedDuration)
+            showSaveCard(.failed, revertingAfter: reverts ? Self.failedDuration : nil)
         }
     }
 
-    private func showTransientSaveCard(_ state: SaveCardState, for duration: Duration) {
+    private func showSaveCard(_ state: SaveCardState, revertingAfter duration: Duration?) {
         panel.saveCard = state
+        guard let duration else { return }
         saveCardResetTask = Task { [weak self] in
             try? await Task.sleep(for: duration)
             guard !Task.isCancelled, let self else { return }
