@@ -16,7 +16,7 @@ struct PanelView: View {
                     SearchView(appModel: appModel)
                 } else {
                     VStack(spacing: PanelLayout.sectionSpacing) {
-                        SaveCard { _ = appModel.saveClipboard() }
+                        SaveCard(state: panel.saveCard) { appModel.saveClipboardFromCard() }
                             .frame(height: PanelLayout.saveCardHeight)
                         recentList
                         showAllButton

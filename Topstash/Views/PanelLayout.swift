@@ -20,7 +20,8 @@ enum PanelLayout {
     static let contentPadding: CGFloat = 14
 
     static let cardCornerRadius: CGFloat = 12
-    static let saveCardHeight: CGFloat = 64
+    /// Fits three preview lines plus the character count.
+    static let saveCardHeight: CGFloat = 84
 
     /// How many of the newest notes the panel lists under the save card.
     static let recentCount = 5

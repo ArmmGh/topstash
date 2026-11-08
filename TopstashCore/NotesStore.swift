@@ -3,7 +3,7 @@ import Observation
 
 public enum SaveResult: Equatable, Sendable {
     case saved(Note)
-    /// Returned from #3 on.
+    /// The text was already saved. Holds the existing note; nothing was written.
     case alreadySaved(Note)
     case empty
 }
@@ -64,10 +64,12 @@ public final class NotesStore {
     }
 
     /// Saves `text` exactly as given to a new note file, creating the folder if it's missing.
-    /// Empty or whitespace-only text returns `.empty` and writes nothing. Folder and write errors are thrown.
+    /// Empty or whitespace-only text returns `.empty`, and text that `contains` finds returns
+    /// `.alreadySaved` with the existing note; neither writes anything. Folder and write errors are thrown.
     @discardableResult
     public func save(_ text: String) throws -> SaveResult {
         guard !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return .empty }
+        if let existing = existingNote(for: text) { return .alreadySaved(existing) }
         try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
         // Whole seconds, so the note matches what the frontmatter stores.
         let created = Date(timeIntervalSince1970: now().timeIntervalSince1970.rounded(.down))
@@ -79,5 +81,24 @@ public final class NotesStore {
         let index = notes.firstIndex { NoteFile.isOrderedBefore(note, $0) } ?? notes.endIndex
         notes.insert(note, at: index)
         return .saved(note)
+    }
+
+    // MARK: - Duplicates (#3)
+
+    /// Whether a note already holds `text`, ignoring only leading and trailing whitespace and newlines.
+    /// Text that trims to empty never matches.
+    public func contains(_ text: String) -> Bool {
+        existingNote(for: text) != nil
+    }
+
+    /// The newest note whose body equals `text` after trimming both. A linear scan over `notes`.
+    private func existingNote(for text: String) -> Note? {
+        let trimmed = Self.trimmed(text)
+        guard !trimmed.isEmpty else { return nil }
+        return notes.first { Self.trimmed($0.body) == trimmed }
+    }
+
+    private static func trimmed(_ text: String) -> String {
+        text.trimmingCharacters(in: .whitespacesAndNewlines)
     }
 }

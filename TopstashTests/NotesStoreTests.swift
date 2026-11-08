@@ -287,4 +287,67 @@ struct NotesStoreTests {
 
         #expect(note.created == Self.fixedDate)
     }
+
+    // MARK: - Duplicates (#3)
+
+    @Test(arguments: [
+        "Refactor this module\nand add tests",
+        "  Refactor this module\nand add tests \t",
+        "\n\nRefactor this module\nand add tests\n\n",
+        "\r\n Refactor this module\nand add tests\r\n",
+    ])
+    func containsMatchesTheSameTextIgnoringLeadingAndTrailingWhitespace(text: String) throws {
+        let store = makeStore()
+        _ = try savedNote(store.save("Refactor this module\nand add tests"))
+
+        #expect(store.contains(text))
+    }
+
+    @Test(arguments: [
+        "Refactor this  module\nand add tests",
+        "Refactor this module\n\nand add tests",
+        "Refactor this module and add tests",
+        "Refactor this module\r\nand add tests",
+        "refactor this module\nand add tests",
+        "REFACTOR THIS MODULE\nAND ADD TESTS",
+        "Refactor this module",
+    ])
+    func containsIsFalseWhenInnerWhitespaceOrLetterCaseDiffers(text: String) throws {
+        let store = makeStore()
+        _ = try savedNote(store.save("Refactor this module\nand add tests"))
+
+        #expect(!store.contains(text))
+    }
+
+    @Test(arguments: ["", " ", "\n\n", " \t\r\n  "])
+    func containsIsFalseForEmptyOrWhitespaceOnlyText(text: String) throws {
+        let store = makeStore()
+        _ = try savedNote(store.save("A note"))
+
+        #expect(!store.contains(text))
+    }
+
+    @Test func savingADuplicateReturnsTheExistingNoteAndWritesNothing() throws {
+        let clock = Clock()
+        let store = makeStore(clock: clock)
+        let existing = try savedNote(store.save("Refactor this module"))
+        clock.advance(seconds: 60)
+
+        let result = try store.save("\n  Refactor this module \n")
+
+        #expect(result == .alreadySaved(existing))
+        #expect(try temp.fileNames() == [existing.fileURL.lastPathComponent])
+        #expect(store.notes == [existing])
+    }
+
+    @Test func newStoreFindsDuplicatesAmongNotesLoadedFromDisk() throws {
+        let existing = try savedNote(makeStore().save("```bash\nnpm test\n```\n"))
+
+        let reader = makeStore()
+
+        #expect(reader.contains("```bash\nnpm test\n```"))
+        #expect(!reader.contains("```bash\nnpm  test\n```"))
+        #expect(try reader.save("  ```bash\nnpm test\n```") == .alreadySaved(existing))
+        #expect(try temp.fileNames() == [existing.fileURL.lastPathComponent])
+    }
 }
