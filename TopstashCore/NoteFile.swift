@@ -1,3 +1,4 @@
+import CryptoKit
 import Foundation
 
 /// Turns a note into Markdown with frontmatter and back, and builds its filename. Used only by `NotesStore`.
@@ -24,32 +25,69 @@ enum NoteFile {
         return Data((header + body).utf8)
     }
 
-    /// Reads a file written by `contents(...)`: frontmatter with `id`, `created` and `type`, then the body
-    /// exactly as stored. `nil` if the frontmatter is missing or incomplete. Fallbacks for other files are #7.
-    static func note(from data: Data, fileURL: URL) -> Note? {
-        guard let text = String(data: data, encoding: .utf8), text.hasPrefix("---\n") else { return nil }
-        let fieldsStart = text.index(text.startIndex, offsetBy: 4)
-        guard let end = text.range(of: "\n---\n", options: .literal, range: fieldsStart ..< text.endIndex)
-        else { return nil }
+    /// Why a file in the notes folder isn't shown as a note.
+    enum SkipReason: String, Error {
+        case notUTF8 = "not valid UTF-8"
+        case empty = "empty"
+        case unclosedFrontmatter = "frontmatter has no closing ---"
+        case emptyBody = "body is empty"
+        case unsupportedType = "type isn't text"
+    }
+
+    /// Reads any Markdown file in the notes folder. Frontmatter is optional; a missing or invalid `id`
+    /// falls back to `fallbackID(for:)`, `created` to `fileDate()`, and `type` to `text`.
+    /// `fileDate` is only called when it's needed. Never writes to the file.
+    static func note(from data: Data, fileURL: URL, fileDate: () -> Date?) -> Result<Note, SkipReason> {
+        guard let text = String(data: data, encoding: .utf8) else { return .failure(.notUTF8) }
+        guard !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return .failure(.empty) }
 
         var fields: [String: String] = [:]
-        for line in text[fieldsStart ..< end.lowerBound].split(separator: "\n") {
-            guard let colon = line.firstIndex(of: ":") else { continue }
-            let key = line[..<colon].trimmingCharacters(in: .whitespaces)
-            fields[key] = line[line.index(after: colon)...].trimmingCharacters(in: .whitespaces)
+        var body = Substring(text)
+        switch frontmatter(of: text) {
+        case .none:
+            break
+        case .unclosed:
+            return .failure(.unclosedFrontmatter)
+        case .closed(let lines, let rest):
+            for line in lines {
+                guard let colon = line.firstIndex(of: ":") else { continue }
+                let key = line[..<colon].trimmingCharacters(in: .whitespaces)
+                fields[key] = line[line.index(after: colon)...].trimmingCharacters(in: .whitespaces)
+            }
+            guard !rest.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return .failure(.emptyBody) }
+            body = rest
         }
 
-        guard let noteID = fields["id"], !noteID.isEmpty,
-              let createdString = fields["created"],
-              let created = ISO8601DateFormatter().date(from: createdString)
-        else { return nil }
-        return Note(
-            noteID: noteID,
-            created: created,
-            type: fields["type"] ?? noteType,
-            body: String(text[end.upperBound...]),
-            fileURL: fileURL
-        )
+        // Other types are reserved for later versions, so they're skipped rather than shown as text.
+        guard (fields["type"] ?? "").isEmpty || fields["type"] == noteType else { return .failure(.unsupportedType) }
+        let noteID = fields["id"].flatMap { $0.isEmpty ? nil : $0 } ?? fallbackID(for: fileURL)
+        let created = fields["created"].flatMap { ISO8601DateFormatter().date(from: $0) } ?? fileDate() ?? .distantPast
+        return .success(Note(noteID: noteID, created: created, type: noteType, body: String(body), fileURL: fileURL))
+    }
+
+    private enum Frontmatter {
+        /// The first line isn't `---`.
+        case none
+        /// The first line is `---`, but no later line is.
+        case unclosed
+        /// The lines between the `---` lines, and everything after the closing line's line break.
+        case closed(lines: ArraySlice<Substring>, body: Substring)
+    }
+
+    /// Lines end at `\n` or `\r\n`, so a `---` line may have a trailing `\r`.
+    private static func frontmatter(of text: String) -> Frontmatter {
+        let lines = text.split(omittingEmptySubsequences: false) { $0 == "\n" || $0 == "\r\n" }
+        guard lines.first == "---" else { return .none }
+        guard let close = lines.dropFirst().firstIndex(of: "---") else { return .unclosed }
+        let closingEnd = lines[close].endIndex
+        let bodyStart = closingEnd < text.endIndex ? text.index(after: closingEnd) : text.endIndex
+        return .closed(lines: lines[1 ..< close], body: text[bodyStart...])
+    }
+
+    /// The first 8 hex characters of the SHA-256 of the filename, so it's the same on every load.
+    static func fallbackID(for fileURL: URL) -> String {
+        let digest = SHA256.hash(data: Data(fileURL.lastPathComponent.utf8))
+        return digest.prefix(4).map { String(format: "%02x", $0) }.joined()
     }
 
     /// Newest `created` first; ties broken by filename, descending, so the order is always the same.
