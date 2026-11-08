@@ -40,6 +40,6 @@ jobs:
         run: |
           set -o pipefail
           xcodebuild test \
-            -scheme Stashtop \
+            -scheme Topstash \
             -destination 'platform=macOS' \
             CODE_SIGNING_ALLOWED=NO

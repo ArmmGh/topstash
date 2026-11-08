@@ -2,7 +2,7 @@
 
 ### Issue tracker
 
-Issues are tracked in GitHub Issues on `ArmmGh/stashtop` (via `gh`). See `docs/agents/issue-tracker.md`.
+Issues are tracked in GitHub Issues on `ArmmGh/topstash` (via `gh`). See `docs/agents/issue-tracker.md`.
 
 ### Triage labels
 

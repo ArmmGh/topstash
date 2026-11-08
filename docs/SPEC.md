@@ -1,4 +1,4 @@
-# Stashtop v1 — save clipboard text from the notch
+# Topstash v1 — save clipboard text from the notch
 
 
 ## Problem Statement
@@ -72,7 +72,7 @@ A small macOS app that lives in the MacBook notch. When I hover over the notch, 
 46. As a user, I want no Dock icon, so that the app stays out of my way.
 47. As a user, I want a menu bar icon with Settings, Open notes folder, and Quit, so that I can always configure or quit the app.
 48. As a user, I want the app to launch at login (with a toggle), so that it's always available.
-49. As a user, I want to choose the notes folder in Settings (default `~/Documents/Stashtop/`), so that I can put it in a synced or versioned place.
+49. As a user, I want to choose the notes folder in Settings (default `~/Documents/Topstash/`), so that I can put it in a synced or versioned place.
 50. As a user, I want to set the global shortcut in Settings, so that it doesn't clash with my other shortcuts.
 51. As a user, I want to adjust the hover delay in Settings, so that I can tune how sensitive the panel is.
 52. As a user, I want the notes folder created automatically if it doesn't exist, so that the first save just works.
@@ -181,4 +181,4 @@ Decided after researching open-source notch apps (NotchKit and DynamicNotchKit, 
   2. The notch panel and hover behavior.
   3. Saving, the list, and search.
   4. Settings, the shortcut, and launch at login.
-- **Name:** Stashtop (stashtop.com and stashtop.app were unregistered on 2026-11-08).
+- **Name:** Topstash. topstash.app was unregistered on 2026-11-08; topstash.com has been registered by a third party since 2011 (expires 2027-07-27).

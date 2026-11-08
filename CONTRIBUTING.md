@@ -9,7 +9,7 @@ You need macOS 14 or later, Xcode, and [XcodeGen](https://github.com/yonaskolb/X
 ```sh
 brew install xcodegen
 xcodegen generate
-xcodebuild -scheme Stashtop -configuration Debug build
+xcodebuild -scheme Topstash -configuration Debug build
 ```
 
 The `.xcodeproj` is generated and git-ignored. Change `project.yml`, not the project file, then run `xcodegen generate` again.
@@ -19,7 +19,7 @@ The `.xcodeproj` is generated and git-ignored. Change `project.yml`, not the pro
 Tests use [Swift Testing](https://developer.apple.com/documentation/testing).
 
 ```sh
-xcodebuild test -scheme Stashtop -destination 'platform=macOS'
+xcodebuild test -scheme Topstash -destination 'platform=macOS'
 ```
 
 Model tests run `NotesStore` against a real temporary folder. Nothing is mocked. UI, window, and clipboard code is checked by running the app.

@@ -1,4 +1,4 @@
-# Stashtop
+# Topstash
 
 Save clipboard text from your MacBook's notch.
 
@@ -12,7 +12,7 @@ Hover over the notch, click once, and the text on your clipboard is saved as a M
 - **One-click save.** The panel previews your clipboard text. One click saves it as a note. No title or tag prompts. Duplicates are detected.
 - **Copy back.** Your 5 newest notes are listed in the panel. Click one to copy it back to the clipboard.
 - **Search.** "Show all" expands into full-text search across every note.
-- **Plain Markdown files.** Each note is a `.md` file with minimal frontmatter, in a folder you choose (default `~/Documents/Stashtop/`). Edit, grep, sync, or version them yourself. Changes made outside the app show up automatically.
+- **Plain Markdown files.** Each note is a `.md` file with minimal frontmatter, in a folder you choose (default `~/Documents/Topstash/`). Edit, grep, sync, or version them yourself. Changes made outside the app show up automatically.
 - **Works without a notch.** On external displays, an invisible area at the top center of the screen does the same job.
 - **Global shortcut.** Press ⌥⌘S (configurable) to save without opening the panel.
 - **Stays out of the way.** No Dock icon. A menu bar icon gives you Settings, Open notes folder, and Quit. Optional launch at login.
@@ -30,13 +30,13 @@ The Xcode project is generated from `project.yml` with [XcodeGen](https://github
 ```sh
 brew install xcodegen
 xcodegen generate
-xcodebuild -scheme Stashtop -configuration Debug build
+xcodebuild -scheme Topstash -configuration Debug build
 ```
 
 To run the tests:
 
 ```sh
-xcodebuild test -scheme Stashtop -destination 'platform=macOS'
+xcodebuild test -scheme Topstash -destination 'platform=macOS'
 ```
 
 ## Contributing

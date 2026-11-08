@@ -1,6 +1,6 @@
 # Issue tracker: GitHub Issues
 
-Issues and specs for this repo live in GitHub Issues on `ArmmGh/stashtop`. Use the `gh` CLI.
+Issues and specs for this repo live in GitHub Issues on `ArmmGh/topstash`. Use the `gh` CLI.
 
 ## Conventions
 
