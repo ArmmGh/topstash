@@ -49,10 +49,11 @@ final class AppModel {
     /// Reads the clipboard and saves its text as a note.
     func saveClipboard() -> Result<SaveResult, any Error> {
         let changeCount = clipboard.changeCount
-        let text = clipboard.readText() ?? ""
-        if clipboard.changeCount == changeCount {
-            knownClipboard = (text, changeCount)
+        let read = clipboard.readText()
+        if let read, clipboard.changeCount == changeCount {
+            knownClipboard = (read, changeCount)
         }
+        let text = read ?? ""
         do {
             return .success(try store.save(text))
         } catch {
