@@ -35,6 +35,11 @@ struct Clipboard {
         }
     }
 
+    /// Changes whenever any app replaces the clipboard's contents. Reading it never shows the alert.
+    var changeCount: Int {
+        pasteboard.changeCount
+    }
+
     /// Whether the clipboard holds `.string` text. Inspects the types, not the contents,
     /// so it never shows the paste privacy alert.
     func hasText() -> Bool {

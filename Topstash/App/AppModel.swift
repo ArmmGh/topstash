@@ -48,7 +48,11 @@ final class AppModel {
 
     /// Reads the clipboard and saves its text as a note.
     func saveClipboard() -> Result<SaveResult, any Error> {
+        let changeCount = clipboard.changeCount
         let text = clipboard.readText() ?? ""
+        if clipboard.changeCount == changeCount {
+            knownClipboard = (text, changeCount)
+        }
         do {
             return .success(try store.save(text))
         } catch {
@@ -61,6 +65,7 @@ final class AppModel {
     /// Nothing about the note or the order of notes changes.
     func copy(_ note: Note) {
         clipboard.write(note.body)
+        knownClipboard = (note.body, clipboard.changeCount)
         panel.copiedNote = note.id
         copiedResetTask?.cancel()
         copiedResetTask = .afterDelay(Motion.copiedDuration) { [weak self] in
@@ -75,12 +80,29 @@ final class AppModel {
     @ObservationIgnored
     private var saveCardResetTask: Task<Void, Never>?
 
+    /// The text the app itself last put on (copy) or read from (save) the clipboard, with the
+    /// clipboard's `changeCount` at that moment. While the count is unchanged, the clipboard still
+    /// holds this text, so the card can say "Already saved" without reading the clipboard (#3, #4).
+    @ObservationIgnored
+    private var knownClipboard: (text: String, changeCount: Int)?
+
+    /// `knownClipboard`'s text, if nothing has replaced it since.
+    private var knownClipboardText: String? {
+        guard let knownClipboard, knownClipboard.changeCount == clipboard.changeCount else { return nil }
+        return knownClipboard.text
+    }
+
     /// Sets the save card from the clipboard. Called when the panel opens, after `copy`,
     /// and when a transient "Saved" or "Couldn't save" ends.
     /// Reads the clipboard's contents only when that can't show the paste privacy alert (#4).
     func refreshSaveCard() {
         guard clipboard.hasText() else {
             panel.saveCard = .nothingToSave
+            return
+        }
+        // Text the app copied or saved itself is known even when reading would show the alert.
+        if let text = knownClipboardText, store.contains(text) {
+            panel.saveCard = .alreadySaved
             return
         }
         switch clipboard.access {
