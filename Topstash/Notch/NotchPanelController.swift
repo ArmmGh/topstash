@@ -339,9 +339,26 @@ final class NotchPanelController {
             }
             // A hover delay running from before would replace the feedback with the normal panel.
             cancelHoverDelay()
-            appModel.showSaveResult(result, reverts: false)
+            guard case .success(.saved(let note)) = result else {
+                appModel.showSaveResult(result, reverts: false)
+                open(on: displayID, as: .feedback)
+                startFeedbackTimer()
+                return
+            }
+            // A new save opens with the card showing the text, and plays the save feedback (fly-up,
+            // gulp, checkmark, haptic) once the shape has expanded, so the gulp doesn't overlap the
+            // expand spring (#11). The countdown starts with the feedback.
+            appModel.showCardBeforeSave(of: note.body)
             open(on: displayID, as: .feedback)
-            startFeedbackTimer()
+            let settle = Motion.expandSettleDuration(
+                reduceMotion: NSWorkspace.shared.accessibilityDisplayShouldReduceMotion
+            )
+            // Leaving `.feedback`, or another press, cancels it like the countdown.
+            feedbackTask = .afterDelay(settle) { [weak self] in
+                guard let self else { return }
+                self.appModel.showSaveResult(result, reverts: false)
+                self.startFeedbackTimer()
+            }
         }
     }
 

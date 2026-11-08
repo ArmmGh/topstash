@@ -30,6 +30,12 @@ enum Motion {
     /// How long the card shows "Couldn't save" before it's refreshed.
     static let failedDuration: Double = 2
 
+    /// From opening until the shape has settled. The shortcut's save feedback waits for it when it
+    /// opens the panel (#10), so the gulp doesn't overlap the expand spring.
+    static func expandSettleDuration(reduceMotion: Bool) -> Double {
+        reduceMotion ? reducedDuration : expandDuration
+    }
+
     /// From closing to `orderOut`: the content fades out, then the shape collapses.
     static let closeDuration: Double = contentOutDuration + max(collapseDuration, reducedDuration)
 

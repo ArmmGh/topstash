@@ -61,11 +61,8 @@ struct SaveCard: View {
             }
             .foregroundStyle(.white.opacity(0.35))
         case .saved:
-            // Kept for completeness: `SaveCardSlot` shows a checkmark instead of this card.
-            card {
-                icon("checkmark.circle.fill")
-                label("Saved")
-            }
+            // `SaveCardSlot` shows its checkmark instead of a card.
+            EmptyView()
         case .failed:
             card {
                 icon("exclamationmark.triangle")
@@ -141,12 +138,9 @@ struct SaveCardSlot: View {
     let action: () -> Void
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    /// Bumped when the slot appears already saved: the shortcut (#10) saves before its feedback panel
-    /// opens, so there's no card to fly up, but the checkmark still bounces.
-    @State private var appearBounces = 0
 
     private var isSaved: Bool { panel.saveCard == .saved }
-    private var bounceTrigger: Int { reduceMotion ? 0 : panel.saveCount + appearBounces }
+    private var bounceTrigger: Int { reduceMotion ? 0 : panel.saveCount }
 
     var body: some View {
         ZStack {
@@ -168,11 +162,6 @@ struct SaveCardSlot: View {
             .accessibilityHidden(!isSaved)
         }
         .frame(height: PanelLayout.saveCardHeight)
-        .onAppear {
-            if isSaved {
-                appearBounces += 1
-            }
-        }
         .animation(isSaved ? (reduceMotion ? Motion.reduced : Motion.flyUp) : Motion.contentIn, value: isSaved)
     }
 }

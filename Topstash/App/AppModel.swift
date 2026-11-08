@@ -149,6 +149,14 @@ final class AppModel {
         }
     }
 
+    /// The card for a save the shortcut made while the panel was closed (#10), until its feedback
+    /// plays: the saved text as if it were unsaved, so it has a card to fly up (#11).
+    func showCardBeforeSave(of text: String) {
+        saveCardResetTask?.cancel()
+        saveCardResetTask = nil
+        panel.saveCard = .preview(text: text, characterCount: text.count)
+    }
+
     /// The haptic, and through `panel.saveCount` the checkmark bounce and the notch's gulp (#11).
     /// Here rather than in a view, so it plays however the save happened and whatever is on screen.
     private func playSaveFeedback() {
