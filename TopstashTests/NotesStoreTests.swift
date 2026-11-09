@@ -351,6 +351,21 @@ struct NotesStoreTests {
         #expect(try reader.save("  ```bash\nnpm test\n```") == .alreadySaved(existing))
         #expect(try temp.fileNames() == [existing.fileURL.lastPathComponent])
     }
+
+    @Test func textSavedAMomentAgoIsReportedAsAlreadySaved() throws {
+        let clock = Clock()
+        let store = makeStore(clock: clock)
+        #expect(!store.contains("Write a haiku"))
+        let first = try savedNote(store.save("Write a haiku"))
+        clock.advance(seconds: 1)
+        let second = try savedNote(store.save("Write a limerick"))
+
+        #expect(store.contains("Write a haiku"))
+        #expect(store.contains("Write a limerick"))
+        #expect(try store.save("Write a haiku\n") == .alreadySaved(first))
+        #expect(try store.save(" Write a limerick") == .alreadySaved(second))
+        #expect(store.notes == [second, first])
+    }
 }
 
 // MARK: - Deleting (#6)
@@ -416,6 +431,61 @@ extension NotesStoreTests {
         #expect(store.notes == [again])
         #expect(try temp.fileNames() == [again.fileURL.lastPathComponent])
         #expect(again.noteID != deleted.noteID)
+    }
+
+    @Test func deletingTheOnlyNoteHoldingSomeTextMeansItIsNoLongerSaved() throws {
+        let trash = TemporaryFolder()
+        let store = makeStore(trashingInto: trash)
+        let kept = try savedNote(store.save("Keep this prompt"))
+        let doomed = try savedNote(store.save("Delete this prompt"))
+        #expect(store.contains("Delete this prompt"))
+
+        try store.delete(doomed)
+
+        #expect(!store.contains("Delete this prompt"))
+        #expect(store.contains("Keep this prompt"))
+        #expect(try store.save("Keep this prompt") == .alreadySaved(kept))
+    }
+}
+
+// MARK: - Background reloads
+
+extension NotesStoreTests {
+    @Test func backgroundReloadStartedBeforeADeleteDoesNotBringTheNoteBack() async throws {
+        // The file stays on disk, so whenever the background reload reads the folder it finds the note.
+        let store = makeStore { _ in }
+        let kept = try savedNote(store.save("Kept"))
+        let deleted = try savedNote(store.save("Deleted"))
+
+        let reload = store.reloadInBackground()
+        try store.delete(deleted)
+        await reload.value
+
+        #expect(store.notes == [kept])
+        #expect(!store.contains("Deleted"))
+    }
+
+    @Test func backgroundReloadStartedBeforeASaveDoesNotDropTheSavedNote() async throws {
+        let store = makeStore()
+
+        let reload = store.reloadInBackground()
+        let saved = try savedNote(store.save("Saved during a reload"))
+        // Gone from disk, so a reload that read the folder before the save, or after this line, misses it.
+        try FileManager.default.removeItem(at: saved.fileURL)
+        await reload.value
+
+        #expect(store.notes == [saved])
+        #expect(store.contains("Saved during a reload"))
+    }
+
+    @Test func backgroundReloadWithNothingInTheWayAppliesWhatItRead() async throws {
+        let store = makeStore()
+        try writeExternal("added.md", "Added by another program")
+
+        await store.reloadInBackground().value
+
+        #expect(store.notes.map(\.body) == ["Added by another program"])
+        #expect(store.contains("Added by another program"))
     }
 }
 
@@ -499,6 +569,34 @@ extension NotesStoreTests {
         #expect(note.noteID == "abcd1234")
         #expect(note.created == Self.fixedDate)
         #expect(note.body == "Line one\r\nLine two")
+    }
+
+    @Test(arguments: [
+        "2026-11-08T19:52:14+04:00",
+        "2026-11-08T15:52:14Z",
+        "2026-11-08T12:22:14-03:30",
+    ])
+    func createdWithAnOffsetOrZParsesToTheSameDate(created: String) throws {
+        try writeExternal("dated.md", "---\nid: abcd1234\ncreated: \(created)\ntype: text\n---\nBody")
+
+        let note = try #require(makeStore().notes.first)
+
+        #expect(note.created == Self.fixedDate)
+    }
+
+    /// Other tools may write sub-second precision. It's kept rather than ignored, so the note gets
+    /// its real date instead of falling back to the file's creation date.
+    @Test(arguments: [
+        (created: "2026-11-08T19:52:14.5+04:00", fraction: 0.5),
+        (created: "2026-11-08T15:52:14.250Z", fraction: 0.25),
+    ])
+    func createdWithFractionalSecondsKeepsTheFraction(created: String, fraction: TimeInterval) throws {
+        let url = try writeExternal("precise.md", "---\nid: abcd1234\ncreated: \(created)\ntype: text\n---\nBody")
+        try FileManager.default.setAttributes([.creationDate: Date(timeIntervalSince1970: 1_700_000_000)], ofItemAtPath: url.path(percentEncoded: false))
+
+        let note = try #require(makeStore().notes.first)
+
+        #expect(note.created == Self.fixedDate.addingTimeInterval(fraction))
     }
 
     @Test func fileWithANonTextTypeIsSkipped() throws {

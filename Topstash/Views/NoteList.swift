@@ -13,8 +13,8 @@ struct NoteList: View {
     var body: some View {
         if notes.isEmpty {
             Text(emptyText)
-                .font(.system(size: 12))
-                .foregroundStyle(.white.opacity(0.6))
+                .font(PanelStyle.body)
+                .foregroundStyle(PanelStyle.secondary)
                 .frame(maxWidth: .infinity, minHeight: PanelLayout.rowHeight)
         } else if scrolls {
             ScrollView {

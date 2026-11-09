@@ -13,9 +13,8 @@ public enum SaveResult: Equatable, Sendable {
 public final class NotesStore {
     public let folder: URL
     /// Newest first.
-    public private(set) var notes: [Note] = [] {
-        didSet { notesByTrimmedBody = nil }
-    }
+    /// Changed only by `setNotes(_:indexing:)`.
+    public private(set) var notes: [Note] = []
 
     private let now: () -> Date
     private let timeZone: TimeZone
@@ -35,37 +34,48 @@ public final class NotesStore {
         reload()
     }
 
-    /// Bumped by every change to `notes`, so a background reload that started before it is dropped.
+    /// Bumped by every change to `notes` and every background reload's start, so a background
+    /// reload that started before either is dropped.
     @ObservationIgnored private var generation = 0
     /// Each trimmed body, mapped to the newest note holding it, for `existingNote(trimmed:)`.
-    /// Built on first use; cleared whenever `notes` changes.
+    /// Built on first use; kept in step with `notes` by `setNotes(_:indexing:)`.
     @ObservationIgnored private var notesByTrimmedBody: [String: Note]?
+
+    /// The one place `notes` changes. Bumps `generation`, so a background reload that started
+    /// earlier is dropped, and keeps the duplicate index in step: `indexing` updates it for a change
+    /// it can describe (a save adds one body), otherwise it's cleared and rebuilt on next use.
+    private func setNotes(_ newNotes: [Note], indexing: ((inout [String: Note]) -> Void)? = nil) {
+        generation += 1
+        if let indexing, notesByTrimmedBody != nil {
+            indexing(&notesByTrimmedBody!)
+        } else {
+            notesByTrimmedBody = nil
+        }
+        // Skipping an equal assignment keeps SwiftUI from redrawing for nothing.
+        if newNotes != notes {
+            notes = newNotes
+        }
+    }
 
     /// Reads the folder on the calling (main) thread. Used when the store is created, so `notes`
     /// is filled from the start; folder changes use `reloadInBackground()`.
     /// Assigns `notes` only when the result differs.
     public func reload() {
-        generation += 1
-        apply(Self.loadNotes(in: folder))
+        setNotes(Self.loadNotes(in: folder))
     }
 
     /// Reads the folder off the main thread, then assigns `notes` unless a save, a delete, or a newer
     /// reload happened in the meantime (the file change behind it triggers another reload).
-    public func reloadInBackground() {
+    /// The returned task finishes once the result is applied or dropped.
+    @discardableResult
+    public func reloadInBackground() -> Task<Void, Never> {
         generation += 1
         let started = generation
         let folder = folder
-        Task {
+        return Task {
             let loaded = await Task.detached(priority: .userInitiated) { Self.loadNotes(in: folder) }.value
             guard started == generation else { return }
-            apply(loaded)
-        }
-    }
-
-    private func apply(_ loaded: [Note]) {
-        // Skipping an equal assignment keeps SwiftUI from redrawing for nothing.
-        if loaded != notes {
-            notes = loaded
+            setNotes(loaded)
         }
     }
 
@@ -145,13 +155,10 @@ public final class NotesStore {
         let data = NoteFile.contents(noteID: noteID, created: created, timeZone: timeZone, body: text)
         try data.write(to: fileURL, options: .atomic)
         let note = Note(noteID: noteID, created: created, body: text, fileURL: fileURL)
-        let index = notes.firstIndex { NoteFile.isOrderedBefore(note, $0) } ?? notes.endIndex
-        generation += 1
+        var updated = notes
+        updated.insert(note, at: notes.firstIndex { NoteFile.isOrderedBefore(note, $0) } ?? notes.endIndex)
         // No note held this text, so the index only gains the new note instead of being rebuilt.
-        let byBody = notesByTrimmedBody
-        notes.insert(note, at: index)
-        notesByTrimmedBody = byBody
-        notesByTrimmedBody?[trimmed] = note
+        setNotes(updated) { $0[trimmed] = note }
         return .saved(note)
     }
 
@@ -167,8 +174,8 @@ public final class NotesStore {
         } catch {
             // Already removed on disk: nothing to move.
         }
-        generation += 1
-        notes.removeAll { $0.id == note.id }
+        // Another note may hold the same text, so the index is rebuilt.
+        setNotes(notes.filter { $0.id != note.id })
     }
 
     /// The default `trash`.
