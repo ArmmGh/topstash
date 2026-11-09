@@ -7,7 +7,7 @@ I keep finding useful one-off prompts (mostly on Twitter) that I want to run aga
 
 ## Solution
 
-A small macOS app that lives in the MacBook notch. When I hover over the notch, a panel drops down. It shows a preview of the text currently on my clipboard, and one click saves it as a note. The same panel lists my newest notes; clicking a note copies it back to the clipboard, ready to paste into Claude Code or Cursor. "Show all" expands the panel into full-text search across every note. Notes are plain Markdown files in a folder I choose, so I (and my coding agents) can also grep, edit, sync, or version them outside the app. On screens without a notch, an invisible area at the top center of the screen behaves the same way. A global keyboard shortcut saves the clipboard without using the mouse.
+A small macOS app that lives in the MacBook notch. When I hover over the notch, a panel drops down. It shows a preview of the text currently on my clipboard, and one click saves it as a note. The same panel lists my newest notes; clicking a note copies it back to the clipboard, ready to paste into Claude Code or Cursor. A search button beside the notch expands the panel into full-text search across every note. Notes are plain Markdown files in a folder I choose, so I (and my coding agents) can also grep, edit, sync, or version them outside the app. On screens without a notch, an invisible area at the top center of the screen behaves the same way. A global keyboard shortcut saves the clipboard without using the mouse.
 
 ## User Stories
 
@@ -46,11 +46,11 @@ A small macOS app that lives in the MacBook notch. When I hover over the notch, 
 26. As a user, I want the panel to show my 5 newest notes below the save card, so that recently saved prompts are reachable in one hover.
 27. As a user, I want clicking a note to copy its full text to the clipboard, so that I can paste it straight into my coding agent.
 28. As a user, I want a "Copied" confirmation after clicking a note, so that I know the copy worked.
-29. As a user, I want a "Show all" control that expands the panel into a search field and the full list of notes, so that I can reach older notes.
+29. As a user, I want a search button in the header beside the notch that expands the panel into a search field and the full list of notes, so that I can reach older notes.
 30. As a user, I want search to match every word I type, case-insensitively, across the full text of each note, so that I can find a prompt from any phrase I remember.
 31. As a user, I want results to update as I type, so that searching feels instant.
 32. As a user, I want the notes in the list sorted newest first, so that the order is predictable.
-33. As a user, I want each row to show the title and a short preview of the text, so that I can tell similar notes apart.
+33. As a user, I want each row to show the title, a short preview of the text, and how long ago the note was saved, so that I can tell similar notes apart. In search results, the preview shows the part of the note that matched, with the matched words in bold, so that I can see why it's in the list.
 34. As a user, I want the panel to stay open while I type in the search field, so that searching isn't interrupted.
 
 ### Managing notes
@@ -70,7 +70,7 @@ A small macOS app that lives in the MacBook notch. When I hover over the notch, 
 
 ### App shell and settings
 46. As a user, I want no Dock icon, so that the app stays out of my way.
-47. As a user, I want a menu bar icon with Settings, Open notes folder, and Quit, so that I can always configure or quit the app.
+47. As a user, I want a menu bar icon with Settings, Open notes folder, and Quit, so that I can always configure or quit the app. The icon is the SF Symbol `tray.and.arrow.up`, pointing the way a save goes.
 48. As a user, I want the app to launch at login (with a toggle), so that it's always available.
 49. As a user, I want to choose the notes folder in Settings (default `~/Documents/Topstash/`), so that I can put it in a synced or versioned place.
 50. As a user, I want to set the global shortcut in Settings, so that it doesn't clash with my other shortcuts.
@@ -146,6 +146,30 @@ Decided after researching open-source notch apps (NotchKit and DynamicNotchKit, 
 - **Content:** comes in with opacity, blur 8→0, and scale 0.96→1 anchored at the top, using `.easeOut(0.22).delay(0.07)`. It leaves with opacity only, `.easeIn(0.12)`, before the shape closes. Rows are not staggered.
 - **Save feedback (about 0.6 s total):** the card dips to scale 0.96 on press. On save, the card shrinks and flies up into the notch, the notch does a small "gulp" bump (`.spring(response: 0.3, dampingFraction: 0.5)`, scale 1.04), a checkmark appears with `.symbolEffect(.bounce)`, and a trackpad haptic fires.
 - **Reduce Motion:** the shape expands and collapses with a plain `.easeOut(0.2)` and no bounce, content only fades (no blur or scale), and saving cross-fades a checkmark and fires the haptic.
+
+## Visual Design
+
+Decided after a research pass against primary sources (`docs/research/notch-panel-design.md`) and a rendered prototype (branch `prototype/notch-panel-design`). The panel stays black and white, with no accent color.
+
+- **Type:** SF Pro, default design, with the system's own tracking. Two sizes and two weights, matching macOS Body (13) and Subheadline (11):
+  - `title`, 13 medium: row titles, the header label, the card's labels, "Saved".
+  - `body`, 13 regular: the clipboard preview, the search field, empty states.
+  - `meta`, 11 regular with monospaced digits: row previews, ages, counts, hints.
+
+  Symbols take their size from the text beside them. The "Saved" checkmark is the one larger symbol (about 22 pt).
+- **Text colors:** white at 1.0 / 0.6 / 0.5 (primary / secondary / tertiary). 0.5 is the floor: anything lower fails WCAG AA (4.5:1) for 11–13 pt text on black.
+- **Fills:** white 0.06 for hover and 0.10 for surfaces (the save card, the search field, the header button). 0.10 matches the system's `systemFill` in dark mode.
+- **Increase Contrast:** when `colorSchemeContrast` is `.increased`, each text and fill level steps up. The values are picked on the device.
+- **Keyboard selection:** a 1.5 pt ring of white 0.6 on the hover fill. This clears WCAG 1.4.11's 3:1 for state indicators while staying black and white; a fill-only highlight doesn't (0.16 on 0.10 is 1.2:1).
+- **Spacing:** a 4 pt grid and one 12 pt inset, used from the shape's edge to the card and rows and again inside each card and row. Every text edge and the card's icon sit 24 pt from the shape's edge. Rows are 40 pt tall.
+- **Radii:** the shape is 15 (outward top) / 20 (bottom); the card is 12; rows are 8, which is 20 − 12, so they nest inside the bottom corners. The radii are set by hand, because `ConcentricRectangle` needs macOS 26.
+- **Width:** 400 pt in both the list and search. Switching modes changes only the height.
+- **Header:** a band beside the notch, as tall as the notch (`safeAreaInsets.top`; the menu bar's height on screens without one). It replaces the fixed 38 pt clearance and the "Show all" bar.
+  - Left: "Recent", or "Search" in search mode, in `title` and the secondary color.
+  - Right: the note count in `meta` and the tertiary color, then a 28 × 28 pt circular button on the surface fill: search in the list, close in search.
+- **Save card:** the `tray.and.arrow.up` symbol, up to 3 lines of preview in `body`, and a `meta` line such as "Click to save · 1,284 characters".
+- **Rows:** title and preview on the left, and the age on the right in `meta` and the tertiary color ("2h", "3d", "Oct 28").
+- **Menu bar icon:** the SF Symbol `tray.and.arrow.up`, which the HIG suggests over a custom image. Make a custom SF Symbol only if a brand mark is needed later.
 
 ## Testing Decisions
 
