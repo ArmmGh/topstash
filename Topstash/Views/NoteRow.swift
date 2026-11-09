@@ -3,12 +3,15 @@ import TopstashCore
 
 /// One note in the recent list or the search results: its title and preview, and its age on the right.
 /// Clicking it copies the note. Right-clicking offers "Open in Editor" and "Delete".
+/// In search, the keyboard-selected row has a ring on the hover fill.
 struct NoteRow: View {
     let note: Note
     /// The search query, so the preview shows the part of the note that matched. `nil` in the recent list.
     let query: String?
     /// Shows "Copied" in place of the preview.
     let isCopied: Bool
+    /// The search result ↑/↓ selected, which Return copies.
+    let isSelected: Bool
     let openInEditor: () -> Void
     let delete: () -> Void
     let action: () -> Void
@@ -47,11 +50,16 @@ struct NoteRow: View {
             .padding(.horizontal, PanelLayout.inset)
             .frame(height: PanelLayout.rowHeight)
             .background {
-                if isHovered { rowShape.fill(PanelStyle.hoverFill) }
+                // Hovering another row shows its fill without moving the selection.
+                if isSelected || isHovered { rowShape.fill(PanelStyle.hoverFill) }
+                if isSelected {
+                    rowShape.strokeBorder(PanelStyle.selectionRing, lineWidth: PanelLayout.selectionRingWidth)
+                }
             }
             .contentShape(rowShape)
         }
         .buttonStyle(.plain)
+        .accessibilityAddTraits(isSelected ? .isSelected : [])
         .contextMenu {
             Button("Open in Editor", action: openInEditor)
             Divider()

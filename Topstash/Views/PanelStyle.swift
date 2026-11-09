@@ -24,6 +24,9 @@ enum PanelStyle {
     static let hoverFill = PanelColor(standard: 0.06, increased: 0.12)
     /// Behind the save card, the search field, and the header's button. Matches `systemFill` in dark mode.
     static let surfaceFill = PanelColor(standard: 0.10, increased: 0.18)
+    /// The ring around the keyboard-selected search result, on `hoverFill`. A ring, not a brighter
+    /// fill, so the selection clears WCAG's 3:1 for state indicators.
+    static let selectionRing = secondary
 
     // MARK: - Fonts
 

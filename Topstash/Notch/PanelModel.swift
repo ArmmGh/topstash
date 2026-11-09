@@ -15,13 +15,14 @@ final class PanelModel {
         case feedback
     }
 
-    /// Closing resets `query`, so the next open shows the recent list with an empty query.
+    /// Closing resets `query` and the selection, so the next open shows the recent list with an empty query.
     /// Only `NotchPanelController` sets it, together with what the window does in each mode; views
     /// ask for changes through `PanelActions`. Setting it has no effect on windows or focus.
     var mode: Mode = .closed {
         didSet {
             if mode == .closed {
                 query = ""
+                selection = 0
                 searchStatus = nil
             } else {
                 showsOnlySaveCard = mode == .feedback
@@ -41,10 +42,28 @@ final class PanelModel {
     /// The card slot's height, which the shape's height depends on: `PanelLayout.saveCardHeight(for:)`
     /// of the card shown, or of the card before `.saved`.
     private(set) var saveCardHeight = PanelLayout.saveCardHeight(for: .nothingToSave)
-    /// The search field's text.
-    var query = ""
+    /// The search field's text. A new query selects the first result.
+    var query = "" {
+        // The field sets its text again on Return, so only a different query resets the selection.
+        didSet { if query != oldValue { selection = 0 } }
+    }
+    /// The keyboard selection: an index into the search results, which may outlast results that
+    /// were deleted. Read it through `selectedResult(among:)`.
+    private var selection = 0
     /// The shortcut's result while searching, shown next to the search field for a moment.
     var searchStatus: ClipboardSaveResult?
+    /// The selected search result's index among `count` results: the first as you type, and never
+    /// past the last. `nil` with no results.
+    func selectedResult(among count: Int) -> Int? {
+        count > 0 ? min(selection, count - 1) : nil
+    }
+
+    /// ↑ (-1) or ↓ (+1): moves the selection among `count` results, stopping at the ends.
+    func moveSelection(by step: Int, among count: Int) {
+        guard let current = selectedResult(among: count) else { return }
+        selection = min(max(current + step, 0), count - 1)
+    }
+
     /// True in `.feedback`, and kept while closing from it, so the list doesn't pop in during the fade.
     private(set) var showsOnlySaveCard = false
 

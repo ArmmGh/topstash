@@ -149,7 +149,7 @@ A small macOS app that lives in the MacBook notch. When I hover over the notch, 
 - **Hover delay:** 250 ms by default, adjustable in Settings.
 - **Delete:** moves the file to the Trash. No confirmation dialog.
 - **Copying:** clicking a note copies it, shows "Copied" for about 0.5 s, then closes the panel as a dismissal (it stays closed until the cursor leaves). Return in search copies and closes at once.
-- **Keyboard in search:** the search field keeps focus; `onKeyPress` (macOS 14+) handles ↑/↓, Return, and ⌥Return. The selection is an index into the results, reset to the first result whenever the query changes, and scrolled into view as it moves.
+- **Keyboard in search:** the search field keeps focus; `onKeyPress` (macOS 14+) handles ↑/↓ and ⌥Return. Plain Return goes through the field's `onSubmit`, because the field takes it before `onKeyPress` sees it. The selection is an index into the results, reset to the first result whenever the query changes (not when the field sets the same text again), and scrolled only as far as needed to keep it in view.
 - **Search shortcut:** a second `KeyboardShortcuts` name with no default, recorded in Settings under the save shortcut. It opens the panel in search mode on the screen with the cursor, and the panel becomes key so the field can take typing. If the panel is already in search, the shortcut closes it.
 - **Paste (opt-in):** off by default. When on, ⌥Return copies the note, closes the panel, then posts ⌘V with `CGEvent`. Before the first paste it checks `CGPreflightPostEventAccess()` and asks with `CGRequestPostEventAccess()`; without access it copies only and says so. Because `NotchPanel` doesn't activate the app, the previous app should still be frontmost; verify this.
 - **Titles:** the first non-empty line, skipping lines that are only a code fence and removing leading `#` heading markers.
@@ -192,6 +192,8 @@ Decided after a research pass against primary sources (`docs/research/notch-pane
 - **Save card:** the `tray.and.arrow.up` symbol, up to 3 lines of preview in `body`, and a `meta` line such as "Click to save · 1,284 characters". The preview starts at the clipboard's first visible character, so its first line isn't indented; the saved note keeps the text as it is.
 - **Rows:** title and preview on the left, and the age on the right in `meta` and the tertiary color ("2h", "3d", "Oct 28").
   - In search, the preview is a snippet of the text after the title line: it starts about 24 characters before the first match, on a word boundary, with a leading "…", and every query word in it is in `metaMatch`. The row truncates its end with "…". A match only in the title, or an empty query, shows the normal preview.
+  - In search, the selected row has the keyboard selection ring; hovering another row shows its hover fill and leaves the selection where it is.
+- **Key hints:** under the search results, "⏎ Copy" and "↑↓ Move" in `meta` and the tertiary color, 12 pt apart, with text edges 24 pt from the shape's edge like the rows. "⌥⏎ Paste" joins them when paste is on. Hidden when nothing matches, since the keys do nothing then.
 - **Menu bar icon:** the SF Symbol `tray.and.arrow.up`, which the HIG suggests over a custom image. Make a custom SF Symbol only if a brand mark is needed later.
 
 ## Testing Decisions
