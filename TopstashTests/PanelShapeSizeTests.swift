@@ -21,10 +21,12 @@ struct PanelShapeSizeTests {
         return panel
     }
 
-    @Test func closedUnderANotchIsTheNotchSize() {
+    /// 4 pt smaller than the notch, so its edges hide behind the hardware notch and the panel seems
+    /// to grow out of it.
+    @Test func closedUnderANotchHidesBehindTheNotch() {
         let size = PanelLayout.shapeSize(for: makePanel(.closed), noteCount: 3)
 
-        #expect(size == CGSize(width: 185, height: 32))
+        #expect(size == CGSize(width: 181, height: 28))
     }
 
     @Test func closedWithoutANotchIsTheHoverStripWithNoHeight() {

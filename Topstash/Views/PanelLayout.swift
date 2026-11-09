@@ -22,9 +22,13 @@ enum PanelLayout {
     /// `NotchShape` radii while open. The outward top corners add `topCornerRadius` on each side.
     static let topCornerRadius: CGFloat = 15
     static let bottomCornerRadius: CGFloat = 20
-    /// `NotchShape` radii while closed, when the shape is the size of the hover area (the notch).
-    static let collapsedTopCornerRadius: CGFloat = 6
+    /// `NotchShape` radii while closed, when the shape hides behind the notch. No outward top
+    /// corners, which would show beside the notch: they grow as the shape comes out of it.
+    static let collapsedTopCornerRadius: CGFloat = 0
     static let collapsedBottomCornerRadius: CGFloat = 14
+    /// How much narrower and shorter than the notch the closed shape is, so its edges hide behind
+    /// the hardware notch on the first and last frames, and the panel seems to grow out of the notch.
+    static let hiddenNotchInset: CGFloat = 4
 
     // MARK: - Header
 
@@ -168,12 +172,17 @@ enum PanelLayout {
     }
 
     /// The size of the shape's body (without the outward top corners) in the panel's mode: closed,
-    /// the notch's size (or the hover strip's, on screens without one); open, the header, the card,
+    /// just inside the notch (or the hover strip with no height, on screens without one); open, the header, the card,
     /// and up to `recentCount` of the store's `noteCount` notes; search, its `resultCount` results.
     @MainActor static func shapeSize(for panel: PanelModel, noteCount: Int, resultCount: Int = 0) -> CGSize {
         switch panel.mode {
         case .closed:
-            panel.closedSize
+            // Without a notch the closed shape has no height and draws nothing.
+            panel.closedSize.height > 0
+                ? CGSize(
+                    width: panel.closedSize.width - hiddenNotchInset,
+                    height: panel.closedSize.height - hiddenNotchInset)
+                : panel.closedSize
         case .open:
             CGSize(
                 width: panelWidth,

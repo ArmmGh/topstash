@@ -86,6 +86,9 @@ extension NSPanel {
         isOpaque = false
         backgroundColor = .clear
         hasShadow = false
+        // No system fade on ordering in and out: it showed a translucent ghost of the closed shape
+        // beside the notch. The SwiftUI content does all the animating.
+        animationBehavior = .none
         hidesOnDeactivate = false
         isReleasedWhenClosed = false
         collectionBehavior = [.fullScreenAuxiliary, .canJoinAllSpaces, .stationary, .ignoresCycle]

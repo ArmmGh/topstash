@@ -54,11 +54,14 @@ struct PanelView: View {
                         gulping ? Motion.gulp.delay(Motion.gulpDelay) : Motion.gulp
                     }
             }
+            // No shadow while closed: the hardware notch casts none, so a shadow under the closed
+            // shape would show it as a separate object. It fades in and out with the shape.
             .shadow(
-                color: .black.opacity(PanelLayout.shadowOpacity),
+                color: .black.opacity(isOpen ? PanelLayout.shadowOpacity : 0),
                 radius: PanelLayout.shadowRadius,
                 y: PanelLayout.shadowOffsetY
             )
+            .animation(Motion.shape(expanding: isOpen, reduceMotion: reduceMotion), value: isOpen)
             .allowsHitTesting(false)
     }
 
@@ -82,8 +85,6 @@ struct PanelView: View {
                     .padding(.top, panel.headerHeight + PanelLayout.sectionSpacing)
                     .padding(.bottom, PanelLayout.inset)
                     .frame(width: PanelLayout.panelWidth, height: shapeSize.height, alignment: .top)
-                    // Rows that arrive while the shape is still growing to fit them show only inside it.
-                    .mask(alignment: .top) { animatedShape }
                     .transition(Motion.content(reduceMotion: reduceMotion))
             }
             if isOpen {
@@ -103,6 +104,10 @@ struct PanelView: View {
             }
         }
         .animation(isOpen ? Motion.contentIn : Motion.contentOut, value: panel.mode)
+        // Content shows only inside the shape: while it grows, the full-size, still-blurred card and
+        // rows would otherwise spill past its edges as a grey smear, and in search, rows that arrive
+        // before the shape has grown to fit them would show below it.
+        .mask(alignment: .top) { animatedShape }
         .allowsHitTesting(isOpen)
     }
 
