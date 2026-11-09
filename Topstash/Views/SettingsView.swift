@@ -91,9 +91,12 @@ struct SettingsView: View {
             // Turning this on doesn't ask for Accessibility access; ⌥Return asks when it needs it.
             Toggle("⌥Return in search pastes into the previous app", isOn: $pastesOnOptionReturn)
         } footer: {
-            Text("Needs Accessibility access, asked for the first time you use it.")
-                .font(.callout)
-                .foregroundStyle(.secondary)
+            // Tested on macOS 27: access granted while Topstash runs only applies after a relaunch.
+            Text(
+                "Needs Accessibility access, asked for the first time you use it. After allowing it, quit and reopen Topstash."
+            )
+            .font(.callout)
+            .foregroundStyle(.secondary)
         }
     }
 
