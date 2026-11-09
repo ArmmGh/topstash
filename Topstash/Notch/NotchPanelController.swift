@@ -19,9 +19,9 @@ final class NotchPanelController {
     private var monitors: [Any] = []
     private var screenObserver: (any NSObjectProtocol)?
     /// Runs while `state` is `.hovering`.
-    private var hoverTask: Task<Void, Never>?
+    private let hoverDelay = DelayedAction()
     /// Runs while the close animation does: in `.closing`, or in `.hovering` and `.dismissed` with a fading window.
-    private var closeTask: Task<Void, Never>?
+    private let closeAnimation = DelayedAction()
     /// Installed only while in search mode: closes the panel on a click outside or when it resigns key.
     private var searchMouseMonitor: Any?
     private var searchResignObserver: (any NSObjectProtocol)?
@@ -29,7 +29,8 @@ final class NotchPanelController {
     /// True while any menu of the app is open.
     private var isMenuTracking = false
     /// Ends the shortcut's feedback (#10).
-    private var feedbackTask: Task<Void, Never>?
+    /// The countdown, or before it the settle delay of a new save's feedback.
+    private let feedback = DelayedAction()
 
     private var panel: PanelModel { appModel.panel }
 
@@ -129,8 +130,7 @@ final class NotchPanelController {
                 setMode(.closed)
                 startCloseAnimation()
             case .reopen:
-                closeTask?.cancel()
-                closeTask = nil
+                closeAnimation.cancel()
                 appModel.refreshSaveCard()
                 setMode(.open)
             case .orderOut:
@@ -147,18 +147,15 @@ final class NotchPanelController {
     }
 
     private func startHoverDelay(on displayID: CGDirectDisplayID) {
-        cancelHoverDelay()
         // Read on every hover, so a change in Settings (#9) applies without a restart.
-        hoverTask = .afterDelay(Preferences.hoverDelay()) { [weak self] in
+        hoverDelay.schedule(after: Preferences.hoverDelay()) { [weak self] in
             guard let self else { return }
-            self.hoverTask = nil
             self.perform(self.state.hoverDelayEnded(on: displayID))
         }
     }
 
     private func cancelHoverDelay() {
-        hoverTask?.cancel()
-        hoverTask = nil
+        hoverDelay.cancel()
     }
 
     // MARK: - Showing and hiding
@@ -203,8 +200,7 @@ final class NotchPanelController {
             orderOutNow()
             return
         }
-        closeTask?.cancel()
-        closeTask = nil
+        closeAnimation.cancel()
 
         place(window, on: screen, area: area)
         state = .shown(displayID)
@@ -221,18 +217,15 @@ final class NotchPanelController {
 
     /// Reports `closeAnimationEnded()` once the close animation has run. `panel.mode` is already `.closed`.
     private func startCloseAnimation() {
-        closeTask?.cancel()
-        closeTask = .afterDelay(Motion.closeDuration) { [weak self] in
+        closeAnimation.schedule(after: Motion.closeDuration) { [weak self] in
             guard let self else { return }
-            self.closeTask = nil
             self.perform(self.state.closeAnimationEnded())
         }
     }
 
     /// Orders the window out at once, ending a running close.
     private func orderOutNow() {
-        closeTask?.cancel()
-        closeTask = nil
+        closeAnimation.cancel()
         window?.orderOut(nil)
     }
 
@@ -245,7 +238,7 @@ final class NotchPanelController {
         guard new != old else { return }
         panel.mode = new
         if old == .feedback {
-            feedbackTask?.cancel()
+            feedback.cancel()
         }
         if new == .search {
             beginSearch()
@@ -368,7 +361,7 @@ final class NotchPanelController {
                 reduceMotion: NSWorkspace.shared.accessibilityDisplayShouldReduceMotion
             )
             // Leaving `.feedback`, or another press, cancels it like the countdown.
-            feedbackTask = .afterDelay(settle) { [weak self] in
+            feedback.schedule(after: settle) { [weak self] in
                 guard let self else { return }
                 self.appModel.showSaveResult(result, reverts: false)
                 self.startFeedbackTimer()
@@ -385,8 +378,7 @@ final class NotchPanelController {
 
     /// Restarts the countdown, so another press shows its own result for the full duration.
     private func startFeedbackTimer() {
-        feedbackTask?.cancel()
-        feedbackTask = .afterDelay(Motion.feedbackDuration) { [weak self] in
+        feedback.schedule(after: Motion.feedbackDuration) { [weak self] in
             self?.feedbackEnded()
         }
     }
