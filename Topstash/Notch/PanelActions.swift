@@ -11,4 +11,6 @@ struct PanelActions {
     /// Closes the panel after an action such as Open in Editor. The cursor still over the
     /// fading panel doesn't bring it back.
     var dismissAfterAction: () -> Void
+    /// A click copied a note: closes the panel, as `dismissAfterAction` does, once "Copied" has shown.
+    var dismissAfterCopy: () -> Void
 }

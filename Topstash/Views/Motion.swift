@@ -23,8 +23,11 @@ enum Motion {
     /// How long the global shortcut's feedback stays before the panel hides.
     static let feedbackDuration: Double = 1.2
 
-    /// How long a row shows "Copied".
+    /// How long a row shows "Copied". A click's copy closes the panel before then, so "Copied"
+    /// stays through the close.
     static let copiedDuration: Double = 1.2
+    /// From a click copying a note to the panel closing: long enough to see "Copied" come in.
+    static let copiedCloseDelay: Double = 0.5
     /// How long the card shows "Nothing to save" after a click before it's refreshed.
     static let nothingToSaveDuration: Double = 1
     /// How long the card shows "Couldn't save" before it's refreshed.

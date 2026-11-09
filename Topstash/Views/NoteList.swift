@@ -54,6 +54,7 @@ struct NoteList: View {
                 delete: { appModel.delete(note) }
             ) {
                 appModel.copy(note)
+                actions.dismissAfterCopy()
             }
         }
     }
