@@ -91,7 +91,8 @@ struct PanelView: View {
                     panel: panel,
                     actions: actions,
                     total: appModel.store.notes.count,
-                    matches: panel.mode == .search && !panel.query.isEmpty ? results.count : nil
+                    matches: panel.mode == .search && !panel.query.isEmpty ? results.count : nil,
+                    isSearch: panel.mode == .search
                 )
                 .frame(width: PanelLayout.panelWidth)
                 // The shortcut's feedback shows only the card; the header's band stays clear.

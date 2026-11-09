@@ -10,8 +10,9 @@ struct PanelHeader: View {
     let total: Int
     /// The search results, or `nil` in the list and while the query is empty.
     let matches: Int?
-
-    private var isSearch: Bool { panel.mode == .search }
+    /// Search mode rather than the list. Passed in with the counts, not read from `panel`, so while
+    /// the header fades out after closing, its title and count still belong to the same mode.
+    let isSearch: Bool
 
     var body: some View {
         let sideWidth = PanelLayout.headerSideWidth(notchWidth: panel.notchWidth)
