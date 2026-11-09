@@ -70,8 +70,22 @@ struct PanelShapeSizeTests {
         #expect(Double(size.height) == 275)
     }
 
-    @Test func searchHasAFixedSize() {
-        let size = PanelLayout.shapeSize(for: makePanel(.search), noteCount: 3)
+    @Test func searchFitsItsResultsAndKeyHints() {
+        let size = PanelLayout.shapeSize(for: makePanel(.search), noteCount: 12, resultCount: 4)
+
+        // 32 + 8 + the 36 pt field + 8 + 4 rows + 8 + the 13 pt hints + 12.
+        #expect(size == CGSize(width: 400, height: 277))
+    }
+
+    @Test func searchWithNoResultsFitsNoMatchesWithoutHints() {
+        let size = PanelLayout.shapeSize(for: makePanel(.search), noteCount: 12, resultCount: 0)
+
+        // 32 + 8 + 36 + 8 + "No matches" in one row's height + 12.
+        #expect(size == CGSize(width: 400, height: 136))
+    }
+
+    @Test func searchStopsGrowingAtItsMaximumHeightAndScrolls() {
+        let size = PanelLayout.shapeSize(for: makePanel(.search), noteCount: 40, resultCount: 40)
 
         #expect(size == CGSize(width: 400, height: 520))
     }
@@ -84,7 +98,7 @@ struct PanelShapeSizeTests {
 
     @Test func listAndSearchHaveTheSameWidth() {
         let open = PanelLayout.shapeSize(for: makePanel(.open), noteCount: 5)
-        let search = PanelLayout.shapeSize(for: makePanel(.search), noteCount: 5)
+        let search = PanelLayout.shapeSize(for: makePanel(.search), noteCount: 5, resultCount: 5)
 
         #expect(open.width == search.width)
     }

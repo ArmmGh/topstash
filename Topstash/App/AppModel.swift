@@ -228,8 +228,26 @@ final class AppModel {
     /// The size of the shape's body in the current mode. `PanelView` draws it, and
     /// `NotchPanelController` hit-tests against it.
     var shapeSize: CGSize {
-        PanelLayout.shapeSize(for: panel, noteCount: store.notes.count)
+        let resultCount = panel.mode == .search ? searchResults.count : 0
+        return PanelLayout.shapeSize(for: panel, noteCount: store.notes.count, resultCount: resultCount)
     }
+
+    /// The notes matching `panel.query`, newest first: the search's results and, through their
+    /// count, its height. Searched again only when the query or the notes change, since the shape's
+    /// size is read on every mouse move.
+    var searchResults: [Note] {
+        let notes = store.notes
+        // Comparing unchanged notes is quick: the arrays share storage.
+        if let searchCache, searchCache.query == panel.query, searchCache.notes == notes {
+            return searchCache.results
+        }
+        let results = store.search(panel.query)
+        searchCache = (panel.query, notes, results)
+        return results
+    }
+
+    @ObservationIgnored
+    private var searchCache: (query: String, notes: [Note], results: [Note])?
 
     // MARK: - Context menu
 

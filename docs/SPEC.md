@@ -175,7 +175,10 @@ Decided after a research pass against primary sources (`docs/research/notch-pane
   - `title`, 13 medium: row titles, the header label, the card's labels, "Saved".
   - `body`, 13 regular: the clipboard preview, the search field, empty states.
   - `meta`, 11 regular with monospaced digits: row previews, ages, counts, hints.
-  - `metaMatch`, 11 semibold: the query's words in a search result's preview, in the primary color. The one exception to two weights, so a match stands out by weight, not color alone.
+  - `metaMatch`, 11 semibold: the query's words in a search result's preview, in the primary color, so a match stands out by weight, not color alone.
+  - `metaKey`, 11 medium: the keys in the search's key hints ("⏎", "↑↓"), in the secondary color.
+
+  `metaMatch` and `metaKey` are the two exceptions to two weights, both at 11 pt.
 
   Symbols take their size from the text beside them. The "Saved" checkmark is the one larger symbol (about 22 pt).
 - **Text colors:** white at 1.0 / 0.6 / 0.5 (primary / secondary / tertiary). 0.5 is the floor: anything lower fails WCAG AA (4.5:1) for 11–13 pt text on black.
@@ -185,6 +188,7 @@ Decided after a research pass against primary sources (`docs/research/notch-pane
 - **Spacing:** a 4 pt grid and one 12 pt inset, used from the shape's edge to the card and rows and again inside each card and row. Every text edge and the card's icon sit 24 pt from the shape's edge. Rows are 40 pt tall, and the search field 36. The save card fits its text, so its height follows the text's lines rather than the grid: 12 pt, the preview's lines (16 pt each), 4 pt, the 13 pt hint, 12 pt. A card with only a label is 40 pt.
 - **Radii:** the shape is 15 (outward top) / 20 (bottom); the card is 12; the search field is 10; rows are 8, which is 20 − 12, so they nest inside the bottom corners. The radii are set by hand, because `ConcentricRectangle` needs macOS 26.
 - **Width:** 400 pt in both the list and search. Switching modes changes only the height.
+- **Search height:** fits its content: the header, the search field, the results (or "No matches" in one row's height), and the key hints, with `sectionSpacing` (8 pt) between them and the 12 pt inset below. It grows and shrinks with the shape's spring as the results change, up to 520 pt, where the results scroll. The results are masked by the animated shape, so rows never show outside it while it grows.
 - **Header:** a band beside the notch, as tall as the notch (`safeAreaInsets.top`; the menu bar's height on screens without one), but never shorter than its 28 pt button. It replaces the fixed 38 pt clearance and the "Show all" bar. Its content sits one `inset` (12 pt) from the shape's edge, not 24 like the text below it, and each side stops at the notch.
   - Left: "Recent", or "Search" in search mode, in `title` and the secondary color.
   - Right: the note count in `meta` and the tertiary color ("4 of 12" in search), then a 28 × 28 pt circular button on the surface fill: search in the list; in search, close the panel, like Esc.
@@ -193,7 +197,7 @@ Decided after a research pass against primary sources (`docs/research/notch-pane
 - **Rows:** title and preview on the left, and the age on the right in `meta` and the tertiary color ("2h", "3d", "Oct 28").
   - In search, the preview is a snippet of the text after the title line: it starts about 24 characters before the first match, on a word boundary, with a leading "…", and every query word in it is in `metaMatch`. The row truncates its end with "…". A match only in the title, or an empty query, shows the normal preview.
   - In search, the selected row has the keyboard selection ring; hovering another row shows its hover fill and leaves the selection where it is.
-- **Key hints:** under the search results, "⏎ Copy" and "↑↓ Move" in `meta` and the tertiary color, 12 pt apart, with text edges 24 pt from the shape's edge like the rows. "⌥⏎ Paste" joins them when paste is on. Hidden when nothing matches, since the keys do nothing then.
+- **Key hints:** under the search results, "⏎ Copy" and "↑↓ Move": each key in `metaKey` and the secondary color, 4 pt before its label in `meta` and the tertiary color, the hints 16 pt apart, with text edges 24 pt from the shape's edge like the rows. "⌥⏎ Paste" joins them when paste is on. Hidden when nothing matches, since the keys do nothing then.
 - **Menu bar icon:** the SF Symbol `tray.and.arrow.up`, which the HIG suggests over a custom image. Make a custom SF Symbol only if a brand mark is needed later.
 
 ## Testing Decisions

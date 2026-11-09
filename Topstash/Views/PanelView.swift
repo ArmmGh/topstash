@@ -31,24 +31,28 @@ struct PanelView: View {
         isOpen ? PanelLayout.bottomCornerRadius : PanelLayout.collapsedBottomCornerRadius
     }
 
+    /// The shape at `shapeSize`, growing and shrinking with the mode's spring. Hangs from the top
+    /// center of whatever it fills.
+    private var animatedShape: some View {
+        NotchShape(bodySize: shapeSize, topCornerRadius: topCornerRadius, bottomCornerRadius: bottomCornerRadius)
+            .animation(Motion.shape(expanding: isOpen, reduceMotion: reduceMotion), value: shapeSize)
+            .animation(Motion.shape(expanding: isOpen, reduceMotion: reduceMotion), value: isOpen)
+    }
+
     /// An oversized black backing masked by the shape, so a spring's overshoot never shows a gap.
     /// The shadow is drawn here; the window has none.
     private var backing: some View {
         Color.black
             .mask(alignment: .top) {
                 // Fills the backing; the shape positions its body itself (see `NotchShape`).
-                NotchShape(
-                    bodySize: shapeSize, topCornerRadius: topCornerRadius, bottomCornerRadius: bottomCornerRadius
-                )
-                .animation(Motion.shape(expanding: isOpen, reduceMotion: reduceMotion), value: shapeSize)
-                .animation(Motion.shape(expanding: isOpen, reduceMotion: reduceMotion), value: isOpen)
-                // The gulp when a saved card flies into the notch. None with Reduce Motion.
-                // None in search mode either, where no card flies (the shortcut shows a status there).
-                .phaseAnimator([false, true], trigger: reduceMotion ? 0 : panel.saveCount) { shape, gulping in
-                    shape.scaleEffect(gulping && panel.mode != .search ? Motion.gulpScale : 1, anchor: .top)
-                } animation: { gulping in
-                    gulping ? Motion.gulp.delay(Motion.gulpDelay) : Motion.gulp
-                }
+                animatedShape
+                    // The gulp when a saved card flies into the notch. None with Reduce Motion.
+                    // None in search mode either, where no card flies (the shortcut shows a status there).
+                    .phaseAnimator([false, true], trigger: reduceMotion ? 0 : panel.saveCount) { shape, gulping in
+                        shape.scaleEffect(gulping && panel.mode != .search ? Motion.gulpScale : 1, anchor: .top)
+                    } animation: { gulping in
+                        gulping ? Motion.gulp.delay(Motion.gulpDelay) : Motion.gulp
+                    }
             }
             .shadow(
                 color: .black.opacity(PanelLayout.shadowOpacity),
@@ -63,8 +67,7 @@ struct PanelView: View {
     /// Each mode's content comes in after the shape starts growing and leaves before it collapses.
     /// The header stays while switching between the list and search.
     private var content: some View {
-        // Searched once per update, for the results and the header's count.
-        let results = panel.mode == .search ? appModel.store.search(panel.query) : []
+        let results = panel.mode == .search ? appModel.searchResults : []
         return ZStack(alignment: .top) {
             switch panel.mode {
             case .closed:
@@ -78,7 +81,9 @@ struct PanelView: View {
                 SearchView(appModel: appModel, actions: actions, results: results)
                     .padding(.top, panel.headerHeight + PanelLayout.sectionSpacing)
                     .padding(.bottom, PanelLayout.inset)
-                    .frame(width: PanelLayout.searchSize.width, height: PanelLayout.searchSize.height)
+                    .frame(width: PanelLayout.panelWidth, height: shapeSize.height, alignment: .top)
+                    // Rows that arrive while the shape is still growing to fit them show only inside it.
+                    .mask(alignment: .top) { animatedShape }
                     .transition(Motion.content(reduceMotion: reduceMotion))
             }
             if isOpen {

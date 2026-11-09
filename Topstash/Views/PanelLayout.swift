@@ -6,8 +6,8 @@ enum PanelLayout {
     /// shape, with their outward top corners, plus shadow padding. It never changes or animates;
     /// only the SwiftUI content does.
     static let windowSize = CGSize(
-        width: max(panelWidth, searchSize.width) + 2 * (topCornerRadius + shadowPadding),
-        height: max(maxPanelHeight, searchSize.height) + shadowPadding
+        width: panelWidth + 2 * (topCornerRadius + shadowPadding),
+        height: max(maxPanelHeight, maxSearchHeight) + shadowPadding
     )
     /// Room around the shape for the shadow drawn in SwiftUI.
     static let shadowPadding: CGFloat = 30
@@ -146,7 +146,11 @@ enum PanelLayout {
     /// The ring around the keyboard-selected search result.
     static let selectionRingWidth: CGFloat = 1.5
     /// Between the key hints under the search results.
-    static let keyHintSpacing: CGFloat = 12
+    static let keyHintSpacing: CGFloat = 16
+    /// Between a key hint's symbol and its label.
+    static let keyHintLabelSpacing: CGFloat = 4
+    /// The height of the 11 pt key hints line under the search results.
+    static let keyHintsHeight: CGFloat = 13
 
     /// The shape's height with the tallest header and card and `recentCount` rows.
     static let maxPanelHeight: CGFloat = recentPanelHeight(
@@ -165,8 +169,8 @@ enum PanelLayout {
 
     /// The size of the shape's body (without the outward top corners) in the panel's mode: closed,
     /// the notch's size (or the hover strip's, on screens without one); open, the header, the card,
-    /// and up to `recentCount` of the store's `noteCount` notes.
-    @MainActor static func shapeSize(for panel: PanelModel, noteCount: Int) -> CGSize {
+    /// and up to `recentCount` of the store's `noteCount` notes; search, its `resultCount` results.
+    @MainActor static func shapeSize(for panel: PanelModel, noteCount: Int, resultCount: Int = 0) -> CGSize {
         switch panel.mode {
         case .closed:
             panel.closedSize
@@ -177,7 +181,9 @@ enum PanelLayout {
                     rowCount: min(noteCount, recentCount), saveCardHeight: panel.saveCardHeight,
                     headerHeight: panel.headerHeight))
         case .search:
-            searchSize
+            CGSize(
+                width: panelWidth,
+                height: searchPanelHeight(resultCount: resultCount, headerHeight: panel.headerHeight))
         case .feedback:
             // Only the save card, under the header's band.
             CGSize(
@@ -192,8 +198,23 @@ enum PanelLayout {
         -(headerHeight / 2 + sectionSpacing + cardHeight / 2)
     }
 
-    /// The shape in search mode: the header, the search field, and the scrollable list of every note.
-    static let searchSize = CGSize(width: panelWidth, height: 520)
+    /// The shape's height in search with this many results under a header this tall: the header,
+    /// the search field, the rows (or "No matches" in one row's height), and the key hints when
+    /// there are results. Matches `SearchView`'s layout, so the shape can animate to it before the
+    /// content is laid out. Stops at `maxSearchHeight`, where the results scroll.
+    static func searchPanelHeight(resultCount: Int, headerHeight: CGFloat) -> CGFloat {
+        let listHeight =
+            resultCount == 0
+            ? rowHeight
+            : CGFloat(resultCount) * rowHeight + CGFloat(resultCount - 1) * rowSpacing
+        let hintsHeight = resultCount == 0 ? 0 : sectionSpacing + keyHintsHeight
+        let height =
+            headerHeight + sectionSpacing + searchFieldHeight + sectionSpacing + listHeight + hintsHeight + inset
+        return min(height, maxSearchHeight)
+    }
+
+    /// The tallest the search shape gets; more results scroll.
+    static let maxSearchHeight: CGFloat = 520
     static let searchFieldHeight: CGFloat = 36
     /// Smaller than the card's 12, for the shorter field.
     static let searchFieldCornerRadius: CGFloat = 10

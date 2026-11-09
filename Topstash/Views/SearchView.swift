@@ -74,18 +74,32 @@ struct SearchView: View {
         }
     }
 
-    /// The keys the field takes, under the results.
+    /// The keys the field takes, under the results: each key in `metaKey` and the secondary color,
+    /// its label in `meta` and the tertiary color.
     private var keyHints: some View {
         HStack(spacing: PanelLayout.keyHintSpacing) {
-            Text("⏎ Copy")
-            Text("↑↓ Move")
+            keyHint("⏎", "Copy")
+            keyHint("↑↓", "Move")
         }
-        .font(PanelStyle.meta)
-        .foregroundStyle(PanelStyle.tertiary)
-        .frame(maxWidth: .infinity, alignment: .leading)
+        .frame(
+            maxWidth: .infinity, minHeight: PanelLayout.keyHintsHeight, maxHeight: PanelLayout.keyHintsHeight,
+            alignment: .leading
+        )
         .padding(.horizontal, PanelLayout.inset)
         .accessibilityElement(children: .ignore)
         .accessibilityLabel("Return copies the selected note. Up and down arrows move the selection.")
+    }
+
+    private func keyHint(_ key: String, _ label: LocalizedStringKey) -> some View {
+        HStack(spacing: PanelLayout.keyHintLabelSpacing) {
+            Text(verbatim: key)
+                .font(PanelStyle.metaKey)
+                .foregroundStyle(PanelStyle.secondary)
+            Text(label)
+                .font(PanelStyle.meta)
+                .foregroundStyle(PanelStyle.tertiary)
+        }
+        .fixedSize()
     }
 
     /// ↑/↓: moves the selection and announces the newly selected row.

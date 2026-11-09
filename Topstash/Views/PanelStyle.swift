@@ -38,6 +38,8 @@ enum PanelStyle {
     static let bodySize: CGFloat = 13
     /// Small lines: row previews, ages, counts, and hints. Digits are monospaced so counts don't jitter.
     static let meta = Font.system(size: 11).monospacedDigit()
+    /// The keys in the search's key hints ("⏎", "↑↓"), a step above their `meta` labels.
+    static let metaKey = Font.system(size: 11, weight: .medium)
     /// The query's words in a search result's preview, a weight above `meta` so a match stands out by
     /// weight, not only by its primary color.
     static let metaMatch = Font.system(size: 11, weight: .semibold).monospacedDigit()
