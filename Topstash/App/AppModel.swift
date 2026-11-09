@@ -77,7 +77,7 @@ final class AppModel {
         refreshSaveCard()
     }
 
-    // MARK: - Save card (#3)
+    // MARK: - Save card
 
     /// Reverts a transient result on the card to the clipboard's state.
     @ObservationIgnored
@@ -85,7 +85,7 @@ final class AppModel {
 
     /// The text the app itself last put on (copy) or read from (save) the clipboard, with the
     /// clipboard's `changeCount` at that moment. While the count is unchanged, the clipboard still
-    /// holds this text, so the card can say "Already saved" without reading the clipboard (#3, #4).
+    /// holds this text, so the card can say "Already saved" without reading the clipboard.
     @ObservationIgnored
     private var knownClipboard: (text: String, changeCount: Int)?
 
@@ -97,7 +97,7 @@ final class AppModel {
 
     /// Sets the save card from the clipboard. Called when the panel opens, after `copy`,
     /// and when a transient "Saved" or "Couldn't save" ends.
-    /// Reads the clipboard's contents only when that can't show the paste privacy alert (#4).
+    /// Reads the clipboard's contents only when that can't show the paste privacy alert.
     func refreshSaveCard() {
         guard clipboard.hasText() else {
             panel.saveCard = .nothingToSave
@@ -129,7 +129,7 @@ final class AppModel {
         }
     }
 
-    /// Shows a save's result on the card: the card's click, and the shortcut (#10).
+    /// Shows a save's result on the card: the card's click, and the shortcut.
     /// "Saved", "Nothing to save", and "Couldn't save" are transient: they revert to the clipboard's
     /// state after their `cardRevertDelay`, unless `reverts` is false (the shortcut's feedback panel, which hides
     /// or refreshes the card itself when its time is up).
@@ -145,7 +145,7 @@ final class AppModel {
         }
     }
 
-    /// Shows the shortcut's result while searching (#10). The search view has no card, so it shows
+    /// Shows the shortcut's result while searching. The search view has no card, so it shows
     /// the result next to the search field for `Motion.feedbackDuration`. The search stays open and focused.
     func showSaveResultInSearch(_ result: ClipboardSaveResult) {
         panel.searchStatus = result
@@ -161,8 +161,8 @@ final class AppModel {
     @ObservationIgnored
     private let searchStatusReset: DelayedAction
 
-    /// The card for a save the shortcut made while the panel was closed (#10), until its feedback
-    /// plays: the saved text as if it were unsaved, so it has a card to fly up (#11).
+    /// The card for a save the shortcut made while the panel was closed, until its feedback
+    /// plays: the saved text as if it were unsaved, so it has a card to fly up.
     func showCardBeforeSave(of text: String) {
         saveCardReset.cancel()
         panel.saveCard = Self.previewCard(for: text)
@@ -174,14 +174,14 @@ final class AppModel {
         .preview(text: SaveCard.previewText(text), characterCount: text.count)
     }
 
-    /// The haptic, and through `panel.saveCount` the checkmark bounce and the notch's gulp (#11).
+    /// The haptic, and through `panel.saveCount` the checkmark bounce and the notch's gulp.
     /// Here rather than in a view, so it plays however the save happened and whatever is on screen.
     private func playSaveFeedback() {
         panel.saveCount += 1
         NSHapticFeedbackManager.defaultPerformer.perform(.generic, performanceTime: .now)
     }
 
-    // MARK: - Notes folder (#9)
+    // MARK: - Notes folder
 
     @ObservationIgnored
     private let defaults: UserDefaults
@@ -232,7 +232,7 @@ final class AppModel {
         PanelLayout.shapeSize(for: panel.mode, closedSize: panel.closedSize, noteCount: store.notes.count)
     }
 
-    // MARK: - Context menu (#6)
+    // MARK: - Context menu
 
     /// Opens the note's file in the default app for `.md`. If no app handles `.md`, macOS shows
     /// its own app chooser. The note row then closes the panel through `PanelActions`.

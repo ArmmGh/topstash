@@ -162,7 +162,7 @@ public final class NotesStore {
         return .saved(note)
     }
 
-    // MARK: - Deleting (#6)
+    // MARK: - Deleting
 
     /// Moves the note's file to the Trash and removes the note from `notes`.
     /// A file that's already gone only removes the note. Other errors are thrown, and the note stays.
@@ -183,7 +183,7 @@ public final class NotesStore {
         try FileManager.default.trashItem(at: url, resultingItemURL: nil)
     }
 
-    // MARK: - Duplicates (#3)
+    // MARK: - Duplicates
 
     /// Whether a note already holds `text`, ignoring only leading and trailing whitespace and newlines.
     /// Text that trims to empty never matches.

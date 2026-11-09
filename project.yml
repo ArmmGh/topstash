@@ -13,7 +13,7 @@ settings:
     ENABLE_HARDENED_RUNTIME: YES
     DEAD_CODE_STRIPPING: YES
 
-# The only package dependency (spec: Dependencies). Linked to the app target only.
+# The only package dependency (docs/SPEC.md, "Dependencies"). Linked to the app target only.
 packages:
   KeyboardShortcuts:
     url: https://github.com/sindresorhus/KeyboardShortcuts

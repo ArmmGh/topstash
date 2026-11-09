@@ -2,7 +2,7 @@ import Foundation
 import Testing
 import TopstashCore
 
-/// `NotesStore.search` (#5). Kept in its own file so it merges cleanly with other tickets' tests.
+/// `NotesStore.search`, behind the search mode. Kept in its own file to keep NotesStoreTests.swift manageable.
 extension NotesStoreTests {
     @Test func searchReturnsNotesContainingEveryTermInAnyOrder() throws {
         let store = makeStore()

@@ -71,7 +71,7 @@ struct SettingsView: View {
         }
     }
 
-    // MARK: - Shortcut (#10)
+    // MARK: - Shortcut
 
     private var shortcutSection: some View {
         Section {

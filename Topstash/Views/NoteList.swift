@@ -2,7 +2,7 @@ import SwiftUI
 import TopstashCore
 
 /// Notes as `NoteRow`s wired to copy, Open in Editor, and Delete, or `emptyText` when there are none.
-/// Shared by the recent list and the search results (#5).
+/// Shared by the recent list and the search results.
 struct NoteList: View {
     let appModel: AppModel
     /// Closes the panel after Open in Editor.

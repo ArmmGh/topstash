@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// Every animation curve and duration of the notch panel (#11), in seconds. See docs/SPEC.md, "Design & Motion".
+/// Every animation curve and duration of the notch panel, in seconds. See docs/SPEC.md, "Design & Motion".
 @MainActor
 enum Motion {
     // MARK: Durations
@@ -20,7 +20,7 @@ enum Motion {
     /// Covers the fly-up, the gulp, and the checkmark bounce.
     static let saveFeedbackDuration: Double = 0.6
 
-    /// How long the global shortcut's feedback (#10) stays before the panel hides.
+    /// How long the global shortcut's feedback stays before the panel hides.
     static let feedbackDuration: Double = 1.2
 
     /// How long a row shows "Copied".
@@ -31,7 +31,7 @@ enum Motion {
     static let failedDuration: Double = 2
 
     /// From opening until the shape has settled. The shortcut's save feedback waits for it when it
-    /// opens the panel (#10), so the gulp doesn't overlap the expand spring.
+    /// opens the panel, so the gulp doesn't overlap the expand spring.
     static func expandSettleDuration(reduceMotion: Bool) -> Double {
         reduceMotion ? reducedDuration : expandDuration
     }
@@ -49,7 +49,7 @@ enum Motion {
     static let contentOut: Animation = .easeIn(duration: contentOutDuration)
     /// The notch's bump when a saved card flies into it.
     static let gulp: Animation = .spring(response: 0.3, dampingFraction: 0.5)
-    /// Replaces the shape's springs when Reduce Motion is on. Also fades the shortcut's status in search mode (#10).
+    /// Replaces the shape's springs when Reduce Motion is on. Also fades the shortcut's status in search mode.
     static let reduced: Animation = .easeOut(duration: reducedDuration)
     /// The save card's dip while pressed.
     static let press: Animation = .snappy(duration: pressDuration)

@@ -3,11 +3,11 @@
 /// monitors. Views never assign `PanelModel.mode` themselves.
 @MainActor
 protocol PanelActions: AnyObject {
-    /// "Show all": expands the panel into search mode (#5) with the search field focused.
+    /// "Show all": expands the panel into search mode with the search field focused.
     func showAll()
     /// Esc in search mode: closes the panel and hands keyboard focus back to the frontmost app.
     func closeSearch()
-    /// Closes the panel after an action such as Open in Editor (#6). The cursor still over the
+    /// Closes the panel after an action such as Open in Editor. The cursor still over the
     /// fading panel doesn't bring it back.
     func dismissAfterAction()
 }

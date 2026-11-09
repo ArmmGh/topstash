@@ -32,7 +32,7 @@ extension ClipboardSaveResult {
     /// when the result is the clipboard's state anyway.
     var cardRevertDelay: Double? {
         switch self {
-        // The checkmark shows for the save feedback's length (#11), then the card returns.
+        // The checkmark shows for the save feedback's length, then the card returns.
         case .saved: Motion.saveFeedbackDuration
         case .nothingToSave: Motion.nothingToSaveDuration
         case .failed: Motion.failedDuration
