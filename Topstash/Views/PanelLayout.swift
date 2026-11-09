@@ -134,7 +134,8 @@ enum PanelLayout {
 
     /// How to scroll the search results so the row at `index` is fully in view: to the top or the
     /// bottom edge, whichever is nearer, or `nil` when it's already in view. `offset` is how far the
-    /// results are scrolled. Rows are `rowHeight` apart, so this needs no layout.
+    /// results are scrolled. Rows are `rowHeight` apart, so this needs no layout. `NoteRow` fixes its
+    /// height to `rowHeight`, and nothing sits above the rows in the scroll view.
     static func scrollAnchor(row index: Int, offset: CGFloat, viewportHeight: CGFloat) -> UnitPoint? {
         let top = CGFloat(index) * (rowHeight + rowSpacing)
         if top < offset { return .top }

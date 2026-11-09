@@ -1,3 +1,4 @@
+import Accessibility
 import SwiftUI
 import TopstashCore
 
@@ -66,6 +67,11 @@ struct SearchView: View {
         .environment(\.colorScheme, .dark)
         .onAppear { isFieldFocused = true }
         .onExitCommand { actions.closeSearch() }
+        // Typing selects the first result. Low priority, so it waits for VoiceOver's echo of the typing.
+        // Closing clears the query too, which isn't typing.
+        .onChange(of: panel.query) {
+            if panel.mode == .search { announceSelection(priority: .low) }
+        }
     }
 
     /// The keys the field takes, under the results.
@@ -82,14 +88,21 @@ struct SearchView: View {
         .accessibilityLabel("Return copies the selected note. Up and down arrows move the selection.")
     }
 
-    /// ↑/↓: moves the selection and announces the newly selected row, since VoiceOver's focus
-    /// stays in the field.
+    /// ↑/↓: moves the selection and announces the newly selected row.
     private func moveSelection(by step: Int) -> KeyPress.Result {
         panel.moveSelection(by: step, among: results.count)
-        if let selectedNote {
-            AccessibilityNotification.Announcement(selectedNote.title).post()
-        }
+        announceSelection(priority: .high)
         return .handled
+    }
+
+    /// Reads the selected row's title, since VoiceOver's focus stays in the field.
+    private func announceSelection(
+        priority: AttributeScopes.AccessibilityAttributes.AnnouncementPriorityAttribute.Value
+    ) {
+        guard let selectedNote else { return }
+        var announcement = AttributedString(selectedNote.title)
+        announcement.accessibilitySpeechAnnouncementPriority = priority
+        AccessibilityNotification.Announcement(announcement).post()
     }
 
     /// Return: copies the selected note and closes the panel at once, handing focus back to the app
