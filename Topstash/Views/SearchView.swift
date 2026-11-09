@@ -16,8 +16,8 @@ struct SearchView: View {
             HStack(spacing: PanelLayout.searchStatusSpacing) {
                 TextField("Search notes", text: $panel.query)
                     .textFieldStyle(.plain)
-                    .font(.system(size: 14))
-                    .foregroundStyle(.white)
+                    .font(PanelStyle.field)
+                    .foregroundStyle(PanelStyle.primary)
                     .focused($isFieldFocused)
                 // The shortcut's result (#10). Not focusable, so typing continues in the field.
                 if let status = panel.searchStatus {
