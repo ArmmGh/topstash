@@ -21,6 +21,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         KeyboardShortcuts.onKeyUp(for: .saveClipboard) { [weak panelController] in
             panelController?.saveFromShortcut()
         }
+        KeyboardShortcuts.onKeyUp(for: .searchNotes) { [weak panelController] in
+            panelController?.toggleSearch()
+        }
+    }
+
+    /// "Search Notes…" in the menu bar.
+    func openSearch() {
+        panelController?.openSearchOnCursorScreen()
     }
 
     /// Set by Xcode when it launches the app to host the test bundle.

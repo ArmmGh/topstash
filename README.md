@@ -17,6 +17,7 @@ Hover over the notch, click once, and the text on your clipboard is saved as a M
 - Search every note: ↑/↓ select a result, Return copies it and closes the panel.
 - Notes are plain Markdown files in `~/Documents/Topstash/`, or a folder you choose.
 - ⌥⌘S saves from anywhere. You can change the shortcut in Settings.
+- Set a search shortcut in Settings to open search from any app, or choose "Search Notes…" in the menu bar.
 - Works on external displays: hover over the top center of the screen.
 - Passwords that a password manager marks as concealed are never shown or saved.
 - Everything stays on your Mac. Topstash makes no network connections.

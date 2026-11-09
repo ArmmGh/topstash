@@ -65,7 +65,15 @@ struct SearchView: View {
         .padding(.horizontal, PanelLayout.inset)
         // The shape is black in light and dark mode, so the field's placeholder and caret need dark colors.
         .environment(\.colorScheme, .dark)
-        .onAppear { isFieldFocused = true }
+        .onAppear {
+            isFieldFocused = true
+            // When the search shortcut opens a closed panel, the focus set on appear is lost and
+            // typing goes nowhere. Testing on macOS 27 showed the next turn of the run loop is too
+            // early and 0.1 s is enough, so it's set again then.
+            DispatchQueue.main.asyncAfter(deadline: .now() + Motion.searchFocusRetryDelay) {
+                isFieldFocused = true
+            }
+        }
         .onExitCommand { actions.closeSearch() }
         // Typing selects the first result. Low priority, so it waits for VoiceOver's echo of the typing.
         // Closing clears the query too, which isn't typing.
