@@ -8,6 +8,12 @@ struct HoverArea {
     /// Whether `rect` is the hardware notch, rather than the invisible strip used without one.
     let isNotch: Bool
 
+    init(displayID: CGDirectDisplayID, rect: NSRect, isNotch: Bool) {
+        self.displayID = displayID
+        self.rect = rect
+        self.isNotch = isNotch
+    }
+
     init(displayID: CGDirectDisplayID, screen: NSScreen) {
         self.displayID = displayID
         if let notch = Self.notchRect(for: screen) {

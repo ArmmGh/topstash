@@ -13,14 +13,14 @@ final class NotchPanelController {
     private let keyHandback = KeyHandbackPanel()
     /// One per connected screen.
     private var hoverAreas: [HoverArea] = []
-    /// The screen the panel is shown on, while the window is ordered in.
-    private var openDisplayID: CGDirectDisplayID?
+    /// Hovering, shown, closing, dismissed: the rules live in `NotchState`; this class carries out its effects.
+    private var state = NotchState.idle
 
     private var monitors: [Any] = []
     private var screenObserver: (any NSObjectProtocol)?
+    /// Runs while `state` is `.hovering`.
     private var hoverTask: Task<Void, Never>?
-    /// The screen whose hover area the pending hover delay belongs to.
-    private var hoverDisplayID: CGDirectDisplayID?
+    /// Runs while the close animation does: in `.closing`, or in `.hovering` and `.dismissed` with a fading window.
     private var closeTask: Task<Void, Never>?
     /// Installed only while in search mode: closes the panel on a click outside or when it resigns key.
     private var searchMouseMonitor: Any?
@@ -28,8 +28,6 @@ final class NotchPanelController {
     private var menuObservers: [any NSObjectProtocol] = []
     /// True while any menu of the app is open.
     private var isMenuTracking = false
-    /// Set by `dismiss()` until the panel opens again.
-    private var isDismissed = false
     /// Ends the shortcut's feedback (#10).
     private var feedbackTask: Task<Void, Never>?
 
@@ -92,16 +90,7 @@ final class NotchPanelController {
 
     private func screensChanged() {
         rebuildHoverAreas()
-        cancelHoverDelay()
-
-        guard let window, let openDisplayID else { return }
-        if let screen = Self.screen(withID: openDisplayID), let area = hoverArea(on: openDisplayID) {
-            place(window, on: screen, area: area)
-        } else {
-            // The panel's screen is gone: close right away, without the fade.
-            setMode(.closed)
-            orderOutNow()
-        }
+        perform(state.screensChanged(hoverAreas: hoverAreas, mode: panel.mode))
     }
 
     private func hoverArea(on displayID: CGDirectDisplayID) -> HoverArea? {
@@ -111,67 +100,65 @@ final class NotchPanelController {
     // MARK: - Hover
 
     private func mouseMoved() {
-        let location = NSEvent.mouseLocation
-        updateClickThrough(at: location)
-        // The menu is its own window, so the cursor on it counts as outside the panel.
-        guard !isMenuTracking else { return }
-        let hovered = hoverAreas.first { Self.isPoint(location, in: $0.rect) }
-        let overOpenPanel = isOverOpenPanel(location)
+        updateClickThrough(at: NSEvent.mouseLocation)
+        perform(state.mouseMoved(surroundings))
+    }
 
-        switch panel.mode {
-        case .open:
-            if !overOpenPanel {
-                close()
-            }
-        case .search:
-            // Stays open when the cursor leaves; see `beginSearch()` for what closes it.
-            break
-        case .feedback:
-            // `feedbackEnded()` decides when the time is up.
-            break
-        case .closed:
-            if isDismissed {
-                // Stays closed until the cursor leaves the hover area and the fading shape;
-                // after that, hovering opens the panel again.
+    private var surroundings: NotchSurroundings {
+        NotchSurroundings(
+            cursor: NSEvent.mouseLocation,
+            hoverAreas: hoverAreas,
+            visibleShape: visibleRect,
+            mode: panel.mode,
+            isMenuTracking: isMenuTracking
+        )
+    }
+
+    /// Carries out what a transition of `state` asks for.
+    private func perform(_ effects: [NotchEffect]) {
+        for effect in effects {
+            switch effect {
+            case .startHoverDelay(let displayID):
+                startHoverDelay(on: displayID)
+            case .cancelHoverDelay:
                 cancelHoverDelay()
-                if hovered == nil, !overOpenPanel {
-                    isDismissed = false
-                }
-            } else if closeTask != nil, overOpenPanel {
-                // The cursor came back during the fade.
+            case .open(let displayID):
+                open(on: displayID)
+            case .close:
+                // The content fades out, the shape collapses into the hover area, then the window is ordered out.
+                setMode(.closed)
+                startCloseAnimation()
+            case .reopen:
                 closeTask?.cancel()
                 closeTask = nil
                 appModel.refreshSaveCard()
                 setMode(.open)
-            } else if let hovered {
-                startHoverDelay(for: hovered)
-            } else {
-                cancelHoverDelay()
+            case .orderOut:
+                window?.orderOut(nil)
+            case .place(let displayID):
+                if let window, let screen = Self.screen(withID: displayID), let area = hoverArea(on: displayID) {
+                    place(window, on: screen, area: area)
+                }
+            case .closeAtOnce:
+                setMode(.closed)
+                orderOutNow()
             }
         }
     }
 
-    private func startHoverDelay(for area: HoverArea) {
-        // Keep a running delay for the same screen; restart it when the cursor moves to another one.
-        if hoverTask != nil, hoverDisplayID == area.displayID { return }
+    private func startHoverDelay(on displayID: CGDirectDisplayID) {
         cancelHoverDelay()
-
         // Read on every hover, so a change in Settings (#9) applies without a restart.
-        let delay = Preferences.hoverDelay()
-        let displayID = area.displayID
-        hoverDisplayID = displayID
-        hoverTask = .afterDelay(delay) { [weak self] in
+        hoverTask = .afterDelay(Preferences.hoverDelay()) { [weak self] in
             guard let self else { return }
             self.hoverTask = nil
-            self.hoverDisplayID = nil
-            self.open(on: displayID)
+            self.perform(self.state.hoverDelayEnded(on: displayID))
         }
     }
 
     private func cancelHoverDelay() {
         hoverTask?.cancel()
         hoverTask = nil
-        hoverDisplayID = nil
     }
 
     // MARK: - Showing and hiding
@@ -188,8 +175,8 @@ final class NotchPanelController {
     /// cursor is over the shape; elsewhere clicks reach the windows below. Called on every mouse
     /// move (the global monitor sees moves over the window while it ignores events) and on open.
     private func updateClickThrough(at location: NSPoint) {
-        guard let window, openDisplayID != nil else { return }
-        let ignores = !Self.isPoint(location, in: visibleRect)
+        guard let window, state.windowDisplayID != nil else { return }
+        let ignores = !NotchState.isPoint(location, in: visibleRect)
         if window.ignoresMouseEvents != ignores {
             window.ignoresMouseEvents = ignores
         }
@@ -210,13 +197,17 @@ final class NotchPanelController {
         guard let window,
               let screen = Self.screen(withID: displayID),
               let area = hoverArea(on: displayID)
-        else { return }
+        else {
+            // Nothing to show on: make sure no window is left fading or ordered in.
+            state = .idle
+            orderOutNow()
+            return
+        }
         closeTask?.cancel()
         closeTask = nil
-        isDismissed = false
 
         place(window, on: screen, area: area)
-        openDisplayID = displayID
+        state = .shown(displayID)
 
         // Re-evaluated on every open, because the clipboard may have changed while closed.
         if mode == .open {
@@ -228,30 +219,13 @@ final class NotchPanelController {
         window.orderFrontRegardless()
     }
 
-    /// Whether `location` is over the hover area or the visible shape of the screen the panel is shown on.
-    private func isOverOpenPanel(_ location: NSPoint) -> Bool {
-        guard let openDisplayID else { return false }
-        let overHoverArea = hoverArea(on: openDisplayID).map { Self.isPoint(location, in: $0.rect) } ?? false
-        return overHoverArea || Self.isPoint(location, in: visibleRect)
-    }
-
-    /// Hit test for `NSEvent.mouseLocation`, which reports `y == frame.maxY` on a screen's top pixel
-    /// row. `CGRect.contains` excludes `maxY`, so it would miss a cursor pushed against the top edge.
-    private static func isPoint(_ location: NSPoint, in rect: NSRect) -> Bool {
-        NSMouseInRect(location, rect, false)
-    }
-
-    /// The content fades out, the shape collapses into the hover area, then the window is ordered out.
-    private func close() {
-        setMode(.closed)
-        orderOutAfterClosing()
-    }
-
-    /// Orders the window out once the close animation has run. `panel.mode` is already `.closed`.
-    private func orderOutAfterClosing() {
+    /// Reports `closeAnimationEnded()` once the close animation has run. `panel.mode` is already `.closed`.
+    private func startCloseAnimation() {
         closeTask?.cancel()
         closeTask = .afterDelay(Motion.closeDuration) { [weak self] in
-            self?.orderOutNow()
+            guard let self else { return }
+            self.closeTask = nil
+            self.perform(self.state.closeAnimationEnded())
         }
     }
 
@@ -259,7 +233,6 @@ final class NotchPanelController {
     private func orderOutNow() {
         closeTask?.cancel()
         closeTask = nil
-        openDisplayID = nil
         window?.orderOut(nil)
     }
 
@@ -307,7 +280,8 @@ final class NotchPanelController {
     /// Esc, a click outside, or the panel resigning key.
     func closeSearch() {
         guard panel.mode == .search else { return }
-        setMode(.closed)
+        // Esc or a click outside means "close": the cursor still over the panel doesn't reopen it.
+        perform(state.dismiss())
     }
 
     private func endSearch(closing: Bool) {
@@ -329,9 +303,6 @@ final class NotchPanelController {
         if window != nil {
             keyHandback.handBackKey()
         }
-        // Esc or a click outside means "close": the cursor still over the panel doesn't reopen it.
-        isDismissed = true
-        orderOutAfterClosing()
     }
 
     // MARK: - Context menu (#6)
@@ -357,8 +328,7 @@ final class NotchPanelController {
     /// Closes after an action (Open in Editor). The cursor still over the fading panel doesn't bring it back.
     func dismissAfterAction() {
         guard panel.mode != .closed else { return }
-        isDismissed = true
-        close()
+        perform(state.dismiss())
     }
 
     // MARK: - Global shortcut (#10)
@@ -409,7 +379,7 @@ final class NotchPanelController {
     /// The screen containing the cursor, else the main screen.
     private func displayIDUnderCursor() -> CGDirectDisplayID? {
         let location = NSEvent.mouseLocation
-        let screen = NSScreen.screens.first { Self.isPoint(location, in: $0.frame) } ?? NSScreen.main
+        let screen = NSScreen.screens.first { NotchState.isPoint(location, in: $0.frame) } ?? NSScreen.main
         return screen.flatMap(Self.displayID(of:))
     }
 
@@ -424,13 +394,7 @@ final class NotchPanelController {
     /// Hides the panel, or switches to `.open` if the cursor is over it or its hover area. From
     /// then on the normal hover rules apply.
     private func feedbackEnded() {
-        guard panel.mode == .feedback else { return }
-        if isOverOpenPanel(NSEvent.mouseLocation) {
-            appModel.refreshSaveCard()
-            setMode(.open)
-        } else {
-            close()
-        }
+        perform(state.feedbackEnded(surroundings))
     }
 }
 
