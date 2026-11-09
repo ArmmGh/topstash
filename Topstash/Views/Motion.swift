@@ -23,8 +23,11 @@ enum Motion {
     /// How long the global shortcut's feedback stays before the panel hides.
     static let feedbackDuration: Double = 1.2
 
-    /// How long a row shows "Copied".
+    /// How long a row shows "Copied". A click's copy closes the panel before then, so "Copied"
+    /// stays through the close.
     static let copiedDuration: Double = 1.2
+    /// From a click copying a note to the panel closing: long enough to see "Copied" come in.
+    static let copiedCloseDelay: Double = 0.5
     /// How long the card shows "Nothing to save" after a click before it's refreshed.
     static let nothingToSaveDuration: Double = 1
     /// How long the card shows "Couldn't save" before it's refreshed.
@@ -53,6 +56,8 @@ enum Motion {
     static let reduced: Animation = .easeOut(duration: reducedDuration)
     /// The save card's dip while pressed.
     static let press: Animation = .snappy(duration: pressDuration)
+    /// "Copied" taking the place of a row's preview, and the preview coming back.
+    static let copiedSwap: Animation = .snappy(duration: contentInDuration)
     /// The saved card shrinking up into the notch.
     static let flyUp: Animation = .easeIn(duration: flyUpDuration)
 
@@ -64,6 +69,8 @@ enum Motion {
     static let gulpScale: CGFloat = 1.04
     /// How small the saved card gets as it flies into the notch.
     static let flyUpScale: CGFloat = 0.2
+    /// How far "Copied" rises into a row's preview line, and the preview rises out of it.
+    static let copiedRise: CGFloat = 6
 
     // MARK: Composed
 
@@ -83,14 +90,26 @@ enum Motion {
         .asymmetric(insertion: contentInsertion(reduceMotion: reduceMotion), removal: .opacity.animation(contentOut))
     }
 
-    /// The save card: it flies up into the notch when saved and comes back like panel content.
+    /// A row's preview line switching between the preview and "Copied": the new line rises in from
+    /// below with blur, like panel content, while the old one rises out. Only cross-fades with Reduce Motion.
+    static func copiedLine(reduceMotion: Bool) -> AnyTransition {
+        guard !reduceMotion else { return .opacity }
+        return .asymmetric(
+            insertion: .opacity
+                .combined(with: .modifier(active: Blur(radius: contentInBlur / 2), identity: Blur(radius: 0)))
+                .combined(with: .offset(y: copiedRise)),
+            removal: .opacity.combined(with: .offset(y: -copiedRise))
+        )
+    }
+
+    /// The save card: it flies up into the notch (`flyUpOffset`) when saved and comes back like panel content.
     /// Only cross-fades with Reduce Motion.
-    static func saveCard(reduceMotion: Bool) -> AnyTransition {
+    static func saveCard(reduceMotion: Bool, flyUpOffset: CGFloat) -> AnyTransition {
         let removal: AnyTransition =
             reduceMotion
             ? .opacity
             : .scale(scale: flyUpScale)
-                .combined(with: .offset(y: PanelLayout.saveCardFlyUpOffset))
+                .combined(with: .offset(y: flyUpOffset))
                 .combined(with: .opacity)
         return .asymmetric(
             insertion: contentInsertion(reduceMotion: reduceMotion),

@@ -31,38 +31,47 @@ struct PanelView: View {
         isOpen ? PanelLayout.bottomCornerRadius : PanelLayout.collapsedBottomCornerRadius
     }
 
+    /// The shape at `shapeSize`, growing and shrinking with the mode's spring. Hangs from the top
+    /// center of whatever it fills.
+    private var animatedShape: some View {
+        NotchShape(bodySize: shapeSize, topCornerRadius: topCornerRadius, bottomCornerRadius: bottomCornerRadius)
+            .animation(Motion.shape(expanding: isOpen, reduceMotion: reduceMotion), value: shapeSize)
+            .animation(Motion.shape(expanding: isOpen, reduceMotion: reduceMotion), value: isOpen)
+    }
+
     /// An oversized black backing masked by the shape, so a spring's overshoot never shows a gap.
     /// The shadow is drawn here; the window has none.
     private var backing: some View {
         Color.black
             .mask(alignment: .top) {
                 // Fills the backing; the shape positions its body itself (see `NotchShape`).
-                NotchShape(
-                    bodySize: shapeSize, topCornerRadius: topCornerRadius, bottomCornerRadius: bottomCornerRadius
-                )
-                .animation(Motion.shape(expanding: isOpen, reduceMotion: reduceMotion), value: shapeSize)
-                .animation(Motion.shape(expanding: isOpen, reduceMotion: reduceMotion), value: isOpen)
-                // The gulp when a saved card flies into the notch. None with Reduce Motion.
-                // None in search mode either, where no card flies (the shortcut shows a status there).
-                .phaseAnimator([false, true], trigger: reduceMotion ? 0 : panel.saveCount) { shape, gulping in
-                    shape.scaleEffect(gulping && panel.mode != .search ? Motion.gulpScale : 1, anchor: .top)
-                } animation: { gulping in
-                    gulping ? Motion.gulp.delay(Motion.gulpDelay) : Motion.gulp
-                }
+                animatedShape
+                    // The gulp when a saved card flies into the notch. None with Reduce Motion.
+                    // None in search mode either, where no card flies (the shortcut shows a status there).
+                    .phaseAnimator([false, true], trigger: reduceMotion ? 0 : panel.saveCount) { shape, gulping in
+                        shape.scaleEffect(gulping && panel.mode != .search ? Motion.gulpScale : 1, anchor: .top)
+                    } animation: { gulping in
+                        gulping ? Motion.gulp.delay(Motion.gulpDelay) : Motion.gulp
+                    }
             }
+            // No shadow while closed: the hardware notch casts none, so a shadow under the closed
+            // shape would show it as a separate object. It fades in and out with the shape.
             .shadow(
-                color: .black.opacity(PanelLayout.shadowOpacity),
+                color: .black.opacity(isOpen ? PanelLayout.shadowOpacity : 0),
                 radius: PanelLayout.shadowRadius,
                 y: PanelLayout.shadowOffsetY
             )
+            .animation(Motion.shape(expanding: isOpen, reduceMotion: reduceMotion), value: isOpen)
             .allowsHitTesting(false)
     }
 
     // MARK: - Content
 
     /// Each mode's content comes in after the shape starts growing and leaves before it collapses.
+    /// The header stays while switching between the list and search.
     private var content: some View {
-        ZStack(alignment: .top) {
+        let results = panel.mode == .search ? appModel.searchResults : []
+        return ZStack(alignment: .top) {
             switch panel.mode {
             case .closed:
                 EmptyView()
@@ -72,14 +81,33 @@ struct PanelView: View {
                 recentContent
                     .transition(Motion.content(reduceMotion: reduceMotion))
             case .search:
-                SearchView(appModel: appModel, actions: actions)
-                    .padding(.top, PanelLayout.notchClearance)
-                    .padding([.horizontal, .bottom], PanelLayout.contentPadding)
-                    .frame(width: PanelLayout.searchSize.width, height: PanelLayout.searchSize.height)
+                SearchView(appModel: appModel, actions: actions, results: results)
+                    .padding(.top, panel.headerHeight + PanelLayout.sectionSpacing)
+                    .padding(.bottom, PanelLayout.inset)
+                    .frame(width: PanelLayout.panelWidth, height: shapeSize.height, alignment: .top)
                     .transition(Motion.content(reduceMotion: reduceMotion))
+            }
+            if isOpen {
+                PanelHeader(
+                    panel: panel,
+                    actions: actions,
+                    total: appModel.store.notes.count,
+                    matches: panel.mode == .search && !panel.query.isEmpty ? results.count : nil,
+                    isSearch: panel.mode == .search
+                )
+                .frame(width: PanelLayout.panelWidth)
+                // The shortcut's feedback shows only the card; the header's band stays clear.
+                .opacity(panel.showsOnlySaveCard ? 0 : 1)
+                .allowsHitTesting(!panel.showsOnlySaveCard)
+                .accessibilityHidden(panel.showsOnlySaveCard)
+                .transition(Motion.content(reduceMotion: reduceMotion))
             }
         }
         .animation(isOpen ? Motion.contentIn : Motion.contentOut, value: panel.mode)
+        // Content shows only inside the shape: while it grows, the full-size, still-blurred card and
+        // rows would otherwise spill past its edges as a grey smear, and in search, rows that arrive
+        // before the shape has grown to fit them would show below it.
+        .mask(alignment: .top) { animatedShape }
         .allowsHitTesting(isOpen)
     }
 
@@ -92,12 +120,13 @@ struct PanelView: View {
             // The shortcut's feedback shows only the card.
             if !panel.showsOnlySaveCard {
                 recentList
-                showAllButton
             }
         }
-        .padding(.top, PanelLayout.notchClearance)
-        .padding([.horizontal, .bottom], PanelLayout.contentPadding)
+        .padding(.top, panel.headerHeight + PanelLayout.sectionSpacing)
+        .padding([.horizontal, .bottom], PanelLayout.inset)
         .frame(width: PanelLayout.panelWidth, height: shapeSize.height, alignment: .top)
+        // When the card's height changes, the list moves with the shape's edge.
+        .animation(Motion.shape(expanding: true, reduceMotion: reduceMotion), value: panel.saveCardHeight)
     }
 
     private var recentList: some View {
@@ -107,20 +136,5 @@ struct PanelView: View {
             notes: appModel.store.recent(limit: PanelLayout.recentCount),
             emptyText: "No notes yet"
         )
-    }
-
-    /// Expands the panel into the search view.
-    private var showAllButton: some View {
-        Button {
-            actions.showAll()
-        } label: {
-            Text("Show all (\(appModel.store.notes.count))")
-                .font(PanelStyle.button)
-                .foregroundStyle(PanelStyle.muted)
-                .frame(maxWidth: .infinity)
-                .frame(height: PanelLayout.showAllHeight)
-                .contentShape(RoundedRectangle(cornerRadius: PanelLayout.rowCornerRadius))
-        }
-        .buttonStyle(.plain)
     }
 }

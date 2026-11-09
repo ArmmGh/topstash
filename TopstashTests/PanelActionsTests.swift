@@ -9,18 +9,20 @@ import Testing
 struct PanelActionsTests {
     let temp = TemporaryFolder()
 
+    let scheduler = ManualScheduler()
+
     func makeController() -> (NotchPanelController, PanelModel) {
         let defaults = UserDefaults(suiteName: "TopstashTests-\(UUID().uuidString)")!
         defaults.set(temp.url.path(percentEncoded: false), forKey: Preferences.notesFolderPathKey)
         let appModel = AppModel(defaults: defaults, clipboard: FakeClipboard(text: nil))
-        return (NotchPanelController(appModel: appModel), appModel.panel)
+        return (NotchPanelController(appModel: appModel, schedule: scheduler.schedule), appModel.panel)
     }
 
-    @Test func showAllOpensSearch() {
+    @Test func openSearchOpensSearch() {
         let (controller, panel) = makeController()
         panel.mode = .open
 
-        controller.showAll()
+        controller.openSearch()
 
         #expect(panel.mode == .search)
     }
@@ -28,7 +30,7 @@ struct PanelActionsTests {
     @Test func closeSearchClosesThePanelAndClearsTheQuery() {
         let (controller, panel) = makeController()
         panel.mode = .open
-        controller.showAll()
+        controller.openSearch()
         panel.query = "milk"
 
         controller.closeSearch()
@@ -58,10 +60,60 @@ struct PanelActionsTests {
     @Test func dismissAfterActionClosesSearch() {
         let (controller, panel) = makeController()
         panel.mode = .open
-        controller.showAll()
+        controller.openSearch()
 
         controller.dismissAfterAction()
 
         #expect(panel.mode == .closed)
+    }
+
+    // MARK: - Closing after a copy
+
+    @Test func dismissAfterCopyClosesOnceCopiedHasShown() {
+        let (controller, panel) = makeController()
+        panel.mode = .open
+
+        controller.dismissAfterCopy()
+        scheduler.advance(by: Motion.copiedCloseDelay - 0.01)
+        #expect(panel.mode == .open)
+
+        scheduler.advance(by: 0.01)
+        #expect(panel.mode == .closed)
+    }
+
+    @Test func dismissAfterCopyClosesSearch() {
+        let (controller, panel) = makeController()
+        panel.mode = .open
+        controller.openSearch()
+
+        controller.dismissAfterCopy()
+        scheduler.advance(by: Motion.copiedCloseDelay)
+
+        #expect(panel.mode == .closed)
+    }
+
+    @Test func anotherCopyRestartsTheWait() {
+        let (controller, panel) = makeController()
+        panel.mode = .open
+
+        controller.dismissAfterCopy()
+        scheduler.advance(by: Motion.copiedCloseDelay - 0.1)
+        controller.dismissAfterCopy()
+        scheduler.advance(by: Motion.copiedCloseDelay - 0.01)
+        #expect(panel.mode == .open)
+
+        scheduler.advance(by: 0.01)
+        #expect(panel.mode == .closed)
+    }
+
+    @Test func changingModeBeforeTheCloseCancelsIt() {
+        let (controller, panel) = makeController()
+        panel.mode = .open
+
+        controller.dismissAfterCopy()
+        controller.openSearch()
+        scheduler.advance(by: Motion.copiedCloseDelay)
+
+        #expect(panel.mode == .search)
     }
 }

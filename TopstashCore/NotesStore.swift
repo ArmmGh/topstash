@@ -138,11 +138,19 @@ public final class NotesStore {
     /// The notes whose body contains every whitespace-separated term of `query`, in any order and
     /// ignoring case (not diacritics). Partial words match. Newest first, like `notes`.
     public func search(_ query: String) -> [Note] {
-        let terms = query.split(whereSeparator: \.isWhitespace)
+        let words = Self.searchWords(of: query)
         return notes.filter { note in
-            terms.allSatisfy { note.body.range(of: $0, options: .caseInsensitive) != nil }
+            words.allSatisfy { note.body.range(of: $0, options: Self.searchOptions) != nil }
         }
     }
+
+    /// The query's whitespace-separated words, each matched on its own. Shared with `SearchSnippet`.
+    nonisolated static func searchWords(of query: String) -> [Substring] {
+        query.split(whereSeparator: \.isWhitespace)
+    }
+
+    /// How a word matches a note: ignoring case, not diacritics. Shared with `SearchSnippet`.
+    nonisolated static let searchOptions: String.CompareOptions = .caseInsensitive
 
     /// Saves `text` exactly as given to a new note file, creating the folder if it's missing.
     /// Empty or whitespace-only text returns `.empty`, and text that `contains` finds returns

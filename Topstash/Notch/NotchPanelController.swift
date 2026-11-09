@@ -29,12 +29,17 @@ final class NotchPanelController {
     /// True while any menu of the app is open.
     private var isMenuTracking = false
     /// Ends the shortcut's feedback: the countdown, or before it the settle delay of a new save's feedback.
-    private let feedback = DelayedAction()
+    private let feedback: DelayedAction
+    /// Closes the panel once a click's "Copied" has shown. Any change of mode cancels it.
+    private let copyDismissal: DelayedAction
 
     private var panel: PanelModel { appModel.panel }
 
-    init(appModel: AppModel) {
+    /// Tests pass a clock they advance by hand.
+    init(appModel: AppModel, schedule: @escaping Schedule = DelayedAction.realTime) {
         self.appModel = appModel
+        feedback = DelayedAction(schedule: schedule)
+        copyDismissal = DelayedAction(schedule: schedule)
     }
 
     func start() {
@@ -193,6 +198,8 @@ final class NotchPanelController {
         // The shape grows out of, and collapses back into, the notch. Without a notch it
         // collapses into the top edge: the hover strip is invisible, so no pill is drawn.
         panel.closedSize = area.isNotch ? area.rect.size : CGSize(width: area.rect.width, height: 0)
+        // The hover area is the notch, or a strip as tall as the menu bar.
+        panel.headerHeight = PanelLayout.headerHeight(forHoverAreaHeight: area.rect.height)
     }
 
     /// Opens as `.open`, or as `.feedback` for the shortcut, which keeps the card the shortcut set.
@@ -211,6 +218,8 @@ final class NotchPanelController {
         place(window, on: screen, area: area)
         state = .shown(displayID)
 
+        // "Copied" belongs to the panel that closed after the copy, not to this one.
+        panel.copiedNote = nil
         // Re-evaluated on every open, because the clipboard may have changed while closed.
         if mode == .open {
             appModel.refreshSaveCard()
@@ -243,6 +252,9 @@ final class NotchPanelController {
         let old = panel.mode
         guard new != old else { return }
         panel.mode = new
+        // Any change of mode, such as a close the user started or search opening, makes a pending
+        // close after a copy stale.
+        copyDismissal.cancel()
         if old == .feedback {
             feedback.cancel()
         }
@@ -312,7 +324,11 @@ final class NotchPanelController {
         menuObservers = [
             center.addObserver(forName: NSMenu.didBeginTrackingNotification, object: nil, queue: .main) {
                 [weak self] _ in
-                MainActor.assumeIsolated { self?.isMenuTracking = true }
+                MainActor.assumeIsolated {
+                    self?.isMenuTracking = true
+                    // A row's context menu opened right after a copy: the panel stays open under it.
+                    self?.copyDismissal.cancel()
+                }
             },
             center.addObserver(forName: NSMenu.didEndTrackingNotification, object: nil, queue: .main) { [weak self] _ in
                 MainActor.assumeIsolated {
@@ -329,6 +345,14 @@ final class NotchPanelController {
     func dismissAfterAction() {
         guard panel.mode != .closed else { return }
         perform(state.dismiss())
+    }
+
+    /// After a click copies a note: closes like `dismissAfterAction` once "Copied" has shown, so
+    /// the user can paste right away.
+    func dismissAfterCopy() {
+        copyDismissal.schedule(after: Motion.copiedCloseDelay) { [weak self] in
+            self?.dismissAfterAction()
+        }
     }
 
     // MARK: - Global shortcut
@@ -401,14 +425,15 @@ extension NotchPanelController {
     /// What the panel's views call. Weak, so the views don't keep the controller alive.
     private var panelActions: PanelActions {
         PanelActions(
-            showAll: { [weak self] in self?.showAll() },
+            openSearch: { [weak self] in self?.openSearch() },
             closeSearch: { [weak self] in self?.closeSearch() },
-            dismissAfterAction: { [weak self] in self?.dismissAfterAction() }
+            dismissAfterAction: { [weak self] in self?.dismissAfterAction() },
+            dismissAfterCopy: { [weak self] in self?.dismissAfterCopy() }
         )
     }
 
     /// Expands the open panel into search mode, which makes the panel key for the search field.
-    func showAll() {
+    func openSearch() {
         setMode(.search)
     }
 }

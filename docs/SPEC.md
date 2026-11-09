@@ -148,8 +148,8 @@ A small macOS app that lives in the MacBook notch. When I hover over the notch, 
   - Nothing to save: greyed out.
 - **Hover delay:** 250 ms by default, adjustable in Settings.
 - **Delete:** moves the file to the Trash. No confirmation dialog.
-- **Copying:** clicking a note copies it, shows "Copied" for about 0.5 s, then closes the panel as a dismissal (it stays closed until the cursor leaves). Return in search copies and closes at once.
-- **Keyboard in search:** the search field keeps focus; `onKeyPress` (macOS 14+) handles ↑/↓, Return, and ⌥Return. The selection is an index into the results, reset to the first result whenever the query changes, and scrolled into view as it moves.
+- **Copying:** clicking a note copies it, shows "Copied" for about 0.5 s, then closes the panel as a dismissal (it stays closed until the cursor leaves). Return in search copies and closes at once. Copying leaves the save card as it is until the panel next opens: switching it to the shorter "Already saved" would move the list, and the row just clicked, out from under the cursor.
+- **Keyboard in search:** the search field keeps focus; `onKeyPress` (macOS 14+) handles ↑/↓ and ⌥Return. Plain Return goes through the field's `onSubmit`, because the field takes it before `onKeyPress` sees it. The selection is an index into the results, reset to the first result whenever the query changes (not when the field sets the same text again), and scrolled only as far as needed to keep it in view.
 - **Search shortcut:** a second `KeyboardShortcuts` name with no default, recorded in Settings under the save shortcut. It opens the panel in search mode on the screen with the cursor, and the panel becomes key so the field can take typing. If the panel is already in search, the shortcut closes it.
 - **Paste (opt-in):** off by default. When on, ⌥Return copies the note, closes the panel, then posts ⌘V with `CGEvent`. Before the first paste it checks `CGPreflightPostEventAccess()` and asks with `CGRequestPostEventAccess()`; without access it copies only and says so. Because `NotchPanel` doesn't activate the app, the previous app should still be frontmost; verify this.
 - **Titles:** the first non-empty line, skipping lines that are only a code fence and removing leading `#` heading markers.
@@ -160,10 +160,10 @@ A small macOS app that lives in the MacBook notch. When I hover over the notch, 
 
 Decided after researching open-source notch apps (NotchKit and DynamicNotchKit, both MIT; boring.notch is GPL-3.0, read only, never copied; NotchDrop, MIT) and Apple's HIG and the WWDC23 session "Animate with springs".
 
-- **Look:** a single black shape that grows out of the notch, the same in light and dark mode. Its top corners curve outward (reverse fillets) so it looks like part of the hardware notch. Radii (top/bottom) are about 6/14 pt when collapsed and about 15/20 pt when expanded, clamped so the path never crosses itself. An oversized black backing is masked by the shape so spring overshoot never shows a gap.
-- **Window:** a fixed-size transparent `NSPanel` in which only the SwiftUI shape animates; the window frame is never animated. The panel is ordered out while closed, so it never blocks clicks. While open, it takes mouse events only while the cursor is over the visible shape (`ignoresMouseEvents` follows the cursor), so clicks around the shape reach the windows below. `hasShadow = false`, and the shadow is drawn in SwiftUI with padding. The first click on a card must register (`acceptsFirstMouse`). Collection behavior: `[.fullScreenAuxiliary, .canJoinAllSpaces, .stationary, .ignoresCycle]`.
-- **Shape motion:** expanding uses `.snappy(duration: 0.4)` (bounce about 0.15); collapsing uses `.smooth(duration: 0.3)` with no bounce.
-- **Content:** comes in with opacity, blur 8→0, and scale 0.96→1 anchored at the top, using `.easeOut(0.22).delay(0.07)`. It leaves with opacity only, `.easeIn(0.12)`, before the shape closes. Rows are not staggered.
+- **Look:** a single black shape that grows out of the notch, the same in light and dark mode. Its top corners curve outward (reverse fillets) so it looks like part of the hardware notch. Collapsed, it is 4 pt narrower and shorter than the notch, with no outward corners (radii 0/14), so it hides behind the hardware notch on the first and last frames; expanded, its radii are 15/20 pt, clamped so the path never crosses itself. An oversized black backing is masked by the shape so spring overshoot never shows a gap.
+- **Window:** a fixed-size transparent `NSPanel` in which only the SwiftUI shape animates; the window frame is never animated. The panel is ordered out while closed, so it never blocks clicks. While open, it takes mouse events only while the cursor is over the visible shape (`ignoresMouseEvents` follows the cursor), so clicks around the shape reach the windows below. `hasShadow = false` and `animationBehavior = .none` (the system's fade on ordering out showed a translucent ghost of the closed shape), and the shadow is drawn in SwiftUI with padding. The first click on a card must register (`acceptsFirstMouse`). Collection behavior: `[.fullScreenAuxiliary, .canJoinAllSpaces, .stationary, .ignoresCycle]`.
+- **Shape motion:** expanding uses `.snappy(duration: 0.4)` (bounce about 0.15); collapsing uses `.smooth(duration: 0.3)` with no bounce. The shadow is drawn only while open and fades with the shape, since the hardware notch casts none (`docs/research/notch-animation.md`).
+- **Content:** comes in with opacity, blur 8→0, and scale 0.96→1 anchored at the top, using `.easeOut(0.22).delay(0.07)`. All content is masked by the animated shape, so nothing (in particular the still-blurred card and rows) draws outside it while it grows. It leaves with opacity only, `.easeIn(0.12)`, before the shape closes. Rows are not staggered.
 - **Save feedback (about 0.6 s total):** the card dips to scale 0.96 on press. On save, the card shrinks and flies up into the notch, the notch does a small "gulp" bump (`.spring(response: 0.3, dampingFraction: 0.5)`, scale 1.04), a checkmark appears with `.symbolEffect(.bounce)`, and a trackpad haptic fires.
 - **Reduce Motion:** the shape expands and collapses with a plain `.easeOut(0.2)` and no bounce, content only fades (no blur or scale), and saving cross-fades a checkmark and fires the haptic.
 
@@ -175,20 +175,29 @@ Decided after a research pass against primary sources (`docs/research/notch-pane
   - `title`, 13 medium: row titles, the header label, the card's labels, "Saved".
   - `body`, 13 regular: the clipboard preview, the search field, empty states.
   - `meta`, 11 regular with monospaced digits: row previews, ages, counts, hints.
+  - `metaMatch`, 11 semibold: the query's words in a search result's preview, in the primary color, so a match stands out by weight, not color alone.
+  - `metaKey`, 11 medium: the keys in the search's key hints ("⏎", "↑↓"), in the secondary color.
+
+  `metaMatch` and `metaKey` are the two exceptions to two weights, both at 11 pt.
 
   Symbols take their size from the text beside them. The "Saved" checkmark is the one larger symbol (about 22 pt).
 - **Text colors:** white at 1.0 / 0.6 / 0.5 (primary / secondary / tertiary). 0.5 is the floor: anything lower fails WCAG AA (4.5:1) for 11–13 pt text on black.
 - **Fills:** white 0.06 for hover and 0.10 for surfaces (the save card, the search field, the header button). 0.10 matches the system's `systemFill` in dark mode.
 - **Increase Contrast:** when `colorSchemeContrast` is `.increased`, each text and fill level steps up. The values are picked on the device.
-- **Keyboard selection:** a 1.5 pt ring of white 0.6 on the hover fill. This clears WCAG 1.4.11's 3:1 for state indicators while staying black and white; a fill-only highlight doesn't (0.16 on 0.10 is 1.2:1).
-- **Spacing:** a 4 pt grid and one 12 pt inset, used from the shape's edge to the card and rows and again inside each card and row. Every text edge and the card's icon sit 24 pt from the shape's edge. Rows are 40 pt tall.
-- **Radii:** the shape is 15 (outward top) / 20 (bottom); the card is 12; rows are 8, which is 20 − 12, so they nest inside the bottom corners. The radii are set by hand, because `ConcentricRectangle` needs macOS 26.
+- **Keyboard selection:** a 1.5 pt ring of white 0.6 (the secondary level, so 0.8 with Increase Contrast) on the hover fill. VoiceOver's focus stays in the search field, so the selected row's title is announced when ↑/↓ move it and, at low priority, when typing selects the first result. This clears WCAG 1.4.11's 3:1 for state indicators while staying black and white; a fill-only highlight doesn't (0.16 on 0.10 is 1.2:1).
+- **Spacing:** a 4 pt grid and one 12 pt inset, used from the shape's edge to the card and rows and again inside each card and row. Every text edge and the card's icon sit 24 pt from the shape's edge. Rows are 40 pt tall, and the search field 36. The save card fits its text, so its height follows the text's lines rather than the grid: 12 pt, the preview's lines (16 pt each), 4 pt, the 13 pt hint, 12 pt. A card with only a label is 40 pt.
+- **Radii:** the shape is 15 (outward top) / 20 (bottom); the card is 12; the search field is 10; rows are 8, which is 20 − 12, so they nest inside the bottom corners. The radii are set by hand, because `ConcentricRectangle` needs macOS 26.
 - **Width:** 400 pt in both the list and search. Switching modes changes only the height.
-- **Header:** a band beside the notch, as tall as the notch (`safeAreaInsets.top`; the menu bar's height on screens without one). It replaces the fixed 38 pt clearance and the "Show all" bar.
+- **Search height:** fits its content: the header, the search field, the results (or "No matches" in one row's height), and the key hints, with `sectionSpacing` (8 pt) between them and the 12 pt inset below. It grows and shrinks with the shape's spring as the results change, up to 520 pt, where the results scroll. The results are masked by the animated shape, so rows never show outside it while it grows.
+- **Header:** a band beside the notch, as tall as the notch (`safeAreaInsets.top`; the menu bar's height on screens without one), but never shorter than its 28 pt button. It replaces the fixed 38 pt clearance and the "Show all" bar. Its content sits one `inset` (12 pt) from the shape's edge, not 24 like the text below it, and each side stops at the notch.
   - Left: "Recent", or "Search" in search mode, in `title` and the secondary color.
-  - Right: the note count in `meta` and the tertiary color, then a 28 × 28 pt circular button on the surface fill: search in the list, close in search.
-- **Save card:** the `tray.and.arrow.up` symbol, up to 3 lines of preview in `body`, and a `meta` line such as "Click to save · 1,284 characters".
-- **Rows:** title and preview on the left, and the age on the right in `meta` and the tertiary color ("2h", "3d", "Oct 28").
+  - Right: the note count in `meta` and the tertiary color ("4 of 12" in search), then a 28 × 28 pt circular button on the surface fill: search in the list; in search, close the panel, like Esc.
+  - The search field below it shows a magnifier at its left and "esc" at its right in `meta` and the tertiary color.
+- **Save card:** the `tray.and.arrow.up` symbol, up to 3 lines of preview in `body`, and a `meta` line such as "Click to save · 1,284 characters". The preview starts at the clipboard's first visible character, so its first line isn't indented; the saved note keeps the text as it is.
+- **Rows:** title and preview on the left, and the age on the right in `meta` and the tertiary color ("2h", "3d", "Oct 28"). Clicking a row gives the save's feedback in the row's own size: the row dips to 0.96 while pressed, the trackpad haptic fires, and "Copied" with the save's `checkmark.circle.fill` in the primary color rises 6 pt into the preview line with blur 4 while the preview rises out (`.snappy(0.22)`). The checkmark bounces, again on every copy, and the row keeps its fill while "Copied" shows. With Reduce Motion, the lines only cross-fade and nothing dips or bounces.
+  - In search, the preview is a snippet of the text after the title line: it starts about 24 characters before the first match, on a word boundary, with a leading "…", and every query word in it is in `metaMatch`. The row truncates its end with "…". A match only in the title, or an empty query, shows the normal preview.
+  - In search, the selected row has the keyboard selection ring; hovering another row shows its hover fill and leaves the selection where it is.
+- **Key hints:** under the search results, "⏎ Copy" and "↑↓ Move": each key in `metaKey` and the secondary color, 4 pt before its label in `meta` and the tertiary color, the hints 16 pt apart, with text edges 24 pt from the shape's edge like the rows. "⌥⏎ Paste" joins them when paste is on. Hidden when nothing matches, since the keys do nothing then.
 - **Menu bar icon:** the SF Symbol `tray.and.arrow.up`, which the HIG suggests over a custom image. Make a custom SF Symbol only if a brand mark is needed later.
 
 ## Testing Decisions
@@ -202,6 +211,7 @@ Decided after a research pass against primary sources (`docs/research/notch-pane
   - Saving existing text returns `alreadySaved` and writes nothing. Saving empty or whitespace-only text returns `empty`.
   - `notes` and `recent(limit)` are newest first.
   - Search matches every word, ignores case, looks at the full text, and an empty query returns everything.
+  - A search result's snippet (`SearchSnippet`) starts near the first match and marks every query word, matching like search.
   - `delete` removes the file and the note.
   - After files are added, edited, or deleted directly on disk, `reload()` reflects the change.
   - Files without frontmatter load with fallback values. Malformed or non-Markdown files are skipped without crashing.

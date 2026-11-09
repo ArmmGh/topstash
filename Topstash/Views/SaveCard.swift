@@ -4,6 +4,8 @@ import SwiftUI
 /// The card that saves the clipboard text as a note. Only `.preview` and `.readyWithoutPreview` are buttons.
 struct SaveCard: View {
     let state: SaveCardState
+    /// `PanelModel.saveCardHeight`, worked out for this state when it was set.
+    let height: CGFloat
     let action: () -> Void
 
     /// Characters handed to `Text` for the preview. Three lines need far fewer; the cap keeps
@@ -11,21 +13,32 @@ struct SaveCard: View {
     private static let previewCharacterLimit = 600
 
     var body: some View {
+        // Fixed, so a card flying up keeps its size while the slot changes.
+        content.frame(height: height)
+    }
+
+    @ViewBuilder
+    private var content: some View {
         switch state {
         case .preview(let text, let characterCount):
             Button(action: action) {
                 card {
-                    icon("tray.and.arrow.down")
+                    icon(PanelStyle.saveSymbol)
                     VStack(alignment: .leading, spacing: PanelLayout.cardLineSpacing) {
                         // Already cut to its start by `previewText(_:)` when the state was set.
                         Text(text)
                             .font(PanelStyle.body)
-                            .lineLimit(3)
+                            // The lines the card was sized for: if SwiftUI wraps the text
+                            // differently from the measurement, it truncates rather than overflows.
+                            .lineLimit(PanelLayout.previewLines(inCardHeight: height))
                             .multilineTextAlignment(.leading)
-                        Text(Self.characterCountText(characterCount))
-                            .font(PanelStyle.caption)
+                        Text(Self.saveHintText(characterCount))
+                            .font(PanelStyle.meta)
                             .foregroundStyle(PanelStyle.secondary)
                     }
+                    // Its natural height: the card is sized from 16 pt lines, and a fraction of a
+                    // point short would make the preview drop a line.
+                    .fixedSize(horizontal: false, vertical: true)
                 }
             }
             .buttonStyle(PressDipButtonStyle())
@@ -44,20 +57,18 @@ struct SaveCard: View {
                 cardLayout { readyWithoutPreviewContent(link: .hitArea) }
             }
         case .accessDenied:
-            card(combiningAccessibility: false) {
+            card(style: PanelStyle.secondary, combiningAccessibility: false) {
                 icon("hand.raised")
                 VStack(alignment: .leading, spacing: PanelLayout.cardLineSpacing) {
                     label("Topstash can't read the clipboard")
                     settingsHint("Allow paste access to save from here", link: .button)
                 }
             }
-            .foregroundStyle(PanelStyle.muted)
         case .alreadySaved:
-            resultCard(.alreadySaved)
-                .foregroundStyle(PanelStyle.muted)
+            // Dimmer: nothing to do.
+            resultCard(.alreadySaved, style: PanelStyle.secondary)
         case .nothingToSave:
-            resultCard(.nothingToSave)
-                .foregroundStyle(PanelStyle.tertiary)
+            resultCard(.nothingToSave, style: PanelStyle.tertiary)
         case .saved:
             // `SaveCardSlot` shows its checkmark instead of a card.
             EmptyView()
@@ -66,41 +77,47 @@ struct SaveCard: View {
         }
     }
 
-    /// A card with only the result's label.
-    private func resultCard(_ result: ClipboardSaveResult) -> some View {
-        card {
+    /// A card with only the result's label, centered on the symbol.
+    private func resultCard(_ result: ClipboardSaveResult, style: PanelColor = PanelStyle.primary) -> some View {
+        card(style: style, alignment: .center) {
             icon(result.label.symbol)
             label(result.label.text)
         }
     }
 
+    /// `style` colors the card's text and symbol; text with its own style, such as the hint, keeps it.
     /// `combiningAccessibility: false` keeps the settings link a separate accessibility element.
     private func card(
+        style: PanelColor = PanelStyle.primary,
+        alignment: VerticalAlignment = .top,
         combiningAccessibility: Bool = true,
         @ViewBuilder _ content: () -> some View
     ) -> some View {
-        cardLayout(content)
-            .foregroundStyle(PanelStyle.primary)
+        cardLayout(alignment: alignment, content)
+            .foregroundStyle(style)
             .cardBackground()
             .contentShape(RoundedRectangle(cornerRadius: PanelLayout.cardCornerRadius))
             .accessibilityElement(children: combiningAccessibility ? .combine : .contain)
     }
 
-    /// The card's content layout, without its background or hit shape.
-    private func cardLayout(@ViewBuilder _ content: () -> some View) -> some View {
-        HStack(alignment: .center, spacing: PanelLayout.cardIconSpacing) {
+    /// The card's content layout, without its background or hit shape: the text `inset` from the
+    /// top, as in the prototype, or a single label centered with its symbol.
+    private func cardLayout(
+        alignment: VerticalAlignment = .top, @ViewBuilder _ content: () -> some View
+    ) -> some View {
+        HStack(alignment: alignment, spacing: PanelLayout.cardIconSpacing) {
             content()
             Spacer(minLength: 0)
         }
-        .padding(.horizontal, PanelLayout.cardHorizontalPadding)
-        .padding(.vertical, PanelLayout.cardVerticalPadding)
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .padding(PanelLayout.inset)
+        .frame(
+            maxWidth: .infinity, maxHeight: .infinity, alignment: Alignment(horizontal: .leading, vertical: alignment))
     }
 
     @ViewBuilder
     private func readyWithoutPreviewContent(link: SettingsLink) -> some View {
         let hidesRest = link == .hitArea
-        icon("tray.and.arrow.down")
+        icon(PanelStyle.saveSymbol)
             .hidden(hidesRest)
         VStack(alignment: .leading, spacing: PanelLayout.cardLineSpacing) {
             label("Text ready to save")
@@ -141,7 +158,7 @@ struct SaveCard: View {
                 .accessibilityLabel("Open Settings")
             }
         }
-        .font(PanelStyle.caption)
+        .font(PanelStyle.meta)
         .lineLimit(1)
     }
 
@@ -149,36 +166,40 @@ struct SaveCard: View {
     private static func linkText(isVisible: Bool) -> some View {
         Text("Open Settings")
             .underline()
-            .foregroundStyle(isVisible ? PanelStyle.link : .clear)
+            .foregroundStyle(PanelStyle.primary)
+            .opacity(isVisible ? 1 : 0)
     }
 
     private static func openPastePrivacySettings() {
         NSWorkspace.shared.open(SystemClipboard.pastePrivacySettingsURL)
     }
 
+    /// Leading in its frame, so every symbol starts at the same 24 pt edge as the row text. 1 pt
+    /// down from the text's top, as in the prototype, to sit on the first line.
     private func icon(_ systemName: String) -> some View {
         Image(systemName: systemName)
             .font(PanelStyle.cardIcon)
-            .frame(width: PanelLayout.cardIconWidth)
+            .frame(width: PanelLayout.cardIconWidth, alignment: .leading)
+            .padding(.top, PanelLayout.cardIconTopOffset)
     }
 
     private func label(_ text: String) -> some View {
         Text(text)
-            .font(PanelStyle.label)
+            .font(PanelStyle.title)
     }
 
-    /// The text from its first non-blank line on, capped at `previewCharacterLimit`.
+    /// The text from its first visible character, so the first line isn't indented, to its last,
+    /// capped at `previewCharacterLimit`. Only for showing: the saved note keeps the text as it is.
     static func previewText(_ text: String) -> String {
-        guard let firstVisible = text.firstIndex(where: { !$0.isWhitespace }) else { return "" }
-        let lineStart =
-            text[..<firstVisible].lastIndex(where: \.isNewline).map { text.index(after: $0) }
-            ?? text.startIndex
-        return String(text[lineStart...].prefix(previewCharacterLimit))
+        guard let first = text.firstIndex(where: { !$0.isWhitespace }),
+            let last = text.lastIndex(where: { !$0.isWhitespace })
+        else { return "" }
+        return String(text[first...last].prefix(previewCharacterLimit))
     }
 
-    /// "1 character", "1,234 characters".
-    static func characterCountText(_ count: Int) -> String {
-        "\(count.formatted()) \(count == 1 ? "character" : "characters")"
+    /// "Click to save · 1 character", "Click to save · 1,234 characters".
+    static func saveHintText(_ count: Int, locale: Locale = .current) -> String {
+        "Click to save · \(count.formatted(.number.locale(locale))) \(count == 1 ? "character" : "characters")"
     }
 }
 
@@ -197,8 +218,12 @@ struct SaveCardSlot: View {
     var body: some View {
         ZStack {
             if !isSaved {
-                SaveCard(state: panel.saveCard, action: action)
-                    .transition(Motion.saveCard(reduceMotion: reduceMotion))
+                SaveCard(state: panel.saveCard, height: panel.saveCardHeight, action: action)
+                    .transition(
+                        Motion.saveCard(
+                            reduceMotion: reduceMotion,
+                            flyUpOffset: PanelLayout.saveCardFlyUpOffset(
+                                cardHeight: panel.saveCardHeight, headerHeight: panel.headerHeight)))
             }
             // Always in the hierarchy, so the bounce plays when `saveCount` changes.
             HStack(spacing: PanelLayout.savedCheckmarkSpacing) {
@@ -206,14 +231,14 @@ struct SaveCardSlot: View {
                     .font(PanelStyle.savedIcon)
                     .symbolEffect(.bounce, value: bounceTrigger)
                 Text(ClipboardSaveResult.savedText)
-                    .font(PanelStyle.label)
+                    .font(PanelStyle.title)
             }
             .foregroundStyle(PanelStyle.primary)
             .opacity(isSaved ? 1 : 0)
             .accessibilityElement(children: .combine)
             .accessibilityHidden(!isSaved)
         }
-        .frame(height: PanelLayout.saveCardHeight)
+        .frame(height: panel.saveCardHeight)
         .animation(isSaved ? (reduceMotion ? Motion.reduced : Motion.flyUp) : Motion.contentIn, value: isSaved)
     }
 }
@@ -240,8 +265,8 @@ struct SaveStatusBadge: View {
                 .onChange(of: bounceTrigger) { bounces += 1 }
             Text(result.label.text)
         }
-        .font(PanelStyle.captionEmphasized)
-        .foregroundStyle(PanelStyle.muted)
+        .font(PanelStyle.meta)
+        .foregroundStyle(PanelStyle.secondary)
         .lineLimit(1)
         .fixedSize()
         .accessibilityElement(children: .combine)
@@ -269,8 +294,8 @@ extension ClipboardSaveResult {
 
 extension View {
     /// The fill shared by the save card and the search field.
-    func cardBackground() -> some View {
-        background(PanelStyle.cardFill, in: RoundedRectangle(cornerRadius: PanelLayout.cardCornerRadius))
+    func cardBackground(cornerRadius: CGFloat = PanelLayout.cardCornerRadius) -> some View {
+        background(PanelStyle.surfaceFill, in: RoundedRectangle(cornerRadius: cornerRadius))
     }
 
     /// `hidden()` when `isHidden`: invisible, still taking up its space, and not hit-testable.

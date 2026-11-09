@@ -137,27 +137,40 @@ enum NoteFile {
     /// and cut to 140 characters. Empty when nothing follows the title line.
     /// Stops reading at the 140th character, so a long note costs no more than a short one.
     static func preview(of body: String) -> String {
-        guard let rest = splitAtTitleLine(body)?.rest else { return "" }
-        let limit = 140
-        var preview = ""
+        guard let rest = textAfterTitleLine(of: body) else { return "" }
+        return collapsingWhitespace(rest, limit: previewLength)
+    }
+
+    /// The longest preview, in characters. Wider than any row, which truncates the rest.
+    static let previewLength = 140
+
+    /// Everything after the title line, or `nil` when no line qualifies as the title.
+    static func textAfterTitleLine(of body: String) -> Substring? {
+        splitAtTitleLine(body)?.rest
+    }
+
+    /// `text` on one line: every whitespace run collapsed to one space, trimmed, and cut to `limit`
+    /// characters. Stops reading at the limit.
+    static func collapsingWhitespace(_ text: Substring, limit: Int = .max) -> String {
+        var line = ""
         var count = 0
         var spaceBefore = false
-        for character in rest {
+        for character in text {
             if character.isWhitespace {
-                spaceBefore = !preview.isEmpty
+                spaceBefore = !line.isEmpty
                 continue
             }
             if spaceBefore {
                 guard count < limit else { break }
-                preview.append(" ")
+                line.append(" ")
                 count += 1
                 spaceBefore = false
             }
             guard count < limit else { break }
-            preview.append(character)
+            line.append(character)
             count += 1
         }
-        return preview
+        return line
     }
 
     /// The title line and everything after it. Reads lines only up to the title line.
