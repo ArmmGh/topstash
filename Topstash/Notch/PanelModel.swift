@@ -36,8 +36,7 @@ final class PanelModel {
     /// The search field's text.
     var query = ""
     /// The shortcut's result while searching (#10), shown next to the search field for a moment.
-    /// One of `.saved`, `.alreadySaved`, `.nothingToSave`, `.accessDenied`, `.failed`.
-    var searchStatus: SaveCardState?
+    var searchStatus: ClipboardSaveResult?
     /// True in `.feedback`, and kept while closing from it, so the list doesn't pop in during the fade.
     private(set) var showsOnlySaveCard = false
 
@@ -58,6 +57,7 @@ final class PanelModel {
 }
 
 /// What the save card shows. Only `.preview` and `.readyWithoutPreview` are clickable.
+/// After a save it shows the result's `ClipboardSaveResult.cardState`.
 enum SaveCardState: Equatable {
     /// The clipboard text, unsaved: only its start (`SaveCard.previewText`), and the full text's length.
     case preview(text: String, characterCount: Int)

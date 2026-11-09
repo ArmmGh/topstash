@@ -377,7 +377,7 @@ final class NotchPanelController {
             }
             // A hover delay running from before would replace the feedback with the normal panel.
             cancelHoverDelay()
-            guard case .success(.saved(let note)) = result else {
+            guard case .saved(let note) = result else {
                 appModel.showSaveResult(result, reverts: false)
                 open(on: displayID, as: .feedback)
                 startFeedbackTimer()

@@ -31,27 +31,27 @@ final class AppModel {
         }
     }
 
-    /// Reading the clipboard returned nothing although it holds text: paste access is denied,
-    /// in Settings or at the alert this read showed.
-    struct ClipboardAccessDenied: Error {}
-
-    /// Reads the clipboard and saves its text as a note. Fails with `ClipboardAccessDenied` when
-    /// the clipboard holds text that Topstash isn't allowed to read.
-    func saveClipboard() -> Result<SaveResult, any Error> {
+    /// Reads the clipboard and saves its text as a note. Logs a write error before returning `.failed`.
+    func saveClipboard() -> ClipboardSaveResult {
         let changeCount = clipboard.changeCount
         let read = clipboard.readText()
         if let read, clipboard.changeCount == changeCount {
             knownClipboard = (read, changeCount)
         }
+        // Reading returned nothing although the clipboard holds text: paste access is denied,
+        // in Settings or at the alert this read showed.
         if read == nil, clipboard.hasText() {
-            return .failure(ClipboardAccessDenied())
+            return .accessDenied
         }
-        let text = read ?? ""
         do {
-            return .success(try store.save(text))
+            switch try store.save(read ?? "") {
+            case .saved(let note): return .saved(note)
+            case .alreadySaved: return .alreadySaved
+            case .empty: return .nothingToSave
+            }
         } catch {
             logger.error("Saving the clipboard failed: \(error)")
-            return .failure(error)
+            return .failed
         }
     }
 
@@ -122,24 +122,15 @@ final class AppModel {
 
     /// Shows a save's result on the card: the card's click, and the shortcut (#10).
     /// "Saved", "Nothing to save", and "Couldn't save" are transient: they revert to the clipboard's
-    /// state after a moment, unless `reverts` is false (the shortcut's feedback panel, which hides
+    /// state after their `cardRevertDelay`, unless `reverts` is false (the shortcut's feedback panel, which hides
     /// or refreshes the card itself when its time is up).
-    func showSaveResult(_ result: Result<SaveResult, any Error>, reverts: Bool = true) {
+    func showSaveResult(_ result: ClipboardSaveResult, reverts: Bool = true) {
         saveCardResetTask?.cancel()
-        let state = Self.cardState(for: result)
-        panel.saveCard = state
-        if state == .saved {
+        panel.saveCard = result.cardState
+        if case .saved = result {
             playSaveFeedback()
         }
-        let revertDelay: Double? = switch state {
-        // The checkmark shows for the save feedback's length (#11), then the card returns.
-        case .saved: Motion.saveFeedbackDuration
-        case .nothingToSave: Motion.nothingToSaveDuration
-        case .failed: Motion.failedDuration
-        // "Already saved" is the clipboard's state anyway.
-        default: nil
-        }
-        guard reverts, let revertDelay else { return }
+        guard reverts, let revertDelay = result.cardRevertDelay else { return }
         saveCardResetTask = .afterDelay(revertDelay) { [weak self] in
             self?.refreshSaveCard()
         }
@@ -147,10 +138,9 @@ final class AppModel {
 
     /// Shows the shortcut's result while searching (#10). The search view has no card, so it shows
     /// the result next to the search field for `Motion.feedbackDuration`. The search stays open and focused.
-    func showSaveResultInSearch(_ result: Result<SaveResult, any Error>) {
-        let state = Self.cardState(for: result)
-        panel.searchStatus = state
-        if state == .saved {
+    func showSaveResultInSearch(_ result: ClipboardSaveResult) {
+        panel.searchStatus = result
+        if case .saved = result {
             playSaveFeedback()
         }
         searchStatusResetTask?.cancel()
@@ -161,17 +151,6 @@ final class AppModel {
 
     @ObservationIgnored
     private var searchStatusResetTask: Task<Void, Never>?
-
-    /// On any `.failure` but `ClipboardAccessDenied`, `saveClipboard` has logged the error.
-    private static func cardState(for result: Result<SaveResult, any Error>) -> SaveCardState {
-        switch result {
-        case .success(.saved): .saved
-        case .success(.alreadySaved): .alreadySaved
-        case .success(.empty): .nothingToSave
-        case .failure(is ClipboardAccessDenied): .accessDenied
-        case .failure: .failed
-        }
-    }
 
     /// The card for a save the shortcut made while the panel was closed (#10), until its feedback
     /// plays: the saved text as if it were unsaved, so it has a card to fly up (#11).
