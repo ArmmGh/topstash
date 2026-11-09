@@ -98,7 +98,6 @@ struct PanelView: View {
     }
 
     private var recentList: some View {
-        // Always read through `appModel.store`, which is replaced when the folder changes (#9).
         NoteList(
             appModel: appModel,
             notes: appModel.store.recent(limit: PanelLayout.recentCount),

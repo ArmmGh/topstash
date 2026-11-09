@@ -6,7 +6,8 @@ import TopstashCore
 /// The composition root, and the actions shared by the save card, the menu bar, and the shortcut.
 @MainActor @Observable
 final class AppModel {
-    /// Replaced when the folder changes (#9). Views always read `appModel.store`.
+    /// The notes folder's store. Replaced, together with its watcher, only by `setFolder(_:)`, so
+    /// views read `appModel.store` each time rather than keep a reference to a store.
     private(set) var store: NotesStore
     let panel: PanelModel
     let clipboard: any Clipboard
@@ -16,34 +17,18 @@ final class AppModel {
     @ObservationIgnored
     private let logger = Logger(category: "AppModel")
 
-    /// Creates the notes folder if it's missing. Tests pass their own defaults and a fake clipboard.
+    /// Opens the notes folder, creating it if it's missing. Tests pass their own defaults and a fake clipboard.
     init(defaults: UserDefaults = .standard, clipboard: any Clipboard = SystemClipboard()) {
         let folder = Preferences.notesFolder(defaults)
         self.defaults = defaults
-        store = NotesStore(folder: folder)
         panel = PanelModel()
         self.clipboard = clipboard
-        do {
-            try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
-        } catch {
-            logger.error("Couldn't create the notes folder \(folder.path(percentEncoded: false), privacy: .public): \(error)")
+        // There's no other folder to fall back to at startup, so a folder that can't be created is
+        // only logged, and its store has no notes.
+        (store, watcher) = Self.open(folder) { error in
+            Logger(category: "AppModel")
+                .error("Couldn't create the notes folder \(folder.path(percentEncoded: false), privacy: .public): \(error)")
         }
-        startWatching(folder)
-    }
-
-    /// Reloads the store, off the main thread, whenever the folder changes on disk. Our own saves
-    /// trigger a reload too, which is harmless: `notes` is assigned only when something changed.
-    @ObservationIgnored
-    private var watcher: FolderWatcher?
-
-    /// Replaces the current watcher (#9 calls this when the folder changes).
-    private func startWatching(_ folder: URL) {
-        watcher?.stop()
-        let watcher = FolderWatcher(folder: folder) { [weak self] in
-            self?.store.reloadInBackground()
-        }
-        watcher.start()
-        self.watcher = watcher
     }
 
     /// Reading the clipboard returned nothing although it holds text: paste access is denied,
@@ -213,35 +198,50 @@ final class AppModel {
     @ObservationIgnored
     private let defaults: UserDefaults
 
-    /// Switches to another notes folder: creates it if it's missing, stores its path, loads its notes,
-    /// and moves the folder watcher to it. If the folder can't be created, this throws and the old
+    /// Reloads the store, off the main thread, whenever the folder changes on disk. Our own saves
+    /// trigger a reload too, which is harmless: `notes` is assigned only when something changed.
+    @ObservationIgnored
+    private var watcher: FolderWatcher
+
+    /// The one path that opens a notes folder, at startup and when switching: creates the folder if
+    /// it's missing, then a store and a watcher for it, so the two always belong to the same folder.
+    /// If the folder can't be created, `onCreateFailure` decides: it throws to open nothing, or
+    /// returns to open the folder anyway.
+    private static func open(
+        _ folder: URL,
+        onCreateFailure: (any Error) throws -> Void
+    ) rethrows -> (NotesStore, FolderWatcher) {
+        do {
+            try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+        } catch {
+            try onCreateFailure(error)
+        }
+        let store = NotesStore(folder: folder)
+        let watcher = FolderWatcher(folder: folder) { [weak store] in
+            store?.reloadInBackground()
+        }
+        watcher.start()
+        return (store, watcher)
+    }
+
+    /// Switches to another notes folder: opens it, which loads its notes right away, stores its path,
+    /// and stops watching the old folder. If the folder can't be created, this throws and the old
     /// folder stays active.
     func setFolder(_ url: URL) throws {
-        try FileManager.default.createDirectory(at: url, withIntermediateDirectories: true)
+        let (newStore, newWatcher) = try Self.open(url) { throw $0 }
+        watcher.stop()
+        store = newStore
+        watcher = newWatcher
         defaults.set(url.path(percentEncoded: false), forKey: Preferences.notesFolderPathKey)
-        store = NotesStore(folder: url)
-        startWatching(url)
         // "Copied" belongs to a note of the old folder, and the clipboard may count as saved now.
         panel.copiedNote = nil
         refreshSaveCard()
     }
 
-    /// The size of the shape's body (without the outward top corners) in the current mode. `PanelView`
-    /// draws it, and `NotchPanelController` hit-tests against it.
+    /// The size of the shape's body in the current mode. `PanelView` draws it, and
+    /// `NotchPanelController` hit-tests against it.
     var shapeSize: CGSize {
-        switch panel.mode {
-        case .closed:
-            panel.closedSize
-        case .open:
-            CGSize(
-                width: PanelLayout.panelWidth,
-                height: PanelLayout.recentPanelHeight(rowCount: min(store.notes.count, PanelLayout.recentCount))
-            )
-        case .search:
-            PanelLayout.searchSize
-        case .feedback:
-            CGSize(width: PanelLayout.panelWidth, height: PanelLayout.feedbackPanelHeight)
-        }
+        PanelLayout.shapeSize(for: panel.mode, closedSize: panel.closedSize, noteCount: store.notes.count)
     }
 
     // MARK: - Context menu (#6)

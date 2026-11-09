@@ -36,7 +36,6 @@ struct SettingsView: View {
         Section {
             LabeledContent("Notes folder") {
                 HStack {
-                    // Always read through `appModel.store`, which is replaced when the folder changes.
                     Text(abbreviatedPath(appModel.store.folder))
                         .lineLimit(1)
                         .truncationMode(.middle)

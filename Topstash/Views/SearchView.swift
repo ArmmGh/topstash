@@ -39,7 +39,6 @@ struct SearchView: View {
     }
 
     private var results: some View {
-        // Always read through `appModel.store`, which is replaced when the folder changes (#9).
         NoteList(appModel: appModel, notes: appModel.store.search(panel.query), emptyText: "No matches", scrolls: true)
     }
 }
