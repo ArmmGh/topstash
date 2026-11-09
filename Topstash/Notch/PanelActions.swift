@@ -1,3 +1,5 @@
+import TopstashCore
+
 /// The panel changes views ask for. `NotchPanelController`, which owns the window, supplies them,
 /// so each action can change the panel's mode together with the window's key status and event
 /// monitors. Views never assign `PanelModel.mode` themselves.
@@ -13,4 +15,10 @@ struct PanelActions {
     var dismissAfterAction: () -> Void
     /// A click copied a note: closes the panel, as `dismissAfterAction` does, once "Copied" has shown.
     var dismissAfterCopy: () -> Void
+    /// Return in search: copies the note and closes the panel at once, handing focus back to the
+    /// app the user was in.
+    var copyFromSearch: (Note) -> Void
+    /// ⌥Return in search: with the Settings toggle on, also pastes the note into the frontmost
+    /// app. With the toggle off it does what Return does.
+    var pasteFromSearch: (Note) -> Void
 }

@@ -117,7 +117,7 @@ struct FeedbackTimingTests {
         scheduler.advance(by: Motion.feedbackDuration / 2)
         appModel.showSaveResultInSearch(.failed)
         scheduler.advance(by: Motion.feedbackDuration - 0.01)
-        #expect(appModel.panel.searchStatus == .failed)
+        #expect(appModel.panel.searchStatus == .saveResult(.failed))
 
         scheduler.advance(by: 0.02)
         #expect(appModel.panel.searchStatus == nil)

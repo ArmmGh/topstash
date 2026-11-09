@@ -113,7 +113,7 @@ private struct CopiedLabel: View {
 
     /// Bumped when the label appears and on every copy while it shows: it's inserted in the same
     /// update that bumps `copyCount`, so a `symbolEffect` keyed on the count alone wouldn't play
-    /// the first time (as in `SaveStatusBadge`).
+    /// the first time (as in `SearchStatusBadge`).
     @State private var bounces = 0
 
     var body: some View {

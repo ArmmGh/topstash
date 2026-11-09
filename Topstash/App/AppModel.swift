@@ -11,6 +11,7 @@ final class AppModel {
     private(set) var store: NotesStore
     let panel: PanelModel
     let clipboard: any Clipboard
+    let paster: any Paster
 
     /// Clears "Copied" on a row.
     @ObservationIgnored
@@ -18,16 +19,18 @@ final class AppModel {
     private static let logger = Logger(category: "AppModel")
 
     /// Opens the notes folder, creating it if it's missing. Tests pass their own defaults, a fake
-    /// clipboard, and a clock they advance by hand.
+    /// clipboard and paster, and a clock they advance by hand.
     init(
         defaults: UserDefaults = .standard,
         clipboard: any Clipboard = SystemClipboard(),
+        paster: any Paster = SystemPaster(),
         schedule: @escaping Schedule = DelayedAction.realTime
     ) {
         let folder = Preferences.notesFolder(defaults)
         self.defaults = defaults
         panel = PanelModel()
         self.clipboard = clipboard
+        self.paster = paster
         copiedReset = DelayedAction(schedule: schedule)
         saveCardReset = DelayedAction(schedule: schedule)
         searchStatusReset = DelayedAction(schedule: schedule)
@@ -166,14 +169,23 @@ final class AppModel {
     /// Shows the shortcut's result while searching. The search view has no card, so it shows
     /// the result next to the search field for `Motion.feedbackDuration`. The search stays open and focused.
     func showSaveResultInSearch(_ result: ClipboardSaveResult) {
-        panel.searchStatus = result
         if case .saved = result {
             playSaveFeedback()
         }
+        showSearchStatus(.saveResult(result))
+    }
+
+    /// Shows the status next to the search field for `Motion.feedbackDuration`.
+    func showSearchStatus(_ status: SearchStatus) {
+        panel.searchStatus = status
         searchStatusReset.schedule(after: Motion.feedbackDuration) { [weak self] in
             self?.panel.searchStatus = nil
         }
     }
+
+    /// The Settings toggle, off by default: ⌥Return in search pastes the note into the previous
+    /// app. Read on every press, so a change applies on the next one.
+    var pastesOnOptionReturn: Bool { Preferences.pastesOnOptionReturn(defaults) }
 
     /// Clears the search view's status.
     @ObservationIgnored

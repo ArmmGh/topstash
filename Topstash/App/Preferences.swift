@@ -6,6 +6,8 @@ enum Preferences {
     static let notesFolderPathKey = "notesFolderPath"
     /// Int. Default 250.
     static let hoverDelayMillisecondsKey = "hoverDelayMilliseconds"
+    /// Bool. Default false. Whether ⌥Return in search pastes the note into the previous app.
+    static let pastesOnOptionReturnKey = "pastesOnOptionReturn"
 
     static let defaultHoverDelayMilliseconds = 250
 
@@ -14,6 +16,10 @@ enum Preferences {
             return URL(filePath: path, directoryHint: .isDirectory)
         }
         return URL.documentsDirectory.appending(path: "Topstash", directoryHint: .isDirectory)
+    }
+
+    static func pastesOnOptionReturn(_ defaults: UserDefaults = .standard) -> Bool {
+        defaults.bool(forKey: pastesOnOptionReturnKey)
     }
 
     /// In seconds.

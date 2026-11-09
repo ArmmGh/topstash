@@ -50,8 +50,8 @@ final class PanelModel {
     /// The keyboard selection: an index into the search results, which may outlast results that
     /// were deleted. Read it through `selectedResult(among:)`.
     private var selection = 0
-    /// The shortcut's result while searching, shown next to the search field for a moment.
-    var searchStatus: ClipboardSaveResult?
+    /// Shown next to the search field for a moment.
+    var searchStatus: SearchStatus?
     /// The selected search result's index among `count` results: the first as you type, and never
     /// past the last. `nil` with no results.
     func selectedResult(among count: Int) -> Int? {
@@ -85,6 +85,14 @@ final class PanelModel {
     /// Counts copies, bumped by `AppModel` with the haptic. Its changes bounce the "Copied" checkmark,
     /// also when the row already shows it.
     var copyCount = 0
+}
+
+/// What the search view shows next to its field for a moment.
+enum SearchStatus: Equatable {
+    /// The save shortcut's result while searching.
+    case saveResult(ClipboardSaveResult)
+    /// ⌥Return copied the note but couldn't paste it: Topstash lacks Accessibility access.
+    case pasteNeedsAccess
 }
 
 /// What the save card shows. Only `.preview` and `.readyWithoutPreview` are clickable.

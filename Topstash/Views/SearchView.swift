@@ -4,7 +4,8 @@ import TopstashCore
 
 /// The expanded panel under the header: a search field above a scrollable list of the matching notes, newest first.
 /// Results are recomputed on every keystroke. The field keeps focus: ↑/↓ move the selection,
-/// Return copies the selected note and closes the panel, and Esc closes it.
+/// Return copies the selected note and closes the panel, ⌥Return can also paste it (a Settings
+/// toggle), and Esc closes it.
 struct SearchView: View {
     let appModel: AppModel
     let actions: PanelActions
@@ -13,6 +14,8 @@ struct SearchView: View {
     let results: [Note]
 
     @FocusState private var isFieldFocused: Bool
+    /// Only for the key hints: `PanelActions.pasteFromSearch` reads the toggle itself.
+    @AppStorage(Preferences.pastesOnOptionReturnKey) private var pastesOnOptionReturn = false
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     private var panel: PanelModel { appModel.panel }
@@ -37,11 +40,17 @@ struct SearchView: View {
                     .focused($isFieldFocused)
                     .onKeyPress(.upArrow) { moveSelection(by: -1) }
                     .onKeyPress(.downArrow) { moveSelection(by: 1) }
+                    // Without this the field would type ⌥Return into the query, not submit.
+                    .onKeyPress(.return, phases: .down) { press in
+                        guard press.modifiers.contains(.option) else { return .ignored }
+                        pasteSelected()
+                        return .handled
+                    }
                     // The field takes Return as submit before `onKeyPress` sees it.
                     .onSubmit(copySelected)
                 // The shortcut's result. Not focusable, so typing continues in the field.
                 if let status = panel.searchStatus {
-                    SaveStatusBadge(result: status, bounceTrigger: reduceMotion ? 0 : panel.saveCount)
+                    SearchStatusBadge(status: status, bounceTrigger: reduceMotion ? 0 : panel.saveCount)
                         .transition(.opacity)
                 }
                 // Esc closes the panel.
@@ -87,6 +96,7 @@ struct SearchView: View {
     private var keyHints: some View {
         HStack(spacing: PanelLayout.keyHintSpacing) {
             keyHint("⏎", "Copy")
+            if pastesOnOptionReturn { keyHint("⌥⏎", "Paste") }
             keyHint("↑↓", "Move")
         }
         .frame(
@@ -95,7 +105,9 @@ struct SearchView: View {
         )
         .padding(.horizontal, PanelLayout.inset)
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel("Return copies the selected note. Up and down arrows move the selection.")
+        .accessibilityLabel(
+            "Return copies the selected note.\(pastesOnOptionReturn ? " Option-Return pastes it." : "")"
+                + " Up and down arrows move the selection.")
     }
 
     private func keyHint(_ key: String, _ label: LocalizedStringKey) -> some View {
@@ -127,11 +139,16 @@ struct SearchView: View {
         AccessibilityNotification.Announcement(announcement).post()
     }
 
-    /// Return: copies the selected note and closes the panel at once, handing focus back to the app
-    /// the user was in. With no results it does nothing.
+    /// Return: copies the selected note and closes the panel. With no results it does nothing.
     private func copySelected() {
         guard let selectedNote else { return }
-        appModel.copy(selectedNote)
-        actions.closeSearch()
+        actions.copyFromSearch(selectedNote)
+    }
+
+    /// ⌥Return: like Return, and pastes too when the Settings toggle is on. With no results it
+    /// does nothing.
+    private func pasteSelected() {
+        guard let selectedNote else { return }
+        actions.pasteFromSearch(selectedNote)
     }
 }

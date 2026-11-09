@@ -246,10 +246,10 @@ struct SaveCardSlot: View {
     }
 }
 
-/// The shortcut's result in search mode, where there's no card: the card's label, compact,
-/// next to the search field.
-struct SaveStatusBadge: View {
-    let result: ClipboardSaveResult
+/// The search view's status next to its field: the shortcut's result, where there's no card, as
+/// the card's label, compact; or why ⌥Return couldn't paste.
+struct SearchStatusBadge: View {
+    let status: SearchStatus
     /// 0 with Reduce Motion, otherwise `saveCount`.
     let bounceTrigger: Int
 
@@ -260,13 +260,13 @@ struct SaveStatusBadge: View {
 
     var body: some View {
         HStack(spacing: PanelLayout.inlineSpacing) {
-            Image(systemName: result.label.symbol)
+            Image(systemName: status.label.symbol)
                 .symbolEffect(.bounce, value: bounces)
                 .task {
-                    if case .saved = result, bounceTrigger != 0 { bounces += 1 }
+                    if case .saveResult(.saved) = status, bounceTrigger != 0 { bounces += 1 }
                 }
                 .onChange(of: bounceTrigger) { bounces += 1 }
-            Text(result.label.text)
+            Text(status.label.text)
         }
         .font(PanelStyle.meta)
         .foregroundStyle(PanelStyle.secondary)
@@ -294,6 +294,15 @@ extension ClipboardSaveResult {
     /// The checkmark's label and symbol, for `SaveCardSlot`, which has no result at hand.
     fileprivate static let savedText = "Saved"
     fileprivate static let savedSymbol = "checkmark.circle.fill"
+}
+
+extension SearchStatus {
+    fileprivate var label: (text: String, symbol: String) {
+        switch self {
+        case .saveResult(let result): result.label
+        case .pasteNeedsAccess: ("Paste needs Accessibility access", "hand.raised")
+        }
+    }
 }
 
 extension View {
