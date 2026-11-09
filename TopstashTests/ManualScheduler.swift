@@ -1,10 +1,10 @@
 @testable import Topstash
 
 /// Stands in for real time: scheduled work runs only when a test calls `advance(by:)`, so delays
-/// can be tested without waiting.
+/// can be tested without waiting. Pass `schedule` wherever a `Schedule` is expected.
 @MainActor
-final class ManualScheduler: Scheduler {
-    private final class Entry: ScheduledRun {
+final class ManualScheduler {
+    private final class Entry {
         let due: Double
         let action: @MainActor () -> Void
         var isCancelled = false
@@ -13,19 +13,15 @@ final class ManualScheduler: Scheduler {
             self.due = due
             self.action = action
         }
-
-        func cancel() {
-            isCancelled = true
-        }
     }
 
     private(set) var now: Double = 0
     private var entries: [Entry] = []
 
-    func schedule(after seconds: Double, _ action: @escaping @MainActor () -> Void) -> any ScheduledRun {
+    func schedule(_ seconds: Double, _ action: @escaping @MainActor () -> Void) -> @MainActor () -> Void {
         let entry = Entry(due: now + seconds, action: action)
         entries.append(entry)
-        return entry
+        return { entry.isCancelled = true }
     }
 
     /// Moves time forward, running every uncancelled action that falls due, earliest first.

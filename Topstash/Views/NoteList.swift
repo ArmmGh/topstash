@@ -6,7 +6,7 @@ import TopstashCore
 struct NoteList: View {
     let appModel: AppModel
     /// Closes the panel after Open in Editor.
-    let actions: any PanelActions
+    let actions: PanelActions
     let notes: [Note]
     let emptyText: LocalizedStringKey
     /// The search results scroll; the recent list always fits.

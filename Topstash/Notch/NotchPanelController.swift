@@ -38,7 +38,7 @@ final class NotchPanelController {
     }
 
     func start() {
-        window = NotchPanel(rootView: PanelView(appModel: appModel, actions: self)) { [weak self] in
+        window = NotchPanel(rootView: PanelView(appModel: appModel, actions: panelActions)) { [weak self] in
             self?.panel.mode == .search
         }
         rebuildHoverAreas()
@@ -397,7 +397,16 @@ final class NotchPanelController {
     }
 }
 
-extension NotchPanelController: PanelActions {
+extension NotchPanelController {
+    /// What the panel's views call. Weak, so the views don't keep the controller alive.
+    private var panelActions: PanelActions {
+        PanelActions(
+            showAll: { [weak self] in self?.showAll() },
+            closeSearch: { [weak self] in self?.closeSearch() },
+            dismissAfterAction: { [weak self] in self?.dismissAfterAction() }
+        )
+    }
+
     /// Expands the open panel into search mode, which makes the panel key for the search field.
     func showAll() {
         setMode(.search)

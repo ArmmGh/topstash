@@ -4,7 +4,7 @@ import SwiftUI
 /// Results are recomputed on every keystroke. Esc closes the panel.
 struct SearchView: View {
     let appModel: AppModel
-    let actions: any PanelActions
+    let actions: PanelActions
 
     @FocusState private var isFieldFocused: Bool
     @Environment(\.accessibilityReduceMotion) private var reduceMotion

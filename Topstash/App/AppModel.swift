@@ -18,19 +18,19 @@ final class AppModel {
     private static let logger = Logger(category: "AppModel")
 
     /// Opens the notes folder, creating it if it's missing. Tests pass their own defaults, a fake
-    /// clipboard, and a scheduler they advance by hand.
+    /// clipboard, and a clock they advance by hand.
     init(
         defaults: UserDefaults = .standard,
         clipboard: any Clipboard = SystemClipboard(),
-        scheduler: any Scheduler = TaskScheduler()
+        schedule: @escaping Schedule = DelayedAction.realTime
     ) {
         let folder = Preferences.notesFolder(defaults)
         self.defaults = defaults
         panel = PanelModel()
         self.clipboard = clipboard
-        copiedReset = DelayedAction(scheduler: scheduler)
-        saveCardReset = DelayedAction(scheduler: scheduler)
-        searchStatusReset = DelayedAction(scheduler: scheduler)
+        copiedReset = DelayedAction(schedule: schedule)
+        saveCardReset = DelayedAction(schedule: schedule)
+        searchStatusReset = DelayedAction(schedule: schedule)
         // There's no other folder to fall back to at startup, so a folder that can't be created is
         // only logged, and its store has no notes.
         (store, watcher) = Self.open(folder) { error in

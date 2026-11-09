@@ -4,7 +4,7 @@ import SwiftUI
 /// mode's content on it. Only this SwiftUI content animates; the window frame stays fixed.
 struct PanelView: View {
     let appModel: AppModel
-    let actions: any PanelActions
+    let actions: PanelActions
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 

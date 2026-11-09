@@ -14,7 +14,7 @@ struct FeedbackTimingTests {
     func makeAppModel(clipboard: FakeClipboard) -> AppModel {
         let defaults = UserDefaults(suiteName: "TopstashTests-\(UUID().uuidString)")!
         defaults.set(temp.url.path(percentEncoded: false), forKey: Preferences.notesFolderPathKey)
-        return AppModel(defaults: defaults, clipboard: clipboard, scheduler: scheduler)
+        return AppModel(defaults: defaults, clipboard: clipboard, schedule: scheduler.schedule)
     }
 
     func savedNote(_ text: String, in appModel: AppModel) throws -> Note {

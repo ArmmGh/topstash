@@ -8,21 +8,19 @@ struct DelayedActionTests {
     let scheduler = ManualScheduler()
 
     @Test func runsOnceTheDelayHasPassed() {
-        let delayed = DelayedAction(scheduler: scheduler)
+        let delayed = DelayedAction(schedule: scheduler.schedule)
         var runs = 0
 
         delayed.schedule(after: 1) { runs += 1 }
         scheduler.advance(by: 0.9)
         #expect(runs == 0)
-        #expect(delayed.isPending)
 
         scheduler.advance(by: 0.1)
         #expect(runs == 1)
-        #expect(!delayed.isPending)
     }
 
     @Test func aNewerScheduleReplacesTheOlderOne() {
-        let delayed = DelayedAction(scheduler: scheduler)
+        let delayed = DelayedAction(schedule: scheduler.schedule)
         var ran: [String] = []
 
         delayed.schedule(after: 1) { ran.append("first") }
@@ -36,7 +34,7 @@ struct DelayedActionTests {
     }
 
     @Test func cancellingStopsThePendingRun() {
-        let delayed = DelayedAction(scheduler: scheduler)
+        let delayed = DelayedAction(schedule: scheduler.schedule)
         var runs = 0
 
         delayed.schedule(after: 1) { runs += 1 }
@@ -44,7 +42,6 @@ struct DelayedActionTests {
         scheduler.advance(by: 2)
 
         #expect(runs == 0)
-        #expect(!delayed.isPending)
     }
 
     /// The real scheduler, with a tiny delay: the kept run happens, the cancelled one never does.

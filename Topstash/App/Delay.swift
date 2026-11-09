@@ -1,56 +1,42 @@
+/// Runs `action` after `seconds` and returns a function that cancels it. The app uses
+/// `DelayedAction.realTime`; tests pass a clock they advance by hand.
+typealias Schedule = @MainActor (_ seconds: Double, _ action: @escaping @MainActor () -> Void) -> @MainActor () -> Void
+
 /// Runs an action after a delay, replacing any pending run, and cancellable. Every "wait, then
 /// reset or close" in the app uses one, so no caller has to remember to cancel the previous run.
 @MainActor
 final class DelayedAction {
-    private let scheduler: any Scheduler
-    private var pending: (any ScheduledRun)?
+    private let scheduleRun: Schedule
+    private var cancelPending: (@MainActor () -> Void)?
 
-    /// Tests pass a scheduler they advance by hand; the app uses real time.
-    init(scheduler: any Scheduler = TaskScheduler()) {
-        self.scheduler = scheduler
+    init(schedule: @escaping Schedule = DelayedAction.realTime) {
+        scheduleRun = schedule
     }
-
-    /// True from `schedule` until the action runs or is cancelled.
-    var isPending: Bool { pending != nil }
 
     /// Runs `action` after `seconds`, cancelling any run still pending.
     func schedule(after seconds: Double, _ action: @escaping @MainActor () -> Void) {
         cancel()
-        pending = scheduler.schedule(after: seconds) { [weak self] in
-            self?.pending = nil
+        cancelPending = scheduleRun(seconds) { [weak self] in
+            self?.cancelPending = nil
             action()
         }
     }
 
     /// Stops the pending run, if any.
     func cancel() {
-        pending?.cancel()
-        pending = nil
+        cancelPending?()
+        cancelPending = nil
     }
-}
 
-/// Where `DelayedAction` gets its time from.
-@MainActor
-protocol Scheduler {
-    /// Runs `action` on the main actor after `seconds`, unless the returned run is cancelled first.
-    func schedule(after seconds: Double, _ action: @escaping @MainActor () -> Void) -> any ScheduledRun
-}
-
-/// A run a `Scheduler` has scheduled.
-@MainActor
-protocol ScheduledRun {
-    func cancel()
-}
-
-/// Real time: a task that sleeps, then runs the action unless it was cancelled meanwhile.
-struct TaskScheduler: Scheduler {
-    func schedule(after seconds: Double, _ action: @escaping @MainActor () -> Void) -> any ScheduledRun {
-        Task { @MainActor in
-            try? await Task<Never, Never>.sleep(for: .seconds(seconds))
-            guard !Task<Never, Never>.isCancelled else { return }
+    /// Real time: a task that sleeps, then runs the action unless it was cancelled meanwhile.
+    static func realTime(
+        _ seconds: Double, _ action: @escaping @MainActor () -> Void
+    ) -> @MainActor () -> Void {
+        let task = Task { @MainActor in
+            try? await Task.sleep(for: .seconds(seconds))
+            guard !Task.isCancelled else { return }
             action()
         }
+        return { task.cancel() }
     }
 }
-
-extension Task: ScheduledRun where Success == Void, Failure == Never {}
