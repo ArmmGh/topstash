@@ -4,6 +4,7 @@ import SwiftUI
 /// Results are recomputed on every keystroke. Esc closes the panel.
 struct SearchView: View {
     let appModel: AppModel
+    let actions: any PanelActions
 
     @FocusState private var isFieldFocused: Bool
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -35,10 +36,10 @@ struct SearchView: View {
         // The shape is black in light and dark mode, so the field's placeholder and caret need dark colors.
         .environment(\.colorScheme, .dark)
         .onAppear { isFieldFocused = true }
-        .onExitCommand { panel.mode = .closed }
+        .onExitCommand { actions.closeSearch() }
     }
 
     private var results: some View {
-        NoteList(appModel: appModel, notes: appModel.store.search(panel.query), emptyText: "No matches", scrolls: true)
+        NoteList(appModel: appModel, actions: actions, notes: appModel.store.search(panel.query), emptyText: "No matches", scrolls: true)
     }
 }

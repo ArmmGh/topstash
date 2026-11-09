@@ -225,15 +225,10 @@ final class AppModel {
 
     // MARK: - Context menu (#6)
 
-    /// Closes the panel. Set by `NotchPanelController`, which owns the window.
-    @ObservationIgnored
-    var closePanel: () -> Void = {}
-
-    /// Opens the note's file in the default app for `.md`, then closes the panel.
-    /// If no app handles `.md`, macOS shows its own app chooser.
+    /// Opens the note's file in the default app for `.md`. If no app handles `.md`, macOS shows
+    /// its own app chooser. The note row then closes the panel through `PanelActions`.
     func openInEditor(_ note: Note) {
         NSWorkspace.shared.open(note.fileURL)
-        closePanel()
     }
 
     /// Moves the note's file to the Trash. On failure, logs and beeps.

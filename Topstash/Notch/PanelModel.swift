@@ -16,6 +16,8 @@ final class PanelModel {
     }
 
     /// Closing resets `query`, so the next open shows the recent list with an empty query.
+    /// Only `NotchPanelController` sets it, together with what the window does in each mode; views
+    /// ask for changes through `PanelActions`. Setting it has no effect on windows or focus.
     var mode: Mode = .closed {
         didSet {
             if mode == .closed {
@@ -23,9 +25,6 @@ final class PanelModel {
                 searchStatus = nil
             } else {
                 showsOnlySaveCard = mode == .feedback
-            }
-            if mode != oldValue {
-                onModeChange?(oldValue, mode)
             }
         }
     }
@@ -49,11 +48,6 @@ final class PanelModel {
     /// Counts new saves, bumped by `AppModel` with the haptic. Its changes trigger the checkmark
     /// bounce and the notch's gulp (#11).
     var saveCount = 0
-
-    /// Called after `mode` changes, with the old and new mode. `NotchPanelController` uses it to
-    /// make the window key and watch for closing events while searching. Don't set `mode` from it.
-    @ObservationIgnored
-    var onModeChange: ((_ old: Mode, _ new: Mode) -> Void)?
 }
 
 /// What the save card shows. Only `.preview` and `.readyWithoutPreview` are clickable.

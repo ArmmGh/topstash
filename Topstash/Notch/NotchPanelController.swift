@@ -40,11 +40,8 @@ final class NotchPanelController {
     }
 
     func start() {
-        window = NotchPanel(rootView: PanelView(appModel: appModel)) { [weak self] in
+        window = NotchPanel(rootView: PanelView(appModel: appModel, actions: self)) { [weak self] in
             self?.panel.mode == .search
-        }
-        panel.onModeChange = { [weak self] old, new in
-            self?.modeChanged(from: old, to: new)
         }
         rebuildHoverAreas()
 
@@ -73,7 +70,6 @@ final class NotchPanelController {
         }
 
         observeMenuTracking()
-        appModel.closePanel = { [weak self] in self?.dismiss() }
     }
 
     // MARK: - Screens
@@ -103,7 +99,7 @@ final class NotchPanelController {
             place(window, on: screen, area: area)
         } else {
             // The panel's screen is gone: close right away, without the fade.
-            panel.mode = .closed
+            setMode(.closed)
             orderOutNow()
         }
     }
@@ -146,7 +142,7 @@ final class NotchPanelController {
                 closeTask?.cancel()
                 closeTask = nil
                 appModel.refreshSaveCard()
-                panel.mode = .open
+                setMode(.open)
             } else if let hovered {
                 startHoverDelay(for: hovered)
             } else {
@@ -226,7 +222,7 @@ final class NotchPanelController {
         if mode == .open {
             appModel.refreshSaveCard()
         }
-        panel.mode = mode
+        setMode(mode)
         updateClickThrough(at: NSEvent.mouseLocation)
         // Never makeKey or activate: the frontmost app keeps keyboard focus. Only search mode makes it key.
         window.orderFrontRegardless()
@@ -247,7 +243,7 @@ final class NotchPanelController {
 
     /// The content fades out, the shape collapses into the hover area, then the window is ordered out.
     private func close() {
-        panel.mode = .closed
+        setMode(.closed)
         orderOutAfterClosing()
     }
 
@@ -267,9 +263,14 @@ final class NotchPanelController {
         window?.orderOut(nil)
     }
 
-    // MARK: - Search
+    // MARK: - Mode
 
-    private func modeChanged(from old: PanelModel.Mode, to new: PanelModel.Mode) {
+    /// The one place the controller changes `panel.mode`, together with what the window does on
+    /// leaving and entering a mode. Setting `panel.mode` itself only updates the panel's UI state.
+    private func setMode(_ new: PanelModel.Mode) {
+        let old = panel.mode
+        guard new != old else { return }
+        panel.mode = new
         if old == .feedback {
             feedbackTask?.cancel()
         }
@@ -279,6 +280,8 @@ final class NotchPanelController {
             endSearch(closing: new == .closed)
         }
     }
+
+    // MARK: - Search
 
     /// Makes the panel key so the search field gets typing. The panel is `.nonactivatingPanel`, so
     /// Topstash isn't activated and the frontmost app stays frontmost.
@@ -302,9 +305,9 @@ final class NotchPanelController {
     }
 
     /// Esc, a click outside, or the panel resigning key.
-    private func closeSearch() {
+    func closeSearch() {
         guard panel.mode == .search else { return }
-        panel.mode = .closed
+        setMode(.closed)
     }
 
     private func endSearch(closing: Bool) {
@@ -322,7 +325,10 @@ final class NotchPanelController {
         // content and shape animate out like any close (#11). Ordering a key window out hands key
         // status back to the frontmost app, but ordering the panel itself out and back in blanks it
         // for a moment. So an invisible window takes key status from the panel and is ordered out.
-        keyHandback.handBackKey()
+        // Without a window (the controller was never started) there is no key status to hand back.
+        if window != nil {
+            keyHandback.handBackKey()
+        }
         // Esc or a click outside means "close": the cursor still over the panel doesn't reopen it.
         isDismissed = true
         orderOutAfterClosing()
@@ -349,7 +355,7 @@ final class NotchPanelController {
     }
 
     /// Closes after an action (Open in Editor). The cursor still over the fading panel doesn't bring it back.
-    private func dismiss() {
+    func dismissAfterAction() {
         guard panel.mode != .closed else { return }
         isDismissed = true
         close()
@@ -421,9 +427,16 @@ final class NotchPanelController {
         guard panel.mode == .feedback else { return }
         if isOverOpenPanel(NSEvent.mouseLocation) {
             appModel.refreshSaveCard()
-            panel.mode = .open
+            setMode(.open)
         } else {
             close()
         }
+    }
+}
+
+extension NotchPanelController: PanelActions {
+    /// Expands the open panel into search mode (#5), which makes the panel key for the search field.
+    func showAll() {
+        setMode(.search)
     }
 }

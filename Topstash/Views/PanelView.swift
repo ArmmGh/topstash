@@ -4,6 +4,7 @@ import SwiftUI
 /// mode's content on it. Only this SwiftUI content animates; the window frame stays fixed (#11).
 struct PanelView: View {
     let appModel: AppModel
+    let actions: any PanelActions
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
@@ -69,7 +70,7 @@ struct PanelView: View {
                 recentContent
                     .transition(Motion.content(reduceMotion: reduceMotion))
             case .search:
-                SearchView(appModel: appModel)
+                SearchView(appModel: appModel, actions: actions)
                     .padding(.top, PanelLayout.notchClearance)
                     .padding([.horizontal, .bottom], PanelLayout.contentPadding)
                     .frame(width: PanelLayout.searchSize.width, height: PanelLayout.searchSize.height)
@@ -100,6 +101,7 @@ struct PanelView: View {
     private var recentList: some View {
         NoteList(
             appModel: appModel,
+            actions: actions,
             notes: appModel.store.recent(limit: PanelLayout.recentCount),
             emptyText: "No notes yet"
         )
@@ -108,7 +110,7 @@ struct PanelView: View {
     /// Expands the panel into the search view (#5).
     private var showAllButton: some View {
         Button {
-            panel.mode = .search
+            actions.showAll()
         } label: {
             Text("Show all (\(appModel.store.notes.count))")
                 .font(PanelStyle.button)
