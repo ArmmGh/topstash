@@ -29,6 +29,7 @@ struct SaveCardHeightTests {
         // Only a label.
         (.alreadySaved, 40.0),
         (.nothingToSave, 40.0),
+        (.concealed, 40.0),
         (.failed, 40.0),
     ])
     func cardHeightFitsItsText(state: SaveCardState, height: Double) {

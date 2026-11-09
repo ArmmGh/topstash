@@ -99,6 +99,8 @@ enum SaveCardState: Equatable {
     case readyWithoutPreview
     /// The clipboard has text, but the user denied paste access.
     case accessDenied
+    /// The clipboard has text marked concealed, such as a password: "Hidden content", no preview.
+    case concealed
     case alreadySaved
     case nothingToSave
     /// Transient, after a successful save.

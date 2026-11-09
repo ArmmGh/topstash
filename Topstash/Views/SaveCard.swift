@@ -67,6 +67,8 @@ struct SaveCard: View {
         case .alreadySaved:
             // Dimmer: nothing to do.
             resultCard(.alreadySaved, style: PanelStyle.secondary)
+        case .concealed:
+            resultCard(.concealed, style: PanelStyle.secondary)
         case .nothingToSave:
             resultCard(.nothingToSave, style: PanelStyle.tertiary)
         case .saved:
@@ -281,6 +283,7 @@ extension ClipboardSaveResult {
         case .saved: (Self.savedText, Self.savedSymbol)
         case .alreadySaved: ("Already saved", "checkmark")
         case .nothingToSave: ("Nothing to save", "tray")
+        case .concealed: ("Hidden content", "eye.slash")
         case .failed: ("Couldn't save", "exclamationmark.triangle")
         // Only the search view's status uses this; the card has its own `.accessDenied` layout.
         case .accessDenied: ("Can't read the clipboard", "hand.raised")

@@ -7,13 +7,15 @@ final class FakeClipboard: Clipboard {
     /// The clipboard's text. `nil` means it holds no text.
     var text: String?
     var access: PasteAccess
+    var marker: ClipboardMarker?
     private(set) var changeCount = 0
     /// How many times the contents were read.
     private(set) var readCount = 0
 
-    init(text: String? = nil, access: PasteAccess = .allowed) {
+    init(text: String? = nil, access: PasteAccess = .allowed, marker: ClipboardMarker? = nil) {
         self.text = text
         self.access = access
+        self.marker = marker
     }
 
     func hasText() -> Bool {
@@ -28,12 +30,14 @@ final class FakeClipboard: Clipboard {
 
     func write(_ text: String) {
         self.text = text
+        marker = nil
         changeCount += 1
     }
 
-    /// Another app replacing the clipboard's contents.
-    func simulateCopy(_ text: String?) {
+    /// Another app replacing the clipboard's contents, with `marker` if it marked them.
+    func simulateCopy(_ text: String?, marker: ClipboardMarker? = nil) {
         self.text = text
+        self.marker = marker
         changeCount += 1
     }
 }

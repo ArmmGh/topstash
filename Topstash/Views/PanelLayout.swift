@@ -73,7 +73,7 @@ enum PanelLayout {
         switch state {
         case .preview(let text, _): saveCardHeight(previewLines: previewLineCount(text))
         case .readyWithoutPreview, .accessDenied: saveCardHeight(previewLines: 1)
-        case .alreadySaved, .nothingToSave, .failed, .saved: compactSaveCardHeight
+        case .alreadySaved, .concealed, .nothingToSave, .failed, .saved: compactSaveCardHeight
         }
     }
 
