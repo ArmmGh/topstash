@@ -12,6 +12,8 @@ enum Motion {
     static let contentOutDuration: Double = 0.12
     static let reducedDuration: Double = 0.2
     static let pressDuration: Double = 0.15
+    /// How long after the search field appears its focus is set again (see `SearchView`).
+    static let searchFocusRetryDelay: Double = 0.1
     static let flyUpDuration: Double = 0.25
     /// The gulp starts as the flying card reaches the notch.
     static let gulpDelay: Double = 0.15
