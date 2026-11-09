@@ -1,5 +1,4 @@
 import AppKit
-import SwiftUI
 
 /// Size constants for the notch panel. All sizes live here.
 enum PanelLayout {
@@ -132,14 +131,15 @@ enum PanelLayout {
     /// Between the header, the save card or search field, and the list.
     static let sectionSpacing: CGFloat = 8
 
-    /// How to scroll the search results so the row at `index` is fully in view: to the top or the
-    /// bottom edge, whichever is nearer, or `nil` when it's already in view. `offset` is how far the
-    /// results are scrolled. Rows are `rowHeight` apart, so this needs no layout. `NoteRow` fixes its
-    /// height to `rowHeight`, and nothing sits above the rows in the scroll view.
-    static func scrollAnchor(row index: Int, offset: CGFloat, viewportHeight: CGFloat) -> UnitPoint? {
+    /// Where to scroll the search results so the row at `index` is fully in view: just far enough
+    /// to bring it to the top or bottom edge, or `nil` when it's already in view. `offset` is how far
+    /// the results are scrolled. Rows are `rowHeight` apart, so this needs no layout: `NoteRow` fixes
+    /// its height to `rowHeight`, and nothing sits above the rows in the scroll view.
+    static func scrollOffset(showingRow index: Int, offset: CGFloat, viewportHeight: CGFloat) -> CGFloat? {
         let top = CGFloat(index) * (rowHeight + rowSpacing)
-        if top < offset { return .top }
-        if top + rowHeight > offset + viewportHeight { return .bottom }
+        let bottom = top + rowHeight
+        if top < offset { return top }
+        if bottom > offset + viewportHeight { return bottom - viewportHeight }
         return nil
     }
 

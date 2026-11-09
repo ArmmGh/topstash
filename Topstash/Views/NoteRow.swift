@@ -48,7 +48,7 @@ struct NoteRow: View {
                     .accessibilityLabel(Text(note.created, format: .relative(presentation: .named)))
             }
             .padding(.horizontal, PanelLayout.inset)
-            // Every row is exactly this tall: `PanelLayout.scrollAnchor` works out where rows are from it.
+            // Every row is exactly this tall: `PanelLayout.scrollOffset` works out where rows are from it.
             .frame(height: PanelLayout.rowHeight)
             .background {
                 // Hovering another row shows its fill without moving the selection.
