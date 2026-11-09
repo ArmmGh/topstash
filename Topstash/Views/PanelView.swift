@@ -112,8 +112,8 @@ struct PanelView: View {
             panel.mode = .search
         } label: {
             Text("Show all (\(appModel.store.notes.count))")
-                .font(.system(size: 12, weight: .medium))
-                .foregroundStyle(.white.opacity(0.7))
+                .font(PanelStyle.button)
+                .foregroundStyle(PanelStyle.secondary)
                 .frame(maxWidth: .infinity)
                 .frame(height: PanelLayout.showAllHeight)
                 .contentShape(RoundedRectangle(cornerRadius: PanelLayout.rowCornerRadius))

@@ -15,8 +15,8 @@ struct NoteRow: View {
         Button(action: action) {
             VStack(alignment: .leading, spacing: PanelLayout.rowLineSpacing) {
                 Text(note.title)
-                    .font(.system(size: 13, weight: .semibold))
-                    .foregroundStyle(.white)
+                    .font(PanelStyle.rowTitle)
+                    .foregroundStyle(PanelStyle.primary)
                 Group {
                     if isCopied {
                         Label("Copied", systemImage: "checkmark")
@@ -24,8 +24,8 @@ struct NoteRow: View {
                         Text(note.preview)
                     }
                 }
-                .font(.system(size: 11))
-                .foregroundStyle(.white.opacity(0.6))
+                .font(PanelStyle.caption)
+                .foregroundStyle(PanelStyle.secondary)
             }
             .lineLimit(1)
             .truncationMode(.tail)

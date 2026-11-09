@@ -19,12 +19,12 @@ struct SaveCard: View {
                     VStack(alignment: .leading, spacing: PanelLayout.cardLineSpacing) {
                         // Already cut to its start by `previewText(_:)` when the state was set.
                         Text(text)
-                            .font(.system(size: 12))
+                            .font(PanelStyle.body)
                             .lineLimit(3)
                             .multilineTextAlignment(.leading)
                         Text(Self.characterCountText(characterCount))
-                            .font(.system(size: 11))
-                            .foregroundStyle(.white.opacity(0.55))
+                            .font(PanelStyle.caption)
+                            .foregroundStyle(PanelStyle.secondary)
                     }
                 }
             }
@@ -51,13 +51,13 @@ struct SaveCard: View {
                     settingsHint("Allow paste access to save from here", link: .button)
                 }
             }
-            .foregroundStyle(.white.opacity(0.75))
+            .foregroundStyle(PanelStyle.secondary)
         case .alreadySaved:
             resultCard
-                .foregroundStyle(.white.opacity(0.75))
+                .foregroundStyle(PanelStyle.secondary)
         case .nothingToSave:
             resultCard
-                .foregroundStyle(.white.opacity(0.35))
+                .foregroundStyle(PanelStyle.tertiary)
         case .saved:
             // `SaveCardSlot` shows its checkmark instead of a card.
             EmptyView()
@@ -83,7 +83,7 @@ struct SaveCard: View {
         @ViewBuilder _ content: () -> some View
     ) -> some View {
         cardLayout(content)
-            .foregroundStyle(.white)
+            .foregroundStyle(PanelStyle.primary)
             .cardBackground()
             .contentShape(RoundedRectangle(cornerRadius: PanelLayout.cardCornerRadius))
             .accessibilityElement(children: combiningAccessibility ? .combine : .contain)
@@ -126,7 +126,7 @@ struct SaveCard: View {
     private func settingsHint(_ text: String, link: SettingsLink) -> some View {
         HStack(spacing: PanelLayout.inlineSpacing) {
             Text(text)
-                .foregroundStyle(.white.opacity(0.55))
+                .foregroundStyle(PanelStyle.secondary)
                 .hidden(link == .hitArea)
             switch link {
             case .button:
@@ -144,7 +144,7 @@ struct SaveCard: View {
                 .accessibilityLabel("Open Settings")
             }
         }
-        .font(.system(size: 11))
+        .font(PanelStyle.caption)
         .lineLimit(1)
     }
 
@@ -152,7 +152,7 @@ struct SaveCard: View {
     private static func linkText(isVisible: Bool) -> some View {
         Text("Open Settings")
             .underline()
-            .foregroundStyle(isVisible ? .white.opacity(0.85) : .clear)
+            .foregroundStyle(isVisible ? PanelStyle.link : .clear)
     }
 
     private static func openPastePrivacySettings() {
@@ -161,13 +161,13 @@ struct SaveCard: View {
 
     private func icon(_ systemName: String) -> some View {
         Image(systemName: systemName)
-            .font(.system(size: 18, weight: .semibold))
+            .font(PanelStyle.cardIcon)
             .frame(width: PanelLayout.cardIconWidth)
     }
 
     private func label(_ text: String) -> some View {
         Text(text)
-            .font(.system(size: 14, weight: .medium))
+            .font(PanelStyle.label)
     }
 
     /// The text from its first non-blank line on, capped at `previewCharacterLimit`.
@@ -205,12 +205,12 @@ struct SaveCardSlot: View {
             // Always in the hierarchy, so the bounce plays when `saveCount` changes.
             HStack(spacing: PanelLayout.savedCheckmarkSpacing) {
                 Image(systemName: SaveCardState.savedResult.symbol)
-                    .font(.system(size: 26, weight: .semibold))
+                    .font(PanelStyle.savedIcon)
                     .symbolEffect(.bounce, value: bounceTrigger)
                 Text(SaveCardState.savedResult.text)
-                    .font(.system(size: 14, weight: .medium))
+                    .font(PanelStyle.label)
             }
-            .foregroundStyle(.white)
+            .foregroundStyle(PanelStyle.primary)
             .opacity(isSaved ? 1 : 0)
             .accessibilityElement(children: .combine)
             .accessibilityHidden(!isSaved)
@@ -243,8 +243,8 @@ struct SaveStatusBadge: View {
                     .onChange(of: bounceTrigger) { bounces += 1 }
                 Text(result.text)
             }
-            .font(.system(size: 11, weight: .medium))
-            .foregroundStyle(.white.opacity(0.75))
+            .font(PanelStyle.captionEmphasized)
+            .foregroundStyle(PanelStyle.secondary)
             .lineLimit(1)
             .fixedSize()
             .accessibilityElement(children: .combine)
@@ -273,7 +273,7 @@ extension SaveCardState {
 extension View {
     /// The fill shared by the save card and the search field.
     func cardBackground() -> some View {
-        background(.white.opacity(0.12), in: RoundedRectangle(cornerRadius: PanelLayout.cardCornerRadius))
+        background(PanelStyle.cardFill, in: RoundedRectangle(cornerRadius: PanelLayout.cardCornerRadius))
     }
 
     /// `hidden()` when `isHidden`: invisible, still taking up its space, and not hit-testable.
