@@ -1,41 +1,41 @@
 import SwiftUI
 
 /// The band beside the notch: the mode's title on the left; on the right, the note count and a
-/// circular button (search in the list, close in search). Each side stops at the notch.
+/// circular button (search in the list, close in search). Each side stops at the notch. One view for
+/// the list and search, so switching swaps only its title, count, and symbol.
 struct PanelHeader: View {
-    let title: LocalizedStringKey
-    let count: String
-    /// What VoiceOver reads for the count: "12 notes", "4 of 12 notes match".
-    let countLabel: String
-    let buttonSymbol: String
-    let buttonLabel: LocalizedStringKey
     let panel: PanelModel
-    let action: () -> Void
+    let actions: PanelActions
+    /// Every note in the store.
+    let total: Int
+    /// The search results, or `nil` in the list and while the query is empty.
+    let matches: Int?
+
+    private var isSearch: Bool { panel.mode == .search }
 
     var body: some View {
         let sideWidth = PanelLayout.headerSideWidth(notchWidth: panel.notchWidth)
         HStack(spacing: 0) {
-            Text(title)
+            Text(isSearch ? "Search" : "Recent")
                 .font(PanelStyle.title)
                 .foregroundStyle(PanelStyle.secondary)
+                .contentTransition(.opacity)
                 .frame(width: sideWidth, alignment: .leading)
                 .accessibilityAddTraits(.isHeader)
             Spacer(minLength: 0)
             HStack(spacing: PanelLayout.headerSpacing) {
-                Text(count)
-                    .font(PanelStyle.meta)
-                    .foregroundStyle(PanelStyle.tertiary)
-                    .accessibilityLabel(countLabel)
-                Button(action: action) {
-                    Image(systemName: buttonSymbol)
+                count
+                Button(action: isSearch ? actions.closeSearch : actions.openSearch) {
+                    Image(systemName: isSearch ? "xmark" : "magnifyingglass")
                         .font(PanelStyle.headerIcon)
                         .foregroundStyle(PanelStyle.secondary)
+                        .contentTransition(.symbolEffect(.replace))
                         .frame(width: PanelLayout.headerButtonSize, height: PanelLayout.headerButtonSize)
                         .background(PanelStyle.surfaceFill, in: Circle())
                         .contentShape(Circle())
                 }
                 .buttonStyle(.plain)
-                .accessibilityLabel(buttonLabel)
+                .accessibilityLabel(isSearch ? "Close" : "Search Notes")
             }
             .frame(width: sideWidth, alignment: .trailing)
         }
@@ -44,8 +44,21 @@ struct PanelHeader: View {
         .frame(height: panel.headerHeight)
     }
 
-    /// "12" notes in the list; "4 of 12" matches in search. A long count truncates rather than
-    /// reaching under the notch.
+    /// "4 of 12" when it fits beside the button, otherwise only the matches, "4".
+    private var count: some View {
+        ViewThatFits(in: .horizontal) {
+            Text(Self.countText(total: total, matches: matches))
+            if let matches {
+                Text(Self.countText(total: matches, matches: nil))
+            }
+        }
+        .font(PanelStyle.meta)
+        .foregroundStyle(PanelStyle.tertiary)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(matches.map { "\($0) of \(total) notes match" } ?? "\(total) notes")
+    }
+
+    /// "12" notes in the list; "4 of 12" matches in search.
     static func countText(total: Int, matches: Int?, locale: Locale = .current) -> String {
         let format = IntegerFormatStyle<Int>.number.locale(locale)
         guard let matches else { return total.formatted(format) }

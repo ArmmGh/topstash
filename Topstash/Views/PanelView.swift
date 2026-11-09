@@ -61,8 +61,11 @@ struct PanelView: View {
     // MARK: - Content
 
     /// Each mode's content comes in after the shape starts growing and leaves before it collapses.
+    /// The header stays while switching between the list and search.
     private var content: some View {
-        ZStack(alignment: .top) {
+        // Searched once per update, for the results and the header's count.
+        let results = panel.mode == .search ? appModel.store.search(panel.query) : []
+        return ZStack(alignment: .top) {
             switch panel.mode {
             case .closed:
                 EmptyView()
@@ -72,10 +75,25 @@ struct PanelView: View {
                 recentContent
                     .transition(Motion.content(reduceMotion: reduceMotion))
             case .search:
-                SearchView(appModel: appModel, actions: actions)
+                SearchView(appModel: appModel, actions: actions, results: results)
+                    .padding(.top, panel.headerHeight + PanelLayout.sectionSpacing)
                     .padding(.bottom, PanelLayout.inset)
                     .frame(width: PanelLayout.searchSize.width, height: PanelLayout.searchSize.height)
                     .transition(Motion.content(reduceMotion: reduceMotion))
+            }
+            if isOpen {
+                PanelHeader(
+                    panel: panel,
+                    actions: actions,
+                    total: appModel.store.notes.count,
+                    matches: panel.mode == .search && !panel.query.isEmpty ? results.count : nil
+                )
+                .frame(width: PanelLayout.panelWidth)
+                // The shortcut's feedback shows only the card; the header's band stays clear.
+                .opacity(panel.showsOnlySaveCard ? 0 : 1)
+                .allowsHitTesting(!panel.showsOnlySaveCard)
+                .accessibilityHidden(panel.showsOnlySaveCard)
+                .transition(Motion.content(reduceMotion: reduceMotion))
             }
         }
         .animation(isOpen ? Motion.contentIn : Motion.contentOut, value: panel.mode)
@@ -84,31 +102,17 @@ struct PanelView: View {
 
     private var recentContent: some View {
         VStack(spacing: PanelLayout.sectionSpacing) {
-            // The shortcut's feedback shows only the card; the header's band stays clear.
-            PanelHeader(
-                title: "Recent",
-                count: PanelHeader.countText(total: appModel.store.notes.count, matches: nil),
-                countLabel: "\(appModel.store.notes.count) notes",
-                buttonSymbol: "magnifyingglass",
-                buttonLabel: "Search Notes",
-                panel: panel,
-                action: actions.openSearch
-            )
-            .opacity(panel.showsOnlySaveCard ? 0 : 1)
-            .allowsHitTesting(!panel.showsOnlySaveCard)
-            .accessibilityHidden(panel.showsOnlySaveCard)
-            Group {
-                SaveCardSlot(panel: panel) {
-                    // Shows this save's result, not the state shown before the click: the clipboard can change in between.
-                    appModel.showSaveResult(appModel.saveClipboard())
-                }
-                if !panel.showsOnlySaveCard {
-                    recentList
-                }
+            SaveCardSlot(panel: panel) {
+                // Shows this save's result, not the state shown before the click: the clipboard can change in between.
+                appModel.showSaveResult(appModel.saveClipboard())
             }
-            .padding(.horizontal, PanelLayout.inset)
+            // The shortcut's feedback shows only the card.
+            if !panel.showsOnlySaveCard {
+                recentList
+            }
         }
-        .padding(.bottom, PanelLayout.inset)
+        .padding(.top, panel.headerHeight + PanelLayout.sectionSpacing)
+        .padding([.horizontal, .bottom], PanelLayout.inset)
         .frame(width: PanelLayout.panelWidth, height: shapeSize.height, alignment: .top)
         // When the card's height changes, the list moves with the shape's edge.
         .animation(Motion.shape(expanding: true, reduceMotion: reduceMotion), value: panel.saveCardHeight)
