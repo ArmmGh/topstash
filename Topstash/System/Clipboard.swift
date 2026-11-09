@@ -45,7 +45,7 @@ struct SystemClipboard: Clipboard {
             return .wouldPrompt
         case .default:
             // On macOS 15.x the alert is an opt-in developer preview, so the untouched setting
-            // never alerts. Placeholder for macOS 26+ until the manual check in #4 shows whether it does.
+            // never alerts. Placeholder for macOS 26+ until a manual check on macOS 26 shows whether it does.
             if #available(macOS 26, *) { return .wouldPrompt }
             return .allowed
         @unknown default:

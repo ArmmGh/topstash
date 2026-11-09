@@ -56,7 +56,7 @@ enum NoteFile {
     /// The fields between a leading `---` line and the next `---` line, and everything after the
     /// closing line's line break. `nil` when the text doesn't start with frontmatter: no `---` first
     /// line, no closing `---`, or no `key: value` line in between. Such a file is plain Markdown that
-    /// may start with a horizontal rule (story 39), so it's read whole, as the body.
+    /// may start with a horizontal rule, so it's read whole, as the body.
     /// Lines end at `\n` or `\r\n`, so a `---` line may have a trailing `\r`.
     /// Reads lines only up to the closing `---`, not the whole body.
     private static func frontmatter(of text: String) -> (fields: [String: String], body: Substring)? {

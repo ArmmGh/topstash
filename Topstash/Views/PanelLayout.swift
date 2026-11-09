@@ -9,7 +9,7 @@ enum PanelLayout {
         width: max(panelWidth, searchSize.width) + 2 * (topCornerRadius + shadowPadding),
         height: max(maxPanelHeight, searchSize.height) + shadowPadding
     )
-    /// Room around the shape for the shadow drawn in SwiftUI (#11).
+    /// Room around the shape for the shadow drawn in SwiftUI.
     static let shadowPadding: CGFloat = 30
     static let shadowRadius: CGFloat = 12
     static let shadowOffsetY: CGFloat = 6
@@ -19,7 +19,7 @@ enum PanelLayout {
     /// Its height follows the number of recent rows.
     static let panelWidth: CGFloat = 380
 
-    /// `NotchShape` radii while open (#11). The outward top corners add `topCornerRadius` on each side.
+    /// `NotchShape` radii while open. The outward top corners add `topCornerRadius` on each side.
     static let topCornerRadius: CGFloat = 15
     static let bottomCornerRadius: CGFloat = 20
     /// `NotchShape` radii while closed, when the shape is the size of the hover area (the notch).
@@ -89,17 +89,17 @@ enum PanelLayout {
         }
     }
 
-    /// The shape's height in the shortcut's feedback (#10): only the save card.
+    /// The shape's height in the shortcut's feedback: only the save card.
     static let feedbackPanelHeight: CGFloat = notchClearance + saveCardHeight + contentPadding
 
-    /// Moves the saved card's center from its slot up to the middle of the notch clearance (#11).
+    /// Moves the saved card's center from its slot up to the middle of the notch clearance.
     static let saveCardFlyUpOffset: CGFloat = -(notchClearance + saveCardHeight) / 2
 
     /// The shape in search mode: the search field above the scrollable list of every note.
     static let searchSize = CGSize(width: 400, height: 520)
     static let searchFieldHeight: CGFloat = 32
     static let searchFieldHorizontalPadding: CGFloat = 12
-    /// Between the search field's text and the shortcut's status (#10).
+    /// Between the search field's text and the shortcut's status.
     static let searchStatusSpacing: CGFloat = 8
 
     /// Width of the invisible hover strip on screens without a notch.

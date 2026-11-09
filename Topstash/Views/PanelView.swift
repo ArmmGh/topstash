@@ -1,7 +1,7 @@
 import SwiftUI
 
 /// The content of the notch panel: a black `NotchShape` that grows out of the notch, with the
-/// mode's content on it. Only this SwiftUI content animates; the window frame stays fixed (#11).
+/// mode's content on it. Only this SwiftUI content animates; the window frame stays fixed.
 struct PanelView: View {
     let appModel: AppModel
     let actions: any PanelActions
@@ -41,7 +41,7 @@ struct PanelView: View {
                     .animation(Motion.shape(expanding: isOpen, reduceMotion: reduceMotion), value: shapeSize)
                     .animation(Motion.shape(expanding: isOpen, reduceMotion: reduceMotion), value: isOpen)
                     // The gulp when a saved card flies into the notch. None with Reduce Motion.
-                    // None in search mode either, where no card flies (#10 shows a status there).
+                    // None in search mode either, where no card flies (the shortcut shows a status there).
                     .phaseAnimator([false, true], trigger: reduceMotion ? 0 : panel.saveCount) { shape, gulping in
                         shape.scaleEffect(gulping && panel.mode != .search ? Motion.gulpScale : 1, anchor: .top)
                     } animation: { gulping in
@@ -87,7 +87,7 @@ struct PanelView: View {
                 // Shows this save's result, not the state shown before the click: the clipboard can change in between.
                 appModel.showSaveResult(appModel.saveClipboard())
             }
-            // The shortcut's feedback (#10) shows only the card.
+            // The shortcut's feedback shows only the card.
             if !panel.showsOnlySaveCard {
                 recentList
                 showAllButton
@@ -107,7 +107,7 @@ struct PanelView: View {
         )
     }
 
-    /// Expands the panel into the search view (#5).
+    /// Expands the panel into the search view.
     private var showAllButton: some View {
         Button {
             actions.showAll()

@@ -119,7 +119,7 @@ struct SaveCard: View {
         case hitArea
     }
 
-    /// A secondary line with a link to the Paste privacy setting (#4).
+    /// A secondary line with a link to the Paste privacy setting.
     private func settingsHint(_ text: String, link: SettingsLink) -> some View {
         HStack(spacing: PanelLayout.inlineSpacing) {
             Text(text)
@@ -181,7 +181,7 @@ struct SaveCard: View {
     }
 }
 
-/// The save card's place in the panel, with the save feedback (#11): on `.saved` the card flies up
+/// The save card's place in the panel, with the save feedback: on `.saved` the card flies up
 /// into the notch while a checkmark bounces in its place, then the card returns with the next state.
 /// `AppModel` fires the haptic and `PanelView` the notch's gulp. Reduce Motion cross-fades instead.
 struct SaveCardSlot: View {
@@ -217,7 +217,7 @@ struct SaveCardSlot: View {
     }
 }
 
-/// The shortcut's result in search mode (#10), where there's no card: the card's label, compact,
+/// The shortcut's result in search mode, where there's no card: the card's label, compact,
 /// next to the search field.
 struct SaveStatusBadge: View {
     let result: ClipboardSaveResult

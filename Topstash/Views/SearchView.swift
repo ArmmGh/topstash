@@ -20,7 +20,7 @@ struct SearchView: View {
                     .font(PanelStyle.field)
                     .foregroundStyle(PanelStyle.primary)
                     .focused($isFieldFocused)
-                // The shortcut's result (#10). Not focusable, so typing continues in the field.
+                // The shortcut's result. Not focusable, so typing continues in the field.
                 if let status = panel.searchStatus {
                     SaveStatusBadge(result: status, bounceTrigger: reduceMotion ? 0 : panel.saveCount)
                         .transition(.opacity)

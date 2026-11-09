@@ -11,7 +11,7 @@ final class PanelModel {
         case open
         /// The search field and the full list. The panel is key and stays open when the cursor leaves.
         case search
-        /// Only the save card, showing the result of the global shortcut (#10). Never key.
+        /// Only the save card, showing the result of the global shortcut. Never key.
         case feedback
     }
 
@@ -34,19 +34,19 @@ final class PanelModel {
     var saveCard: SaveCardState = .nothingToSave
     /// The search field's text.
     var query = ""
-    /// The shortcut's result while searching (#10), shown next to the search field for a moment.
+    /// The shortcut's result while searching, shown next to the search field for a moment.
     var searchStatus: ClipboardSaveResult?
     /// True in `.feedback`, and kept while closing from it, so the list doesn't pop in during the fade.
     private(set) var showsOnlySaveCard = false
 
-    // MARK: Shape and motion (#11)
+    // MARK: Shape and motion
 
     /// The shape's size while closed: the notch of the screen the panel is on, or, on screens
     /// without one, the hover strip's width with no height, so nothing is drawn.
     /// Set by `NotchPanelController` when it places the window.
     var closedSize = CGSize(width: PanelLayout.fallbackHoverWidth, height: PanelLayout.hiddenMenuBarHoverHeight)
     /// Counts new saves, bumped by `AppModel` with the haptic. Its changes trigger the checkmark
-    /// bounce and the notch's gulp (#11).
+    /// bounce and the notch's gulp.
     var saveCount = 0
 }
 
@@ -55,9 +55,9 @@ final class PanelModel {
 enum SaveCardState: Equatable {
     /// The clipboard text, unsaved: only its start (`SaveCard.previewText`), and the full text's length.
     case preview(text: String, characterCount: Int)
-    /// The clipboard has text, but reading it would show the paste privacy alert (#4).
+    /// The clipboard has text, but reading it would show the paste privacy alert.
     case readyWithoutPreview
-    /// The clipboard has text, but the user denied paste access (#4).
+    /// The clipboard has text, but the user denied paste access.
     case accessDenied
     case alreadySaved
     case nothingToSave

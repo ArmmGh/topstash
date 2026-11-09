@@ -28,7 +28,7 @@ final class NotchPanelController {
     private var menuObservers: [any NSObjectProtocol] = []
     /// True while any menu of the app is open.
     private var isMenuTracking = false
-    /// Ends the shortcut's feedback (#10).
+    /// Ends the shortcut's feedback.
     /// The countdown, or before it the settle delay of a new save's feedback.
     private let feedback = DelayedAction()
 
@@ -147,7 +147,7 @@ final class NotchPanelController {
     }
 
     private func startHoverDelay(on displayID: CGDirectDisplayID) {
-        // Read on every hover, so a change in Settings (#9) applies without a restart.
+        // Read on every hover, so a change in Settings applies without a restart.
         hoverDelay.schedule(after: Preferences.hoverDelay()) { [weak self] in
             guard let self else { return }
             self.perform(self.state.hoverDelayEnded(on: displayID))
@@ -184,8 +184,8 @@ final class NotchPanelController {
         let size = PanelLayout.windowSize
         let origin = NSPoint(x: area.rect.midX - size.width / 2, y: screen.frame.maxY - size.height)
         window.setFrame(NSRect(origin: origin, size: size), display: false)
-        // The shape grows out of, and collapses back into, the notch (#11). Without a notch it
-        // collapses into the top edge: the hover strip is invisible, so no pill is drawn (story 6).
+        // The shape grows out of, and collapses back into, the notch. Without a notch it
+        // collapses into the top edge: the hover strip is invisible, so no pill is drawn.
         panel.closedSize = area.isNotch ? area.rect.size : CGSize(width: area.rect.width, height: 0)
     }
 
@@ -289,7 +289,7 @@ final class NotchPanelController {
 
         guard closing else { return }
         // The next keystroke must go to the frontmost app's window, not the closing panel, while the
-        // content and shape animate out like any close (#11). Ordering a key window out hands key
+        // content and shape animate out like any close. Ordering a key window out hands key
         // status back to the frontmost app, but ordering the panel itself out and back in blanks it
         // for a moment. So an invisible window takes key status from the panel and is ordered out.
         // Without a window (the controller was never started) there is no key status to hand back.
@@ -298,7 +298,7 @@ final class NotchPanelController {
         }
     }
 
-    // MARK: - Context menu (#6)
+    // MARK: - Context menu
 
     /// Observes every menu of the app: a note row's context menu, and the menu bar extra's.
     private func observeMenuTracking() {
@@ -324,7 +324,7 @@ final class NotchPanelController {
         perform(state.dismiss())
     }
 
-    // MARK: - Global shortcut (#10)
+    // MARK: - Global shortcut
 
     /// Saves the clipboard like a click on the card. A closed panel drops down briefly on the
     /// screen with the cursor to show the result; an open one updates its card in place.
@@ -354,7 +354,7 @@ final class NotchPanelController {
             }
             // A new save opens with the card showing the text, and plays the save feedback (fly-up,
             // gulp, checkmark, haptic) once the shape has expanded, so the gulp doesn't overlap the
-            // expand spring (#11). The countdown starts with the feedback.
+            // expand spring. The countdown starts with the feedback.
             appModel.showCardBeforeSave(of: note.body)
             open(on: displayID, as: .feedback)
             let settle = Motion.expandSettleDuration(
@@ -391,7 +391,7 @@ final class NotchPanelController {
 }
 
 extension NotchPanelController: PanelActions {
-    /// Expands the open panel into search mode (#5), which makes the panel key for the search field.
+    /// Expands the open panel into search mode, which makes the panel key for the search field.
     func showAll() {
         setMode(.search)
     }

@@ -289,7 +289,7 @@ struct NotesStoreTests {
         #expect(note.created == Self.fixedDate)
     }
 
-    // MARK: - Duplicates (#3)
+    // MARK: - Duplicates
 
     @Test(arguments: [
         "Refactor this module\nand add tests",
@@ -368,7 +368,7 @@ struct NotesStoreTests {
     }
 }
 
-// MARK: - Deleting (#6)
+// MARK: - Deleting
 
 extension NotesStoreTests {
     /// A store whose Trash is `trash`, so tests never touch the real Trash.
@@ -489,7 +489,7 @@ extension NotesStoreTests {
     }
 }
 
-// MARK: - Files written outside the app (#7)
+// MARK: - Files written outside the app
 
 extension NotesStoreTests {
     /// Writes `contents` to `name` in the temp folder, as another program would.
