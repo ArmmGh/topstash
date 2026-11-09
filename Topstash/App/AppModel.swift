@@ -15,8 +15,7 @@ final class AppModel {
     /// Clears "Copied" on a row.
     @ObservationIgnored
     private let copiedReset: DelayedAction
-    @ObservationIgnored
-    private let logger = Logger(category: "AppModel")
+    private static let logger = Logger(category: "AppModel")
 
     /// Opens the notes folder, creating it if it's missing. Tests pass their own defaults, a fake
     /// clipboard, and a scheduler they advance by hand.
@@ -35,8 +34,7 @@ final class AppModel {
         // There's no other folder to fall back to at startup, so a folder that can't be created is
         // only logged, and its store has no notes.
         (store, watcher) = Self.open(folder) { error in
-            Logger(category: "AppModel")
-                .error("Couldn't create the notes folder \(folder.path(percentEncoded: false), privacy: .public): \(error)")
+            Self.logger.error("Couldn't create the notes folder \(folder.path(percentEncoded: false), privacy: .public): \(error)")
         }
     }
 
@@ -59,7 +57,7 @@ final class AppModel {
             case .empty: return .nothingToSave
             }
         } catch {
-            logger.error("Saving the clipboard failed: \(error)")
+            Self.logger.error("Saving the clipboard failed: \(error)")
             return .failed
         }
     }
@@ -245,7 +243,7 @@ final class AppModel {
         do {
             try store.delete(note)
         } catch {
-            logger.error("Deleting \(note.fileURL.path(percentEncoded: false), privacy: .public) failed: \(error)")
+            Self.logger.error("Deleting \(note.fileURL.path(percentEncoded: false), privacy: .public) failed: \(error)")
             NSSound.beep()
         }
         // The clipboard text may no longer count as saved.
