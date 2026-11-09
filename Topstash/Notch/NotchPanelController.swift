@@ -91,7 +91,7 @@ final class NotchPanelController {
     private func rebuildHoverAreas() {
         hoverAreas = NSScreen.screens.compactMap { screen in
             guard let displayID = Self.displayID(of: screen) else { return nil }
-            return HoverArea(displayID: displayID, rect: HoverArea.rect(for: screen))
+            return HoverArea(displayID: displayID, screen: screen)
         }
         logger.info("Hover areas rebuilt for \(self.hoverAreas.count) screen(s)")
     }
@@ -102,7 +102,7 @@ final class NotchPanelController {
 
         guard let window, let openDisplayID else { return }
         if let screen = Self.screen(withID: openDisplayID), let area = hoverArea(on: openDisplayID) {
-            place(window, on: screen, centeredOn: area.rect)
+            place(window, on: screen, centeredOn: area.rect, isNotch: area.isNotch)
         } else {
             // The panel's screen is gone: close right away, without the fade.
             panel.mode = .closed
@@ -202,12 +202,13 @@ final class NotchPanelController {
     }
 
     /// Top edge on the screen's top edge, centered on the hover area. The size never changes.
-    private func place(_ window: NotchPanel, on screen: NSScreen, centeredOn hoverRect: NSRect) {
+    private func place(_ window: NotchPanel, on screen: NSScreen, centeredOn hoverRect: NSRect, isNotch: Bool) {
         let size = PanelLayout.windowSize
         let origin = NSPoint(x: hoverRect.midX - size.width / 2, y: screen.frame.maxY - size.height)
         window.setFrame(NSRect(origin: origin, size: size), display: false)
-        // The shape grows out of, and collapses back into, this screen's hover area (#11).
-        panel.closedSize = hoverRect.size
+        // The shape grows out of, and collapses back into, the notch (#11). Without a notch it
+        // collapses into the top edge: the hover strip is invisible, so no pill is drawn (story 6).
+        panel.closedSize = isNotch ? hoverRect.size : CGSize(width: hoverRect.width, height: 0)
     }
 
     /// Opens as `.open`, or as `.feedback` for the shortcut, which keeps the card the shortcut set.
@@ -220,7 +221,7 @@ final class NotchPanelController {
         closeTask = nil
         isDismissed = false
 
-        place(window, on: screen, centeredOn: area.rect)
+        place(window, on: screen, centeredOn: area.rect, isNotch: area.isNotch)
         openDisplayID = displayID
 
         // Re-evaluated on every open, because the clipboard may have changed while closed.
@@ -229,7 +230,8 @@ final class NotchPanelController {
         }
         panel.mode = mode
         // `contentSize` follows the new mode after the next layout; until the cursor moves, the
-        // shape counts as its closed size, which contains the cursor when it opened by hovering.
+        // shape counts as its closed size. On a notch that contains the cursor when it opened by
+        // hovering; without a notch it has no height, so the first click waits for a mouse move.
         updateClickThrough(at: NSEvent.mouseLocation)
         // Never makeKey or activate: the frontmost app keeps keyboard focus. Only search mode makes it key.
         window.orderFrontRegardless()

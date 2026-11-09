@@ -45,8 +45,9 @@ final class PanelModel {
 
     // MARK: Shape and motion (#11)
 
-    /// The shape's size while closed: the hover area of the screen the panel is on (the notch,
-    /// or the strip on screens without one). Set by `NotchPanelController` when it places the window.
+    /// The shape's size while closed: the notch of the screen the panel is on, or, on screens
+    /// without one, the hover strip's width with no height, so nothing is drawn.
+    /// Set by `NotchPanelController` when it places the window.
     var closedSize = CGSize(width: PanelLayout.fallbackHoverWidth, height: PanelLayout.hiddenMenuBarHoverHeight)
     /// Counts new saves, bumped by `AppModel` with the haptic. Its changes trigger the checkmark
     /// bounce and the notch's gulp (#11).

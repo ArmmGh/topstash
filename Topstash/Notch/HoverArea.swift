@@ -5,11 +5,18 @@ struct HoverArea {
     let displayID: CGDirectDisplayID
     /// In global screen coordinates.
     let rect: NSRect
+    /// Whether `rect` is the hardware notch, rather than the invisible strip used without one.
+    let isNotch: Bool
 
-    /// The hover rectangle for a screen, in global screen coordinates: the notch rectangle on a
-    /// notched screen, otherwise an invisible notch-sized strip at the top center.
-    static func rect(for screen: NSScreen) -> NSRect {
-        notchRect(for: screen) ?? fallbackRect(for: screen)
+    init(displayID: CGDirectDisplayID, screen: NSScreen) {
+        self.displayID = displayID
+        if let notch = Self.notchRect(for: screen) {
+            rect = notch
+            isNotch = true
+        } else {
+            rect = Self.fallbackRect(for: screen)
+            isNotch = false
+        }
     }
 
     /// The notch rectangle, or `nil` for a screen without a notch.
