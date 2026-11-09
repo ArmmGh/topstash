@@ -51,10 +51,10 @@ struct SaveCard: View {
                     settingsHint("Allow paste access to save from here", link: .button)
                 }
             }
-            .foregroundStyle(PanelStyle.secondary)
+            .foregroundStyle(PanelStyle.muted)
         case .alreadySaved:
             resultCard(.alreadySaved)
-                .foregroundStyle(PanelStyle.secondary)
+                .foregroundStyle(PanelStyle.muted)
         case .nothingToSave:
             resultCard(.nothingToSave)
                 .foregroundStyle(PanelStyle.tertiary)
@@ -69,8 +69,8 @@ struct SaveCard: View {
     /// A card with only the result's label.
     private func resultCard(_ result: ClipboardSaveResult) -> some View {
         card {
-            icon(result.symbol)
-            label(result.text)
+            icon(result.label.symbol)
+            label(result.label.text)
         }
     }
 
@@ -231,16 +231,16 @@ struct SaveStatusBadge: View {
 
     var body: some View {
         HStack(spacing: PanelLayout.inlineSpacing) {
-            Image(systemName: result.symbol)
+            Image(systemName: result.label.symbol)
                 .symbolEffect(.bounce, value: bounces)
                 .task {
                     if case .saved = result, bounceTrigger != 0 { bounces += 1 }
                 }
                 .onChange(of: bounceTrigger) { bounces += 1 }
-            Text(result.text)
+            Text(result.label.text)
         }
         .font(PanelStyle.captionEmphasized)
-        .foregroundStyle(PanelStyle.secondary)
+        .foregroundStyle(PanelStyle.muted)
         .lineLimit(1)
         .fixedSize()
         .accessibilityElement(children: .combine)
@@ -248,26 +248,16 @@ struct SaveStatusBadge: View {
 }
 
 extension ClipboardSaveResult {
-    /// The result's label, shared by the card, the checkmark, and the search view's status.
-    fileprivate var text: String {
+    /// The result's label and the SF Symbol shown with it, shared by the card, the checkmark, and
+    /// the search view's status.
+    fileprivate var label: (text: String, symbol: String) {
         switch self {
-        case .saved: Self.savedText
-        case .alreadySaved: "Already saved"
-        case .nothingToSave: "Nothing to save"
-        case .failed: "Couldn't save"
+        case .saved: (Self.savedText, Self.savedSymbol)
+        case .alreadySaved: ("Already saved", "checkmark")
+        case .nothingToSave: ("Nothing to save", "tray")
+        case .failed: ("Couldn't save", "exclamationmark.triangle")
         // Only the search view's status uses this; the card has its own `.accessDenied` layout.
-        case .accessDenied: "Can't read the clipboard"
-        }
-    }
-
-    /// The SF Symbol shown with `text`.
-    fileprivate var symbol: String {
-        switch self {
-        case .saved: Self.savedSymbol
-        case .alreadySaved: "checkmark"
-        case .nothingToSave: "tray"
-        case .failed: "exclamationmark.triangle"
-        case .accessDenied: "hand.raised"
+        case .accessDenied: ("Can't read the clipboard", "hand.raised")
         }
     }
 

@@ -52,3 +52,11 @@ struct HoverArea {
         return NSRect(x: frame.midX - width / 2, y: frame.maxY - height, width: width, height: height)
     }
 }
+
+extension NSRect {
+    /// Hit test for `NSEvent.mouseLocation`, which reports `y == maxY` on a screen's top pixel row.
+    /// `contains(_:)` excludes `maxY`, so it would miss a cursor pushed against the top edge.
+    func containsMouseLocation(_ location: NSPoint) -> Bool {
+        NSMouseInRect(location, self, false)
+    }
+}

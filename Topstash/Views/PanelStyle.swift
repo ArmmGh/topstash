@@ -9,9 +9,11 @@ enum PanelStyle {
 
     /// Titles, the save card's text, and the "Saved" checkmark.
     static let primary = Color.white
-    /// Text that supports the primary text: previews, counts, hints, empty-list messages, results
-    /// that need no action, and the search view's status.
+    /// Text that supports the primary text: previews, counts, hints, and empty-list messages.
     static let secondary = Color.white.opacity(0.6)
+    /// Text a step dimmer than primary: results that need no action, the access-denied card, the
+    /// search view's status, and the "Show all" button.
+    static let muted = Color.white.opacity(0.75)
     /// Text for a state with nothing to do: "Nothing to save".
     static let tertiary = Color.white.opacity(0.35)
     /// The "Open Settings" link.

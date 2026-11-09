@@ -114,7 +114,7 @@ struct PanelView: View {
         } label: {
             Text("Show all (\(appModel.store.notes.count))")
                 .font(PanelStyle.button)
-                .foregroundStyle(PanelStyle.secondary)
+                .foregroundStyle(PanelStyle.muted)
                 .frame(maxWidth: .infinity)
                 .frame(height: PanelLayout.showAllHeight)
                 .contentShape(RoundedRectangle(cornerRadius: PanelLayout.rowCornerRadius))

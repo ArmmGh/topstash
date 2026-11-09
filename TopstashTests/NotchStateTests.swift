@@ -21,9 +21,11 @@ struct NotchStateTests {
     let elsewhere = NSPoint(x: 100, y: 100)
 
     func surroundings(
-        _ cursor: NSPoint, mode: PanelModel.Mode = .closed, menuOpen: Bool = false
+        _ cursor: NSPoint, mode: PanelModel.Mode = .closed, menuOpen: Bool = false, areas: [HoverArea]? = nil
     ) -> NotchSurroundings {
-        NotchSurroundings(cursor: cursor, hoverAreas: areas, visibleShape: shape, mode: mode, isMenuTracking: menuOpen)
+        NotchSurroundings(
+            cursor: cursor, hoverAreas: areas ?? self.areas, visibleShape: shape, mode: mode, isMenuTracking: menuOpen
+        )
     }
 
     // MARK: - Hover delay
@@ -96,7 +98,7 @@ struct NotchStateTests {
     @Test func theCursorComingBackDuringTheCloseAnimationReopensThePanel() {
         var state = NotchState.closing(Self.screen1)
 
-        #expect(state.mouseMoved(surroundings(overShape1)) == [.reopen])
+        #expect(state.mouseMoved(surroundings(overShape1)) == [.switchToOpen])
         #expect(state == .shown(Self.screen1))
         // The cancelled animation ending late doesn't order the panel out.
         #expect(state.closeAnimationEnded() == [])
@@ -122,7 +124,7 @@ struct NotchStateTests {
     @Test func comingBackToTheFadingPanelWhileADelayRunsReopensItAndDropsTheDelay() {
         var state = NotchState.hovering(Self.screen2, fadingOn: Self.screen1)
 
-        #expect(state.mouseMoved(surroundings(overShape1)) == [.cancelHoverDelay, .reopen])
+        #expect(state.mouseMoved(surroundings(overShape1)) == [.cancelHoverDelay, .switchToOpen])
         #expect(state == .shown(Self.screen1))
     }
 
@@ -169,7 +171,7 @@ struct NotchStateTests {
         #expect(state.mouseMoved(surroundings(elsewhere)) == [])
         #expect(state == .closing(Self.screen1))
         // Coming back now reopens it, like any close.
-        #expect(state.mouseMoved(surroundings(overShape1)) == [.reopen])
+        #expect(state.mouseMoved(surroundings(overShape1)) == [.switchToOpen])
     }
 
     // MARK: - Search, menus, and the shortcut's feedback
@@ -213,7 +215,7 @@ struct NotchStateTests {
     @Test func theFeedbackEndingOverThePanelOpensIt() {
         var state = NotchState.shown(Self.screen1)
 
-        #expect(state.feedbackEnded(surroundings(overShape1, mode: .feedback)) == [.reopen])
+        #expect(state.feedbackEnded(surroundings(overShape1, mode: .feedback)) == [.switchToOpen])
         #expect(state == .shown(Self.screen1))
     }
 
@@ -236,7 +238,7 @@ struct NotchStateTests {
     @Test func aScreenChangeRePlacesTheOpenPanel() {
         var state = NotchState.shown(Self.screen1)
 
-        #expect(state.screensChanged(hoverAreas: areas, mode: .open) == [.place(Self.screen1)])
+        #expect(state.screensChanged(surroundings(elsewhere, mode: .open)) == [.place(Self.screen1)])
         #expect(state == .shown(Self.screen1))
     }
 
@@ -244,36 +246,36 @@ struct NotchStateTests {
         let remaining = [areas[1]]
         var state = NotchState.shown(Self.screen1)
 
-        #expect(state.screensChanged(hoverAreas: remaining, mode: .open) == [.closeAtOnce])
+        #expect(state.screensChanged(surroundings(elsewhere, mode: .open, areas: remaining)) == [.closeAtOnce])
         #expect(state == .idle)
 
         var closing = NotchState.closing(Self.screen1)
-        #expect(closing.screensChanged(hoverAreas: remaining, mode: .closed) == [.closeAtOnce])
+        #expect(closing.screensChanged(surroundings(elsewhere, mode: .closed, areas: remaining)) == [.closeAtOnce])
         #expect(closing == .idle)
     }
 
     @Test func searchClosedByItsScreenGoingAwayCountsAsDismissed() {
         var state = NotchState.shown(Self.screen1)
 
-        #expect(state.screensChanged(hoverAreas: [areas[1]], mode: .search) == [.closeAtOnce])
+        #expect(state.screensChanged(surroundings(elsewhere, mode: .search, areas: [areas[1]])) == [.closeAtOnce])
         #expect(state == .dismissed(fadingOn: nil))
     }
 
     @Test func aScreenChangeCancelsThePendingOpen() {
         var state = NotchState.hovering(Self.screen2, fadingOn: nil)
 
-        #expect(state.screensChanged(hoverAreas: areas, mode: .closed) == [.cancelHoverDelay])
+        #expect(state.screensChanged(surroundings(elsewhere, mode: .closed)) == [.cancelHoverDelay])
         #expect(state == .idle)
 
         var fading = NotchState.hovering(Self.screen2, fadingOn: Self.screen1)
-        #expect(fading.screensChanged(hoverAreas: areas, mode: .closed) == [.cancelHoverDelay, .place(Self.screen1)])
+        #expect(fading.screensChanged(surroundings(elsewhere, mode: .closed)) == [.cancelHoverDelay, .place(Self.screen1)])
         #expect(fading == .closing(Self.screen1))
     }
 
     @Test func aScreenChangeWithoutAWindowDoesNothing() {
         var state = NotchState.idle
 
-        #expect(state.screensChanged(hoverAreas: areas, mode: .closed) == [])
+        #expect(state.screensChanged(surroundings(elsewhere, mode: .closed)) == [])
         #expect(state == .idle)
     }
 }

@@ -51,7 +51,9 @@ final class PanelModel {
 }
 
 /// What the save card shows. Only `.preview` and `.readyWithoutPreview` are clickable.
-/// After a save it shows the result's `ClipboardSaveResult.cardState`.
+/// After a save it shows the result's `ClipboardSaveResult.cardState`. Its own cases rather than a
+/// wrapped `ClipboardSaveResult`: `refreshSaveCard()` reaches most of them without a save, and the
+/// card has no use for the saved `Note`.
 enum SaveCardState: Equatable {
     /// The clipboard text, unsaved: only its start (`SaveCard.previewText`), and the full text's length.
     case preview(text: String, characterCount: Int)

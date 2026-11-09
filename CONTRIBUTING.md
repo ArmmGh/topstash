@@ -22,7 +22,7 @@ Tests use [Swift Testing](https://developer.apple.com/documentation/testing).
 xcodebuild test -scheme Topstash -destination 'platform=macOS'
 ```
 
-Model tests run `NotesStore` against a real temporary folder. Nothing is mocked. UI, window, and clipboard code is checked by running the app.
+Tests run hosted in the app and reach its internals with `@testable import Topstash`. `NotesStore` tests still use real temporary folders. App logic such as saving the clipboard, the save card's states, and the notch's open and close rules is tested with fakes: `FakeClipboard` stands in for the system clipboard and `ManualScheduler` runs delays without waiting. Window, focus, and drawing behaviour is still checked by running the app.
 
 ## Spec and tickets
 
@@ -32,7 +32,7 @@ The product spec is [`docs/SPEC.md`](docs/SPEC.md), and work is tracked in GitHu
 
 - [ ] The change is focused and linked to an issue or ticket, if there is one.
 - [ ] `xcodegen generate` and `xcodebuild` build without errors or new warnings.
-- [ ] `xcodebuild test` passes, and new behavior in `NotesStore` has tests.
+- [ ] `xcodebuild test` passes, and new behavior in `NotesStore` or app logic has tests.
 - [ ] No generated files (`.xcodeproj`, build products) are committed.
 - [ ] UI changes were tried on a notched screen and, where relevant, on an external display. Screenshots are attached.
 - [ ] The README or spec is updated if behavior changed.
