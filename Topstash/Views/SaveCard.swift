@@ -51,10 +51,10 @@ struct SaveCard: View {
                     settingsHint("Allow paste access to save from here", link: .button)
                 }
             }
-            .foregroundStyle(PanelStyle.secondary)
+            .foregroundStyle(PanelStyle.muted)
         case .alreadySaved:
             resultCard(.alreadySaved)
-                .foregroundStyle(PanelStyle.secondary)
+                .foregroundStyle(PanelStyle.muted)
         case .nothingToSave:
             resultCard(.nothingToSave)
                 .foregroundStyle(PanelStyle.tertiary)
@@ -240,7 +240,7 @@ struct SaveStatusBadge: View {
             Text(result.text)
         }
         .font(PanelStyle.captionEmphasized)
-        .foregroundStyle(PanelStyle.secondary)
+        .foregroundStyle(PanelStyle.muted)
         .lineLimit(1)
         .fixedSize()
         .accessibilityElement(children: .combine)
