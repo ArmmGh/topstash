@@ -1,6 +1,6 @@
 import AppKit
-import os
 import TopstashCore
+import os
 
 /// Tracks the mouse, applies the hover delay, and shows or hides the notch panel on the hovered screen.
 @MainActor
@@ -46,15 +46,21 @@ final class NotchPanelController {
         // Mouse-moved monitors don't need Accessibility permission, and they still see the cursor
         // when a full-screen app hides the menu bar. The local monitor covers the cursor being over
         // our own panel, where global events aren't delivered.
-        if let global = NSEvent.addGlobalMonitorForEvents(matching: .mouseMoved, handler: { [weak self] _ in
-            MainActor.assumeIsolated { self?.mouseMoved() }
-        }) {
+        if let global = NSEvent.addGlobalMonitorForEvents(
+            matching: .mouseMoved,
+            handler: { [weak self] _ in
+                MainActor.assumeIsolated { self?.mouseMoved() }
+            })
+        {
             monitors.append(global)
         }
-        if let local = NSEvent.addLocalMonitorForEvents(matching: .mouseMoved, handler: { [weak self] event in
-            MainActor.assumeIsolated { self?.mouseMoved() }
-            return event
-        }) {
+        if let local = NSEvent.addLocalMonitorForEvents(
+            matching: .mouseMoved,
+            handler: { [weak self] event in
+                MainActor.assumeIsolated { self?.mouseMoved() }
+                return event
+            })
+        {
             monitors.append(local)
         }
 
@@ -164,7 +170,8 @@ final class NotchPanelController {
         guard let window else { return .zero }
         let size = appModel.shapeSize
         let frame = window.frame
-        return NSRect(x: frame.midX - size.width / 2, y: frame.maxY - size.height, width: size.width, height: size.height)
+        return NSRect(
+            x: frame.midX - size.width / 2, y: frame.maxY - size.height, width: size.width, height: size.height)
     }
 
     /// The window is much bigger than the visible shape, so it takes mouse events only while the
@@ -191,8 +198,8 @@ final class NotchPanelController {
     /// Opens as `.open`, or as `.feedback` for the shortcut, which keeps the card the shortcut set.
     private func open(on displayID: CGDirectDisplayID, as mode: PanelModel.Mode = .open) {
         guard let window,
-              let screen = Self.screen(withID: displayID),
-              let area = hoverArea(on: displayID)
+            let screen = Self.screen(withID: displayID),
+            let area = hoverArea(on: displayID)
         else {
             // Nothing to show on: make sure no window is left fading or ordered in.
             state = .idle
@@ -303,7 +310,8 @@ final class NotchPanelController {
     private func observeMenuTracking() {
         let center = NotificationCenter.default
         menuObservers = [
-            center.addObserver(forName: NSMenu.didBeginTrackingNotification, object: nil, queue: .main) { [weak self] _ in
+            center.addObserver(forName: NSMenu.didBeginTrackingNotification, object: nil, queue: .main) {
+                [weak self] _ in
                 MainActor.assumeIsolated { self?.isMenuTracking = true }
             },
             center.addObserver(forName: NSMenu.didEndTrackingNotification, object: nil, queue: .main) { [weak self] _ in

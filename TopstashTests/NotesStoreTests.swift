@@ -48,7 +48,8 @@ struct NotesStoreTests {
 
         let note = try savedNote(store.save("Refactor this module"))
 
-        let expected = "---\nid: \(note.noteID)\ncreated: 2026-11-08T19:52:14+04:00\ntype: text\n---\nRefactor this module"
+        let expected =
+            "---\nid: \(note.noteID)\ncreated: 2026-11-08T19:52:14+04:00\ntype: text\n---\nRefactor this module"
         #expect(try fileBytes(note) == Data(expected.utf8))
         #expect(try temp.fileNames() == [note.fileURL.lastPathComponent])
         #expect(note.noteID.count == 8)
@@ -97,7 +98,10 @@ struct NotesStoreTests {
     }
 
     @Test(arguments: [
-        (body: "\n  \n\nSecond line is the title\nmore", title: "Second line is the title", slug: "second-line-is-the-title"),
+        (
+            body: "\n  \n\nSecond line is the title\nmore", title: "Second line is the title",
+            slug: "second-line-is-the-title"
+        ),
         (body: "```bash\nnpm test\n```", title: "npm test", slug: "npm-test"),
         (body: "~~~\nplain fence\n~~~", title: "plain fence", slug: "plain-fence"),
         (body: "## Review the diff\nbody", title: "Review the diff", slug: "review-the-diff"),
@@ -121,7 +125,10 @@ struct NotesStoreTests {
         (body: "Title\n  second   line\n\n\tthird\r\nfourth  ", preview: "second line third fourth"),
         (body: "\n\n## Heading\nbody text", preview: "body text"),
         (body: "```bash\nnpm test\n```", preview: "```"),
-        (body: "Title\n" + String(repeating: "abcdefghij", count: 20), preview: String(repeating: "abcdefghij", count: 14)),
+        (
+            body: "Title\n" + String(repeating: "abcdefghij", count: 20),
+            preview: String(repeating: "abcdefghij", count: 14)
+        ),
     ])
     func previewIsTheTextAfterTheTitleLineOnOneLine(body: String, preview: String) throws {
         let store = makeStore()
@@ -522,7 +529,8 @@ extension NotesStoreTests {
     @Test func fileWithoutFrontmatterUsesItsCreationDateAndAStableHexID() throws {
         let url = try writeExternal("imported.md", "Explain this code.")
         let creationDate = Date(timeIntervalSince1970: 1_700_000_000)
-        try FileManager.default.setAttributes([.creationDate: creationDate], ofItemAtPath: url.path(percentEncoded: false))
+        try FileManager.default.setAttributes(
+            [.creationDate: creationDate], ofItemAtPath: url.path(percentEncoded: false))
         let store = makeStore()
 
         let first = try #require(store.notes.first)
@@ -551,7 +559,8 @@ extension NotesStoreTests {
     @Test func frontmatterWithoutCreatedUsesTheCreationDate() throws {
         let url = try writeExternal("partial.md", "---\nid: abcd1234\ntitle: ignored\nno colon here\n---\nThe body")
         let creationDate = Date(timeIntervalSince1970: 1_700_000_000)
-        try FileManager.default.setAttributes([.creationDate: creationDate], ofItemAtPath: url.path(percentEncoded: false))
+        try FileManager.default.setAttributes(
+            [.creationDate: creationDate], ofItemAtPath: url.path(percentEncoded: false))
 
         let note = try #require(makeStore().notes.first)
 
@@ -562,7 +571,9 @@ extension NotesStoreTests {
     }
 
     @Test func frontmatterWithCRLFLineEndingsIsParsed() throws {
-        try writeExternal("windows.md", "---\r\nid: abcd1234\r\ncreated: 2026-11-08T19:52:14+04:00\r\ntype: text\r\n---\r\nLine one\r\nLine two")
+        try writeExternal(
+            "windows.md",
+            "---\r\nid: abcd1234\r\ncreated: 2026-11-08T19:52:14+04:00\r\ntype: text\r\n---\r\nLine one\r\nLine two")
 
         let note = try #require(makeStore().notes.first)
 
@@ -592,7 +603,8 @@ extension NotesStoreTests {
     ])
     func createdWithFractionalSecondsKeepsTheFraction(created: String, fraction: TimeInterval) throws {
         let url = try writeExternal("precise.md", "---\nid: abcd1234\ncreated: \(created)\ntype: text\n---\nBody")
-        try FileManager.default.setAttributes([.creationDate: Date(timeIntervalSince1970: 1_700_000_000)], ofItemAtPath: url.path(percentEncoded: false))
+        try FileManager.default.setAttributes(
+            [.creationDate: Date(timeIntervalSince1970: 1_700_000_000)], ofItemAtPath: url.path(percentEncoded: false))
 
         let note = try #require(makeStore().notes.first)
 
@@ -600,7 +612,8 @@ extension NotesStoreTests {
     }
 
     @Test func fileWithANonTextTypeIsSkipped() throws {
-        try writeExternal("image.md", "---\nid: abcd1234\ncreated: 2026-11-08T19:52:14+04:00\ntype: image\n---\nimage.png")
+        try writeExternal(
+            "image.md", "---\nid: abcd1234\ncreated: 2026-11-08T19:52:14+04:00\ntype: image\n---\nimage.png")
 
         #expect(makeStore().notes.isEmpty)
     }
@@ -637,7 +650,9 @@ extension NotesStoreTests {
         var before: [String: (data: Data, modified: Date?)] = [:]
         for file in files {
             let url = try writeExternal(file.name, file.contents)
-            before[file.name] = (file.contents, try url.resourceValues(forKeys: [.contentModificationDateKey]).contentModificationDate)
+            before[file.name] = (
+                file.contents, try url.resourceValues(forKeys: [.contentModificationDateKey]).contentModificationDate
+            )
         }
 
         let store = makeStore()
@@ -647,7 +662,9 @@ extension NotesStoreTests {
         for file in files {
             let url = temp.url.appending(path: file.name, directoryHint: .notDirectory)
             #expect(try Data(contentsOf: url) == before[file.name]?.data)
-            #expect(try url.resourceValues(forKeys: [.contentModificationDateKey]).contentModificationDate == before[file.name]?.modified)
+            #expect(
+                try url.resourceValues(forKeys: [.contentModificationDateKey]).contentModificationDate
+                    == before[file.name]?.modified)
         }
     }
 

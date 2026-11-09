@@ -1,5 +1,6 @@
 import Foundation
 import Testing
+
 @testable import Topstash
 
 /// Opening the notes folder at startup and switching it in Settings (`AppModel.setFolder`).

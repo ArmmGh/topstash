@@ -1,5 +1,6 @@
 import AppKit
 import Testing
+
 @testable import Topstash
 
 /// The notch's open/close rules (`NotchState`) without windows: two screens side by side, each with
@@ -268,7 +269,8 @@ struct NotchStateTests {
         #expect(state == .idle)
 
         var fading = NotchState.hovering(Self.screen2, fadingOn: Self.screen1)
-        #expect(fading.screensChanged(surroundings(elsewhere, mode: .closed)) == [.cancelHoverDelay, .place(Self.screen1)])
+        #expect(
+            fading.screensChanged(surroundings(elsewhere, mode: .closed)) == [.cancelHoverDelay, .place(Self.screen1)])
         #expect(fading == .closing(Self.screen1))
     }
 

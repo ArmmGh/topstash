@@ -1,5 +1,6 @@
 import Foundation
 import Testing
+
 @testable import Topstash
 
 /// The named actions views use to change the panel (`PanelActions`), on a controller that was never

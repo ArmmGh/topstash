@@ -40,6 +40,8 @@ struct SearchView: View {
     }
 
     private var results: some View {
-        NoteList(appModel: appModel, actions: actions, notes: appModel.store.search(panel.query), emptyText: "No matches", scrolls: true)
+        NoteList(
+            appModel: appModel, actions: actions, notes: appModel.store.search(panel.query), emptyText: "No matches",
+            scrolls: true)
     }
 }

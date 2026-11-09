@@ -14,6 +14,14 @@ xcodebuild -scheme Topstash -configuration Debug build
 
 The `.xcodeproj` is generated and git-ignored. Change `project.yml`, not the project file, then run `xcodegen generate` again.
 
+## Format
+
+Code is formatted with Apple's [swift-format](https://github.com/swiftlang/swift-format), which ships with Xcode. The settings are in `.swift-format`, and CI fails if a file isn't formatted.
+
+```sh
+xcrun swift-format format --in-place --recursive Topstash TopstashCore TopstashTests
+```
+
 ## Test
 
 Tests use [Swift Testing](https://developer.apple.com/documentation/testing).
@@ -31,7 +39,7 @@ The product spec is [`docs/SPEC.md`](docs/SPEC.md), and work is tracked in GitHu
 ## Pull request checklist
 
 - [ ] The change is focused and linked to an issue or ticket, if there is one.
-- [ ] `xcodegen generate` and `xcodebuild` build without errors or new warnings.
+- [ ] `xcodegen generate` and `xcodebuild` build without errors or new warnings, and `swift-format` reports nothing.
 - [ ] `xcodebuild test` passes, and new behavior in `NotesStore` or app logic has tests.
 - [ ] No generated files (`.xcodeproj`, build products) are committed.
 - [ ] UI changes were tried on a notched screen and, where relevant, on an external display. Screenshots are attached.

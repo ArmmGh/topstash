@@ -170,7 +170,8 @@ struct SaveCard: View {
     /// The text from its first non-blank line on, capped at `previewCharacterLimit`.
     static func previewText(_ text: String) -> String {
         guard let firstVisible = text.firstIndex(where: { !$0.isWhitespace }) else { return "" }
-        let lineStart = text[..<firstVisible].lastIndex(where: \.isNewline).map { text.index(after: $0) }
+        let lineStart =
+            text[..<firstVisible].lastIndex(where: \.isNewline).map { text.index(after: $0) }
             ?? text.startIndex
         return String(text[lineStart...].prefix(previewCharacterLimit))
     }

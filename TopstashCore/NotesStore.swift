@@ -90,11 +90,12 @@ public final class NotesStore {
         let keys: Set<URLResourceKey> = [
             .isRegularFileKey, .ubiquitousItemDownloadingStatusKey, .creationDateKey, .contentModificationDateKey,
         ]
-        let urls = (try? FileManager.default.contentsOfDirectory(
-            at: folder,
-            includingPropertiesForKeys: Array(keys),
-            options: .skipsHiddenFiles
-        )) ?? []
+        let urls =
+            (try? FileManager.default.contentsOfDirectory(
+                at: folder,
+                includingPropertiesForKeys: Array(keys),
+                options: .skipsHiddenFiles
+            )) ?? []
         var loaded: [Note] = []
         for url in urls where isNoteFile(named: url.lastPathComponent) {
             let values = try? url.resourceValues(forKeys: keys)
@@ -113,7 +114,8 @@ public final class NotesStore {
             case .success(let note):
                 loaded.append(note)
             case .failure(let reason):
-                logger.debug("Skipped \(fileURL.lastPathComponent, privacy: .public): \(reason.rawValue, privacy: .public)")
+                logger.debug(
+                    "Skipped \(fileURL.lastPathComponent, privacy: .public): \(reason.rawValue, privacy: .public)")
             }
         }
         loaded.sort(by: NoteFile.isOrderedBefore)
@@ -172,7 +174,7 @@ public final class NotesStore {
     public func delete(_ note: Note) throws {
         do {
             try trash(note.fileURL)
-        } catch where FileManager.default.fileExists(atPath: note.fileURL.path(percentEncoded: false)) {
+        } catch  where FileManager.default.fileExists(atPath: note.fileURL.path(percentEncoded: false)) {
             throw error
         } catch {
             // Already removed on disk: nothing to move.

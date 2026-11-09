@@ -29,8 +29,8 @@ struct HoverArea {
     private static func notchRect(for screen: NSScreen) -> NSRect? {
         let notchHeight = screen.safeAreaInsets.top
         guard notchHeight > 0,
-              let left = screen.auxiliaryTopLeftArea,
-              let right = screen.auxiliaryTopRightArea
+            let left = screen.auxiliaryTopLeftArea,
+            let right = screen.auxiliaryTopRightArea
         else { return nil }
 
         // From the left area's maxX to the right area's minX. Measured with their widths from the

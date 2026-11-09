@@ -1,7 +1,7 @@
 import CoreServices
 import Foundation
-import os
 import TopstashCore
+import os
 
 /// Watches the notes folder with FSEvents and calls `onChange` once per batch of changes that
 /// `NotesStore` reads: a visible `.md` file in the top level of the folder. FSEvents streams are
@@ -82,16 +82,19 @@ final class FolderWatcher {
         let flags = FSEventStreamCreateFlags(
             kFSEventStreamCreateFlagFileEvents | kFSEventStreamCreateFlagWatchRoot | kFSEventStreamCreateFlagUseCFTypes
         )
-        guard let stream = FSEventStreamCreate(
-            kCFAllocatorDefault,
-            callback,
-            &context,
-            [folder.path(percentEncoded: false)] as CFArray,
-            FSEventStreamEventId(kFSEventStreamEventIdSinceNow),
-            Self.latency,
-            flags
-        ) else {
-            Self.logger.error("Couldn't create an FSEvents stream for \(self.folder.path(percentEncoded: false), privacy: .public)")
+        guard
+            let stream = FSEventStreamCreate(
+                kCFAllocatorDefault,
+                callback,
+                &context,
+                [folder.path(percentEncoded: false)] as CFArray,
+                FSEventStreamEventId(kFSEventStreamEventIdSinceNow),
+                Self.latency,
+                flags
+            )
+        else {
+            Self.logger.error(
+                "Couldn't create an FSEvents stream for \(self.folder.path(percentEncoded: false), privacy: .public)")
             return
         }
         FSEventStreamSetDispatchQueue(stream, .main)

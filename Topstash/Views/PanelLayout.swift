@@ -66,7 +66,8 @@ enum PanelLayout {
     /// The shape's height with this many recent rows. With none, "No notes yet" takes one row's height.
     /// Matches `PanelView`'s recent content, so the shape can animate to it before the content is laid out.
     static func recentPanelHeight(rowCount: Int) -> CGFloat {
-        let listHeight = rowCount == 0
+        let listHeight =
+            rowCount == 0
             ? rowHeight
             : CGFloat(rowCount) * rowHeight + CGFloat(rowCount - 1) * rowSpacing
         return notchClearance + saveCardHeight + sectionSpacing + listHeight

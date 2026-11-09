@@ -37,16 +37,18 @@ struct PanelView: View {
         Color.black
             .mask(alignment: .top) {
                 // Fills the backing; the shape positions its body itself (see `NotchShape`).
-                NotchShape(bodySize: shapeSize, topCornerRadius: topCornerRadius, bottomCornerRadius: bottomCornerRadius)
-                    .animation(Motion.shape(expanding: isOpen, reduceMotion: reduceMotion), value: shapeSize)
-                    .animation(Motion.shape(expanding: isOpen, reduceMotion: reduceMotion), value: isOpen)
-                    // The gulp when a saved card flies into the notch. None with Reduce Motion.
-                    // None in search mode either, where no card flies (the shortcut shows a status there).
-                    .phaseAnimator([false, true], trigger: reduceMotion ? 0 : panel.saveCount) { shape, gulping in
-                        shape.scaleEffect(gulping && panel.mode != .search ? Motion.gulpScale : 1, anchor: .top)
-                    } animation: { gulping in
-                        gulping ? Motion.gulp.delay(Motion.gulpDelay) : Motion.gulp
-                    }
+                NotchShape(
+                    bodySize: shapeSize, topCornerRadius: topCornerRadius, bottomCornerRadius: bottomCornerRadius
+                )
+                .animation(Motion.shape(expanding: isOpen, reduceMotion: reduceMotion), value: shapeSize)
+                .animation(Motion.shape(expanding: isOpen, reduceMotion: reduceMotion), value: isOpen)
+                // The gulp when a saved card flies into the notch. None with Reduce Motion.
+                // None in search mode either, where no card flies (the shortcut shows a status there).
+                .phaseAnimator([false, true], trigger: reduceMotion ? 0 : panel.saveCount) { shape, gulping in
+                    shape.scaleEffect(gulping && panel.mode != .search ? Motion.gulpScale : 1, anchor: .top)
+                } animation: { gulping in
+                    gulping ? Motion.gulp.delay(Motion.gulpDelay) : Motion.gulp
+                }
             }
             .shadow(
                 color: .black.opacity(PanelLayout.shadowOpacity),

@@ -26,6 +26,9 @@ jobs:
       - name: Show Xcode version
         run: xcodebuild -version
 
+      - name: Check formatting
+        run: xcrun swift-format lint --strict --recursive Topstash TopstashCore TopstashTests
+
       - name: Install XcodeGen
         run: brew install xcodegen
 

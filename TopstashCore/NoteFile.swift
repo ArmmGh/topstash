@@ -18,7 +18,8 @@ enum NoteFile {
 
     /// The exact file content: frontmatter, then the body untouched. No trailing newline is added.
     static func contents(noteID: String, created: Date, timeZone: TimeZone, body: String) -> Data {
-        let header = "---\nid: \(noteID)\ncreated: \(createdString(created, timeZone: timeZone))\ntype: \(noteType)\n---\n"
+        let header =
+            "---\nid: \(noteID)\ncreated: \(createdString(created, timeZone: timeZone))\ntype: \(noteType)\n---\n"
         return Data((header + body).utf8)
     }
 
@@ -49,7 +50,8 @@ enum NoteFile {
         // Other types are reserved for later versions, so they're skipped rather than shown as text.
         guard (fields["type"] ?? "").isEmpty || fields["type"] == noteType else { return .failure(.unsupportedType) }
         let noteID = fields["id"].flatMap { $0.isEmpty ? nil : $0 } ?? fallbackID(for: fileURL)
-        let created = fields["created"].flatMap { try? Date.ISO8601FormatStyle().parse($0) } ?? fileDate() ?? .distantPast
+        let created =
+            fields["created"].flatMap { try? Date.ISO8601FormatStyle().parse($0) } ?? fileDate() ?? .distantPast
         return .success(Note(noteID: noteID, created: created, body: String(body), fileURL: fileURL))
     }
 
@@ -65,7 +67,7 @@ enum NoteFile {
         var isFirstLine = true
         while lineStart < text.endIndex {
             let lineEnd = text[lineStart...].firstIndex { $0 == "\n" || $0 == "\r\n" } ?? text.endIndex
-            let line = text[lineStart ..< lineEnd]
+            let line = text[lineStart..<lineEnd]
             let nextLineStart = lineEnd < text.endIndex ? text.index(after: lineEnd) : text.endIndex
             if isFirstLine {
                 guard line == "---" else { return nil }
@@ -86,9 +88,12 @@ enum NoteFile {
     /// A frontmatter key: one word of ASCII letters, digits, `_`, or `-`. Prose like
     /// `Note to self: …` between two horizontal rules isn't a field.
     private static func isFieldKey(_ key: String) -> Bool {
-        !key.isEmpty && key.unicodeScalars.allSatisfy { scalar in
-            scalar.isASCII && (scalar.properties.isAlphabetic || ("0"..."9").contains(scalar) || scalar == "_" || scalar == "-")
-        }
+        !key.isEmpty
+            && key.unicodeScalars.allSatisfy { scalar in
+                scalar.isASCII
+                    && (scalar.properties.isAlphabetic || ("0"..."9").contains(scalar) || scalar == "_"
+                        || scalar == "-")
+            }
     }
 
     /// The first 8 hex characters of the SHA-256 of the filename, so it's the same on every load.
@@ -160,7 +165,7 @@ enum NoteFile {
         var lineStart = body.startIndex
         while lineStart < body.endIndex {
             let lineEnd = body[lineStart...].firstIndex(where: \.isNewline) ?? body.endIndex
-            let trimmed = body[lineStart ..< lineEnd].trimmingCharacters(in: .whitespaces)
+            let trimmed = body[lineStart..<lineEnd].trimmingCharacters(in: .whitespaces)
             if !trimmed.isEmpty, !isCodeFence(trimmed) {
                 let title = trimmed.drop { $0 == "#" }.trimmingCharacters(in: .whitespaces)
                 if !title.isEmpty { return (title, body[lineEnd...]) }
@@ -178,7 +183,8 @@ enum NoteFile {
 
     /// Lowercase ASCII, hyphenated, at most 50 characters. `note` when nothing is left.
     static func slug(for body: String) -> String {
-        let latin = (titleLine(of: body) ?? "")
+        let latin =
+            (titleLine(of: body) ?? "")
             .applyingTransform(.toLatin, reverse: false)?
             .applyingTransform(.stripDiacritics, reverse: false) ?? ""
         var slug = ""

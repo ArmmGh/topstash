@@ -79,10 +79,10 @@ final class KeyHandbackPanel: NSPanel {
     }
 }
 
-private extension NSPanel {
+extension NSPanel {
     /// Transparent, shadowless, kept when the app deactivates or the panel closes, and shown on
     /// every Space and over full-screen apps.
-    func configureAsOverlay() {
+    fileprivate func configureAsOverlay() {
         isOpaque = false
         backgroundColor = .clear
         hasShadow = false

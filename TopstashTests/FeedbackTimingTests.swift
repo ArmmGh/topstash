@@ -1,6 +1,7 @@
 import Foundation
 import Testing
 import TopstashCore
+
 @testable import Topstash
 
 /// How long "Copied", a save result on the card, and the search status stay before reverting,

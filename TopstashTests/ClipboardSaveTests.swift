@@ -1,5 +1,6 @@
 import Foundation
 import Testing
+
 @testable import Topstash
 
 /// Saving the clipboard (`AppModel.saveClipboard`) and how each result shows on the save card and

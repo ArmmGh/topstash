@@ -1,5 +1,6 @@
 import CoreGraphics
 import Testing
+
 @testable import Topstash
 
 /// The size of the panel's shape in each mode (`PanelLayout.shapeSize`). Expected heights are worked
@@ -23,13 +24,13 @@ struct PanelShapeSizeTests {
     }
 
     @Test(arguments: [
-        (0, 220.0), // "No notes yet" takes one row's height.
+        (0, 220.0),  // "No notes yet" takes one row's height.
         (1, 220.0),
         (2, 262.0),
         (3, 304.0),
         (4, 346.0),
         (5, 388.0),
-        (6, 388.0), // Only the five newest are listed.
+        (6, 388.0),  // Only the five newest are listed.
         (40, 388.0),
     ])
     func openGrowsWithTheRecentNotes(noteCount: Int, height: Double) {

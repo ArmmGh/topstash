@@ -1,7 +1,7 @@
 import AppKit
 import Observation
-import os
 import TopstashCore
+import os
 
 /// The composition root, and the actions shared by the save card, the menu bar, and the shortcut.
 @MainActor @Observable
@@ -34,7 +34,8 @@ final class AppModel {
         // There's no other folder to fall back to at startup, so a folder that can't be created is
         // only logged, and its store has no notes.
         (store, watcher) = Self.open(folder) { error in
-            Self.logger.error("Couldn't create the notes folder \(folder.path(percentEncoded: false), privacy: .public): \(error)")
+            Self.logger.error(
+                "Couldn't create the notes folder \(folder.path(percentEncoded: false), privacy: .public): \(error)")
         }
     }
 
