@@ -68,6 +68,7 @@ struct SaveCard: View {
             // Dimmer: nothing to do.
             resultCard(.alreadySaved, style: PanelStyle.secondary)
         case .concealed:
+            // Like "Already saved": the clipboard has text, but there's nothing to do with it.
             resultCard(.concealed, style: PanelStyle.secondary)
         case .nothingToSave:
             resultCard(.nothingToSave, style: PanelStyle.tertiary)

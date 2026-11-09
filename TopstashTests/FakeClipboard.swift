@@ -30,6 +30,7 @@ final class FakeClipboard: Clipboard {
 
     func write(_ text: String) {
         self.text = text
+        // The app's own copy is plain text, like `SystemClipboard.write`.
         marker = nil
         changeCount += 1
     }
