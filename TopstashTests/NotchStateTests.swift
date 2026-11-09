@@ -276,6 +276,22 @@ struct NotchStateTests {
         #expect(state == .dismissed(fadingOn: Self.screen1))
     }
 
+    @Test func searchNotesInTheMenuOpensSearchButLeavesOpenSearchAsItIs() {
+        var state = NotchState.idle
+
+        #expect(state.openSearch(on: Self.screen1, mode: .closed) == [.openSearch(Self.screen1)])
+        #expect(state == .shown(Self.screen1))
+        #expect(state.openSearch(on: Self.screen1, mode: .search) == [])
+        #expect(state == .shown(Self.screen1))
+    }
+
+    @Test func searchNotesInTheMenuDuringTheHoverDelayDropsTheDelay() {
+        var state = NotchState.hovering(Self.screen2, fadingOn: nil)
+
+        #expect(state.openSearch(on: Self.screen2, mode: .closed) == [.cancelHoverDelay, .openSearch(Self.screen2)])
+        #expect(state == .shown(Self.screen2))
+    }
+
     @Test func searchOpenedByTheShortcutStaysOpenAwayFromTheNotchAndEscClosesItForGood() {
         var state = NotchState.idle
         _ = state.toggleSearch(on: Self.screen1, mode: .closed)

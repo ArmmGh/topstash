@@ -407,21 +407,26 @@ final class NotchPanelController {
         }
     }
 
-    /// The search shortcut and "Search Notes…": opens search on the screen with the cursor, or
-    /// closes it if it's open. The panel becomes key so the field takes typing, without
-    /// activating the app; Esc hands typing back to the app the user was in.
-    func toggleSearchFromShortcut() {
-        guard let displayID = displayIDUnderCursor() else {
-            logger.error("No screen to open search on")
-            return
-        }
+    /// The search shortcut: opens search on the screen with the cursor, or closes it if it's open.
+    /// The panel becomes key so the field takes typing, without activating the app; Esc hands
+    /// typing back to the app the user was in.
+    func toggleSearch() {
+        guard let displayID = displayIDForSearch() else { return }
         perform(state.toggleSearch(on: displayID, mode: panel.mode))
     }
 
-    /// "Search Notes…" in the menu bar: like the search shortcut, but never closes search.
-    func openSearchFromMenu() {
-        guard panel.mode != .search else { return }
-        toggleSearchFromShortcut()
+    /// "Search Notes…" in the menu bar: like the search shortcut, but leaves open search as it is.
+    func openSearchOnCursorScreen() {
+        guard let displayID = displayIDForSearch() else { return }
+        perform(state.openSearch(on: displayID, mode: panel.mode))
+    }
+
+    private func displayIDForSearch() -> CGDirectDisplayID? {
+        let displayID = displayIDUnderCursor()
+        if displayID == nil {
+            logger.error("No screen to open search on")
+        }
+        return displayID
     }
 
     /// The screen containing the cursor, else the main screen.

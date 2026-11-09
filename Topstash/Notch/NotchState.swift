@@ -143,16 +143,23 @@ enum NotchState: Equatable {
         return [.close]
     }
 
-    /// The search shortcut or "Search Notes…" in the menu bar. Closes search as a dismissal if it's
-    /// open, like Esc; otherwise opens search on `displayID`, the screen with the cursor, from any
-    /// state, dropping a running hover delay.
+    /// The search shortcut: closes search as a dismissal if it's open, like Esc; otherwise opens it
+    /// like `openSearch(on:mode:)`.
     mutating func toggleSearch(on displayID: CGDirectDisplayID, mode: PanelModel.Mode) -> [NotchEffect] {
-        if case .shown = self, mode == .search {
-            return dismiss()
-        }
+        isSearchOpen(mode) ? dismiss() : openSearch(on: displayID, mode: mode)
+    }
+
+    /// "Search Notes…" in the menu bar: opens search on `displayID`, the screen with the cursor, from
+    /// any state, dropping a running hover delay. Leaves search that's already open as it is.
+    mutating func openSearch(on displayID: CGDirectDisplayID, mode: PanelModel.Mode) -> [NotchEffect] {
+        guard !isSearchOpen(mode) else { return [] }
         let effects: [NotchEffect] = if case .hovering = self { [.cancelHoverDelay] } else { [] }
         self = .shown(displayID)
         return effects + [.openSearch(displayID)]
+    }
+
+    private func isSearchOpen(_ mode: PanelModel.Mode) -> Bool {
+        if case .shown = self { mode == .search } else { false }
     }
 
     /// The shortcut's feedback is up: switches to `.open` if the cursor is over the panel or its

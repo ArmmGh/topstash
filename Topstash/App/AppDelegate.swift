@@ -5,7 +5,7 @@ import KeyboardShortcuts
 final class AppDelegate: NSObject, NSApplicationDelegate {
     /// Created with the delegate, so the app's scenes (menu bar, Settings) can use it from the start.
     let appModel = AppModel()
-    private(set) var panelController: NotchPanelController?
+    private var panelController: NotchPanelController?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         // The unit tests run inside the app. There, the notch panel and the global shortcut
@@ -22,8 +22,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             panelController?.saveFromShortcut()
         }
         KeyboardShortcuts.onKeyUp(for: .searchNotes) { [weak panelController] in
-            panelController?.toggleSearchFromShortcut()
+            panelController?.toggleSearch()
         }
+    }
+
+    /// "Search Notes…" in the menu bar.
+    func openSearch() {
+        panelController?.openSearchOnCursorScreen()
     }
 
     /// Set by Xcode when it launches the app to host the test bundle.

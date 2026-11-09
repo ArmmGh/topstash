@@ -8,7 +8,7 @@ struct TopstashApp: App {
     var body: some Scene {
         MenuBarExtra("Topstash", systemImage: PanelStyle.saveSymbol) {
             MenuBarMenu(appModel: appDelegate.appModel) { [weak appDelegate] in
-                appDelegate?.panelController?.openSearchFromMenu()
+                appDelegate?.openSearch()
             }
         }
         Settings {
