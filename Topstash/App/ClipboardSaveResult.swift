@@ -7,10 +7,12 @@ enum ClipboardSaveResult: Equatable, Sendable {
     case saved(Note)
     /// A note already holds the clipboard text; nothing was written.
     case alreadySaved
-    /// The clipboard holds no text, or only whitespace.
+    /// The clipboard holds no text, only whitespace, or text marked transient.
     case nothingToSave
     /// The clipboard holds text that Topstash isn't allowed to read (paste access denied).
     case accessDenied
+    /// The clipboard holds text marked concealed, such as a password; it was neither read nor saved.
+    case concealed
     /// Writing the note failed. `AppModel.saveClipboard` has logged the error.
     case failed
 }
@@ -24,6 +26,7 @@ extension ClipboardSaveResult {
         case .alreadySaved: .alreadySaved
         case .nothingToSave: .nothingToSave
         case .accessDenied: .accessDenied
+        case .concealed: .concealed
         case .failed: .failed
         }
     }
@@ -36,7 +39,7 @@ extension ClipboardSaveResult {
         case .saved: Motion.saveFeedbackDuration
         case .nothingToSave: Motion.nothingToSaveDuration
         case .failed: Motion.failedDuration
-        case .alreadySaved, .accessDenied: nil
+        case .alreadySaved, .accessDenied, .concealed: nil
         }
     }
 }

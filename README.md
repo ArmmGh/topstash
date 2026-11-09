@@ -18,6 +18,7 @@ Hover over the notch, click once, and the text on your clipboard is saved as a M
 - Notes are plain Markdown files in `~/Documents/Topstash/`, or a folder you choose.
 - ⌥⌘S saves from anywhere. You can change the shortcut in Settings.
 - Works on external displays: hover over the top center of the screen.
+- Passwords that a password manager marks as concealed are never shown or saved.
 - Everything stays on your Mac. Topstash makes no network connections.
 
 ## Requirements
