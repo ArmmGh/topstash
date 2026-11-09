@@ -121,7 +121,7 @@ final class NotchPanelController {
         updateClickThrough(at: location)
         // The menu is its own window, so the cursor on it counts as outside the panel.
         guard !isMenuTracking else { return }
-        let hovered = hoverAreas.first { $0.rect.contains(location) }
+        let hovered = hoverAreas.first { Self.isPoint(location, in: $0.rect) }
         let overOpenPanel = isOverOpenPanel(location)
 
         switch panel.mode {
@@ -188,7 +188,7 @@ final class NotchPanelController {
     /// move (the global monitor sees moves over the window while it ignores events) and on open.
     private func updateClickThrough(at location: NSPoint) {
         guard let window, openDisplayID != nil else { return }
-        let ignores = !visibleRect.contains(location)
+        let ignores = !Self.isPoint(location, in: visibleRect)
         if window.ignoresMouseEvents != ignores {
             window.ignoresMouseEvents = ignores
         }
@@ -231,8 +231,14 @@ final class NotchPanelController {
     /// Whether `location` is over the hover area or the visible shape of the screen the panel is shown on.
     private func isOverOpenPanel(_ location: NSPoint) -> Bool {
         guard let openDisplayID else { return false }
-        let overHoverArea = hoverArea(on: openDisplayID)?.rect.contains(location) ?? false
-        return overHoverArea || visibleRect.contains(location)
+        let overHoverArea = hoverArea(on: openDisplayID).map { Self.isPoint(location, in: $0.rect) } ?? false
+        return overHoverArea || Self.isPoint(location, in: visibleRect)
+    }
+
+    /// Hit test for `NSEvent.mouseLocation`, which reports `y == frame.maxY` on a screen's top pixel
+    /// row. `CGRect.contains` excludes `maxY`, so it would miss a cursor pushed against the top edge.
+    private static func isPoint(_ location: NSPoint, in rect: NSRect) -> Bool {
+        NSMouseInRect(location, rect, false)
     }
 
     /// The content fades out, the shape collapses into the hover area, then the window is ordered out.
