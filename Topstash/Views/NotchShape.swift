@@ -4,33 +4,39 @@ import SwiftUI
 /// (reverse fillets) into the screen edge, so it reads as part of the hardware notch,
 /// and whose bottom corners are normally rounded.
 ///
-/// The outward fillets sit inside `rect`: the body is `rect` inset by `topCornerRadius` on each side,
-/// so a body of a given size needs a frame `2 * topCornerRadius` wider.
+/// The body is `bodySize`, hanging from the top center of `rect`; the outward fillets add
+/// `topCornerRadius` on each side. The size is animatable, together with the radii, so the shape
+/// always grows and shrinks around its center: animating a frame's size instead lets the parent
+/// move the frame to its final position at once, and the shape drifts sideways while it grows.
 struct NotchShape: Shape {
+    var bodySize: CGSize
     var topCornerRadius: CGFloat
     var bottomCornerRadius: CGFloat
 
-    var animatableData: AnimatablePair<CGFloat, CGFloat> {
-        get { AnimatablePair(topCornerRadius, bottomCornerRadius) }
+    var animatableData: AnimatablePair<CGSize.AnimatableData, AnimatablePair<CGFloat, CGFloat>> {
+        get { AnimatablePair(bodySize.animatableData, AnimatablePair(topCornerRadius, bottomCornerRadius)) }
         set {
-            topCornerRadius = newValue.first
-            bottomCornerRadius = newValue.second
+            bodySize.animatableData = newValue.first
+            topCornerRadius = newValue.second.first
+            bottomCornerRadius = newValue.second.second
         }
     }
 
     func path(in rect: CGRect) -> Path {
-        let width = rect.width
-        let height = rect.height
-        guard width > 0, height > 0 else { return Path() }
+        let bodyWidth = max(bodySize.width, 0)
+        let height = max(bodySize.height, 0)
+        guard bodyWidth > 0, height > 0 else { return Path() }
+        // The radii are clamped against the whole width, fillets included, as before.
         let (top, bottom) = Self.clampedRadii(
-            top: topCornerRadius, bottom: bottomCornerRadius, width: width, height: height
+            top: topCornerRadius, bottom: bottomCornerRadius, width: bodyWidth + 2 * max(topCornerRadius, 0), height: height
         )
 
-        let minX = rect.minX
         let minY = rect.minY
-        let bodyMinX = minX + top
-        let bodyMaxX = rect.maxX - top
-        let maxY = rect.maxY
+        let bodyMinX = rect.midX - bodyWidth / 2
+        let bodyMaxX = rect.midX + bodyWidth / 2
+        let minX = bodyMinX - top
+        let maxX = bodyMaxX + top
+        let maxY = minY + height
 
         var path = Path()
         path.move(to: CGPoint(x: minX, y: minY))
@@ -55,10 +61,10 @@ struct NotchShape: Shape {
         // Top right: concave, from the body's side out along the top edge.
         path.addArc(
             tangent1End: CGPoint(x: bodyMaxX, y: minY),
-            tangent2End: CGPoint(x: rect.maxX, y: minY),
+            tangent2End: CGPoint(x: maxX, y: minY),
             radius: top
         )
-        path.addLine(to: CGPoint(x: rect.maxX, y: minY))
+        path.addLine(to: CGPoint(x: maxX, y: minY))
         path.closeSubpath()
         return path
     }

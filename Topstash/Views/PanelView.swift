@@ -49,8 +49,8 @@ struct PanelView: View {
     private var backing: some View {
         Color.black
             .mask(alignment: .top) {
-                NotchShape(topCornerRadius: topCornerRadius, bottomCornerRadius: bottomCornerRadius)
-                    .frame(width: shapeSize.width + 2 * topCornerRadius, height: shapeSize.height)
+                // Fills the backing; the shape positions its body itself (see `NotchShape`).
+                NotchShape(bodySize: shapeSize, topCornerRadius: topCornerRadius, bottomCornerRadius: bottomCornerRadius)
                     .animation(Motion.shape(expanding: isOpen, reduceMotion: reduceMotion), value: shapeSize)
                     .animation(Motion.shape(expanding: isOpen, reduceMotion: reduceMotion), value: isOpen)
                     // The gulp when a saved card flies into the notch. None with Reduce Motion.
