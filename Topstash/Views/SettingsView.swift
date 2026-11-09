@@ -3,12 +3,14 @@ import KeyboardShortcuts
 import ServiceManagement
 import SwiftUI
 
-/// The Settings window: notes folder, save and search shortcuts, hover delay, and launch at login.
+/// The Settings window: notes folder, save and search shortcuts, ⌥Return paste, hover delay, and
+/// launch at login.
 struct SettingsView: View {
     let appModel: AppModel
 
     @AppStorage(Preferences.hoverDelayMillisecondsKey)
     private var hoverDelayMilliseconds = Preferences.defaultHoverDelayMilliseconds
+    @AppStorage(Preferences.pastesOnOptionReturnKey) private var pastesOnOptionReturn = false
     @State private var launchAtLogin = LaunchAtLogin()
     @State private var folderError: String?
     @State private var launchAtLoginError: String?
@@ -17,6 +19,7 @@ struct SettingsView: View {
         Form {
             folderSection
             shortcutSection
+            pasteSection
             hoverDelaySection
             launchAtLoginSection
         }
@@ -78,6 +81,19 @@ struct SettingsView: View {
             // KeyboardShortcuts stores the shortcut in UserDefaults and re-registers it right away.
             KeyboardShortcuts.Recorder("Save clipboard", name: .saveClipboard)
             KeyboardShortcuts.Recorder("Search notes", name: .searchNotes)
+        }
+    }
+
+    // MARK: - Paste
+
+    private var pasteSection: some View {
+        Section {
+            // Turning this on doesn't ask for Accessibility access; ⌥Return asks when it needs it.
+            Toggle("⌥Return in search pastes into the previous app", isOn: $pastesOnOptionReturn)
+        } footer: {
+            Text("Needs Accessibility access, asked for the first time you use it.")
+                .font(.callout)
+                .foregroundStyle(.secondary)
         }
     }
 

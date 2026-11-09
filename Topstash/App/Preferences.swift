@@ -6,6 +6,8 @@ enum Preferences {
     static let notesFolderPathKey = "notesFolderPath"
     /// Int. Default 250.
     static let hoverDelayMillisecondsKey = "hoverDelayMilliseconds"
+    /// Bool. Default false. Whether ⌥Return in search pastes the note into the previous app.
+    static let pastesOnOptionReturnKey = "pastesOnOptionReturn"
 
     static let defaultHoverDelayMilliseconds = 250
 

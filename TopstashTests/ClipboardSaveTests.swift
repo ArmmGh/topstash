@@ -143,7 +143,7 @@ struct ClipboardSaveTests {
 
         appModel.showSaveResultInSearch(result)
 
-        #expect(appModel.panel.searchStatus == result)
+        #expect(appModel.panel.searchStatus == .saveResult(result))
         #expect(appModel.panel.saveCount == 0)
     }
 
@@ -153,7 +153,7 @@ struct ClipboardSaveTests {
 
         appModel.showSaveResultInSearch(result)
 
-        #expect(appModel.panel.searchStatus == result)
+        #expect(appModel.panel.searchStatus == .saveResult(result))
         #expect(appModel.panel.saveCount == 1)
     }
 }

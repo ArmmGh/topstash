@@ -302,6 +302,26 @@ final class NotchPanelController {
         perform(state.dismiss())
     }
 
+    /// ⌥Return: copies the note. With the Settings toggle on and Accessibility access, closes the
+    /// panel, which hands key status back to the frontmost app, then pastes. The panel never
+    /// activates the app, so the frontmost app is still the one the user was in. Without access,
+    /// search stays open and says so. With the toggle off it does what Return does and never asks
+    /// for access.
+    func pasteFromSearch(_ note: Note) {
+        guard panel.mode == .search else { return }
+        appModel.copy(note)
+        guard appModel.pastesOnOptionReturn else {
+            closeSearch()
+            return
+        }
+        guard appModel.paster.requestAccess() else {
+            appModel.showSearchStatus(.pasteNeedsAccess)
+            return
+        }
+        closeSearch()
+        appModel.paster.paste()
+    }
+
     private func endSearch(closing: Bool) {
         if let searchMouseMonitor {
             NSEvent.removeMonitor(searchMouseMonitor)
@@ -457,7 +477,8 @@ extension NotchPanelController {
             openSearch: { [weak self] in self?.openSearch() },
             closeSearch: { [weak self] in self?.closeSearch() },
             dismissAfterAction: { [weak self] in self?.dismissAfterAction() },
-            dismissAfterCopy: { [weak self] in self?.dismissAfterCopy() }
+            dismissAfterCopy: { [weak self] in self?.dismissAfterCopy() },
+            pasteFromSearch: { [weak self] in self?.pasteFromSearch($0) }
         )
     }
 
