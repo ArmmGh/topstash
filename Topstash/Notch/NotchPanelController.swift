@@ -28,8 +28,7 @@ final class NotchPanelController {
     private var menuObservers: [any NSObjectProtocol] = []
     /// True while any menu of the app is open.
     private var isMenuTracking = false
-    /// Ends the shortcut's feedback.
-    /// The countdown, or before it the settle delay of a new save's feedback.
+    /// Ends the shortcut's feedback: the countdown, or before it the settle delay of a new save's feedback.
     private let feedback = DelayedAction()
 
     private var panel: PanelModel { appModel.panel }
@@ -91,7 +90,7 @@ final class NotchPanelController {
 
     private func screensChanged() {
         rebuildHoverAreas()
-        perform(state.screensChanged(hoverAreas: hoverAreas, mode: panel.mode))
+        perform(state.screensChanged(surroundings))
     }
 
     private func hoverArea(on displayID: CGDirectDisplayID) -> HoverArea? {
@@ -129,7 +128,7 @@ final class NotchPanelController {
                 // The content fades out, the shape collapses into the hover area, then the window is ordered out.
                 setMode(.closed)
                 startCloseAnimation()
-            case .reopen:
+            case .switchToOpen:
                 closeAnimation.cancel()
                 appModel.refreshSaveCard()
                 setMode(.open)
@@ -173,7 +172,7 @@ final class NotchPanelController {
     /// move (the global monitor sees moves over the window while it ignores events) and on open.
     private func updateClickThrough(at location: NSPoint) {
         guard let window, state.windowDisplayID != nil else { return }
-        let ignores = !NotchState.isPoint(location, in: visibleRect)
+        let ignores = !visibleRect.containsMouseLocation(location)
         if window.ignoresMouseEvents != ignores {
             window.ignoresMouseEvents = ignores
         }
@@ -372,7 +371,7 @@ final class NotchPanelController {
     /// The screen containing the cursor, else the main screen.
     private func displayIDUnderCursor() -> CGDirectDisplayID? {
         let location = NSEvent.mouseLocation
-        let screen = NSScreen.screens.first { NotchState.isPoint(location, in: $0.frame) } ?? NSScreen.main
+        let screen = NSScreen.screens.first { $0.frame.containsMouseLocation(location) } ?? NSScreen.main
         return screen.flatMap(Self.displayID(of:))
     }
 

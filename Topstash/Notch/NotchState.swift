@@ -1,6 +1,6 @@
 import AppKit
 
-/// What the open/close rules look at when the mouse moves or a timer ends.
+/// What the open/close rules look at when the mouse moves, a timer ends, or the screens change.
 struct NotchSurroundings {
     /// In global screen coordinates, as `NSEvent.mouseLocation` reports it.
     var cursor: NSPoint
@@ -24,8 +24,9 @@ enum NotchEffect: Equatable {
     case open(CGDirectDisplayID)
     /// Switches to `.closed` and runs the close animation, then reports `closeAnimationEnded()`.
     case close
-    /// The cursor is back over the panel: ends a running close and switches to `.open`.
-    case reopen
+    /// Ends a running close, refreshes the save card, and switches to `.open`: the cursor is back
+    /// over a closing panel, or over the panel when the shortcut's feedback ends.
+    case switchToOpen
     /// The close animation has run: orders the window out.
     case orderOut
     /// Places the window again on its screen, whose frame or hover area may have changed.
@@ -65,7 +66,7 @@ enum NotchState: Equatable {
 
     mutating func mouseMoved(_ surroundings: NotchSurroundings) -> [NotchEffect] {
         guard !surroundings.isMenuTracking else { return [] }
-        let hovered = surroundings.hoverAreas.first { Self.isPoint(surroundings.cursor, in: $0.rect) }
+        let hovered = surroundings.hoverAreas.first { $0.rect.containsMouseLocation(surroundings.cursor) }
         let overWindow = isOverWindow(surroundings)
 
         switch self {
@@ -77,7 +78,7 @@ enum NotchState: Equatable {
         case .hovering(let pending, let fading):
             if let fading, overWindow {
                 self = .shown(fading)
-                return [.cancelHoverDelay, .reopen]
+                return [.cancelHoverDelay, .switchToOpen]
             }
             guard let hovered else {
                 self = fading.map(NotchState.closing) ?? .idle
@@ -98,7 +99,7 @@ enum NotchState: Equatable {
         case .closing(let displayID):
             if overWindow {
                 self = .shown(displayID)
-                return [.reopen]
+                return [.switchToOpen]
             }
             guard let hovered else { return [] }
             self = .hovering(hovered.displayID, fadingOn: displayID)
@@ -144,14 +145,15 @@ enum NotchState: Equatable {
     mutating func feedbackEnded(_ surroundings: NotchSurroundings) -> [NotchEffect] {
         guard case .shown(let displayID) = self, surroundings.mode == .feedback else { return [] }
         if isOverWindow(surroundings) {
-            return [.reopen]
+            return [.switchToOpen]
         }
         self = .closing(displayID)
         return [.close]
     }
 
-    /// Displays were added or removed, or their resolution or arrangement changed. `hoverAreas` are the new ones.
-    mutating func screensChanged(hoverAreas: [HoverArea], mode: PanelModel.Mode) -> [NotchEffect] {
+    /// Displays were added or removed, or their resolution or arrangement changed. `surroundings`
+    /// has the new hover areas.
+    mutating func screensChanged(_ surroundings: NotchSurroundings) -> [NotchEffect] {
         var effects: [NotchEffect] = []
         if case .hovering(_, let fading) = self {
             self = fading.map(NotchState.closing) ?? .idle
@@ -159,14 +161,14 @@ enum NotchState: Equatable {
         }
         guard let displayID = windowDisplayID else { return effects }
 
-        if hoverAreas.contains(where: { $0.displayID == displayID }) {
+        if surroundings.hoverAreas.contains(where: { $0.displayID == displayID }) {
             return effects + [.place(displayID)]
         }
         // Closing search counts as a dismissal, like Esc.
         if case .dismissed = self {
             self = .dismissed(fadingOn: nil)
         } else {
-            self = mode == .search ? .dismissed(fadingOn: nil) : .idle
+            self = surroundings.mode == .search ? .dismissed(fadingOn: nil) : .idle
         }
         return effects + [.closeAtOnce]
     }
@@ -175,13 +177,8 @@ enum NotchState: Equatable {
     private func isOverWindow(_ surroundings: NotchSurroundings) -> Bool {
         guard let windowDisplayID else { return false }
         let area = surroundings.hoverAreas.first { $0.displayID == windowDisplayID }
-        let overArea = area.map { Self.isPoint(surroundings.cursor, in: $0.rect) } ?? false
-        return overArea || Self.isPoint(surroundings.cursor, in: surroundings.visibleShape)
+        let overArea = area.map { $0.rect.containsMouseLocation(surroundings.cursor) } ?? false
+        return overArea || surroundings.visibleShape.containsMouseLocation(surroundings.cursor)
     }
 
-    /// Hit test for `NSEvent.mouseLocation`, which reports `y == frame.maxY` on a screen's top pixel
-    /// row. `CGRect.contains` excludes `maxY`, so it would miss a cursor pushed against the top edge.
-    static func isPoint(_ location: NSPoint, in rect: NSRect) -> Bool {
-        NSMouseInRect(location, rect, false)
-    }
 }
