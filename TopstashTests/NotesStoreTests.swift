@@ -464,6 +464,19 @@ extension NotesStoreTests {
         #expect(second.noteID == first.noteID)
     }
 
+    @Test(arguments: [
+        "---\nA prompt that opens with a horizontal rule.\n",
+        "---\nIntro\n\n---\nMore text\n",
+        "---\nNote to self: keep this\n---\nSecond section",
+    ])
+    func fileStartingWithAHorizontalRuleLoadsWhole(contents: String) throws {
+        try writeExternal("rule.md", contents)
+
+        let notes = makeStore().notes
+
+        #expect(notes.map(\.body) == [contents])
+    }
+
     @Test func frontmatterWithoutCreatedUsesTheCreationDate() throws {
         let url = try writeExternal("partial.md", "---\nid: abcd1234\ntitle: ignored\nno colon here\n---\nThe body")
         let creationDate = Date(timeIntervalSince1970: 1_700_000_000)
@@ -494,7 +507,6 @@ extension NotesStoreTests {
     }
 
     @Test(arguments: [
-        (name: "unclosed.md", contents: Data("---\nid: abcd1234\nThe body never starts".utf8)),
         (name: "latin1.md", contents: Data([0x63, 0x61, 0x66, 0xE9, 0x0A])),
         (name: "zero-bytes.md", contents: Data()),
         (name: "whitespace.md", contents: Data(" \n\t\r\n ".utf8)),

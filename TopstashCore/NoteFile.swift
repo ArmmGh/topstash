@@ -29,7 +29,6 @@ enum NoteFile {
     enum SkipReason: String, Error {
         case notUTF8 = "not valid UTF-8"
         case empty = "empty"
-        case unclosedFrontmatter = "frontmatter has no closing ---"
         case emptyBody = "body is empty"
         case unsupportedType = "type isn't text"
     }
@@ -43,18 +42,9 @@ enum NoteFile {
 
         var fields: [String: String] = [:]
         var body = Substring(text)
-        switch frontmatter(of: text) {
-        case .none:
-            break
-        case .unclosed:
-            return .failure(.unclosedFrontmatter)
-        case .closed(let lines, let rest):
-            for line in lines {
-                guard let colon = line.firstIndex(of: ":") else { continue }
-                let key = line[..<colon].trimmingCharacters(in: .whitespaces)
-                fields[key] = line[line.index(after: colon)...].trimmingCharacters(in: .whitespaces)
-            }
+        if let (parsed, rest) = frontmatter(of: text) {
             guard !rest.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return .failure(.emptyBody) }
+            fields = parsed
             body = rest
         }
 
@@ -65,25 +55,36 @@ enum NoteFile {
         return .success(Note(noteID: noteID, created: created, type: noteType, body: String(body), fileURL: fileURL))
     }
 
-    private enum Frontmatter {
-        /// The first line isn't `---`.
-        case none
-        /// The first line is `---`, but no later line is.
-        case unclosed
-        /// The lines between the `---` lines, and everything after the closing line's line break.
-        case closed(lines: ArraySlice<Substring>, body: Substring)
-    }
     /// Shared because `reload()` parses one date per file. `ISO8601DateFormatter` is thread-safe.
     nonisolated(unsafe) private static let createdParser = ISO8601DateFormatter()
 
+    /// The fields between a leading `---` line and the next `---` line, and everything after the
+    /// closing line's line break. `nil` when the text doesn't start with frontmatter: no `---` first
+    /// line, no closing `---`, or no `key: value` line in between. Such a file is plain Markdown that
+    /// may start with a horizontal rule (story 39), so it's read whole, as the body.
     /// Lines end at `\n` or `\r\n`, so a `---` line may have a trailing `\r`.
-    private static func frontmatter(of text: String) -> Frontmatter {
+    private static func frontmatter(of text: String) -> (fields: [String: String], body: Substring)? {
         let lines = text.split(omittingEmptySubsequences: false) { $0 == "\n" || $0 == "\r\n" }
-        guard lines.first == "---" else { return .none }
-        guard let close = lines.dropFirst().firstIndex(of: "---") else { return .unclosed }
+        guard lines.first == "---", let close = lines.dropFirst().firstIndex(of: "---") else { return nil }
+        var fields: [String: String] = [:]
+        for line in lines[1 ..< close] {
+            guard let colon = line.firstIndex(of: ":") else { continue }
+            let key = line[..<colon].trimmingCharacters(in: .whitespaces)
+            guard isFieldKey(key) else { continue }
+            fields[key] = line[line.index(after: colon)...].trimmingCharacters(in: .whitespaces)
+        }
+        guard !fields.isEmpty else { return nil }
         let closingEnd = lines[close].endIndex
         let bodyStart = closingEnd < text.endIndex ? text.index(after: closingEnd) : text.endIndex
-        return .closed(lines: lines[1 ..< close], body: text[bodyStart...])
+        return (fields, text[bodyStart...])
+    }
+
+    /// A frontmatter key: one word of ASCII letters, digits, `_`, or `-`. Prose like
+    /// `Note to self: …` between two horizontal rules isn't a field.
+    private static func isFieldKey(_ key: String) -> Bool {
+        !key.isEmpty && key.unicodeScalars.allSatisfy { scalar in
+            scalar.isASCII && (scalar.properties.isAlphabetic || ("0"..."9").contains(scalar) || scalar == "_" || scalar == "-")
+        }
     }
 
     /// The first 8 hex characters of the SHA-256 of the filename, so it's the same on every load.
