@@ -35,6 +35,9 @@ enum PanelStyle {
     static let bodySize: CGFloat = 13
     /// Small lines: row previews, ages, counts, and hints. Digits are monospaced so counts don't jitter.
     static let meta = Font.system(size: 11).monospacedDigit()
+    /// The query's words in a search result's preview, a weight above `meta` so a match stands out by
+    /// weight, not only by its primary color.
+    static let metaMatch = Font.system(size: 11, weight: .semibold).monospacedDigit()
     /// The save card's symbol: the system's Title 3 (15 pt), a step above the 13 pt text beside it,
     /// as in the prototype, so it reads as the card's icon rather than a glyph in the text.
     static let cardIcon = Font.title3.weight(.medium)
@@ -58,6 +61,11 @@ struct PanelColor: ShapeStyle {
     let increased: Double
 
     func resolve(in environment: EnvironmentValues) -> Color {
-        Color.white.opacity(environment.colorSchemeContrast == .increased ? increased : standard)
+        color(contrast: environment.colorSchemeContrast)
+    }
+
+    /// For places that take a `Color` rather than a style, such as an `AttributedString` run.
+    func color(contrast: ColorSchemeContrast) -> Color {
+        Color.white.opacity(contrast == .increased ? increased : standard)
     }
 }

@@ -44,7 +44,8 @@ struct SearchView: View {
             .cardBackground(cornerRadius: PanelLayout.searchFieldCornerRadius)
             .animation(Motion.reduced, value: panel.searchStatus)
             NoteList(
-                appModel: appModel, actions: actions, notes: results, emptyText: "No matches", scrolls: true
+                appModel: appModel, actions: actions, notes: results, emptyText: "No matches", query: panel.query,
+                scrolls: true
             )
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         }

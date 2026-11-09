@@ -175,6 +175,7 @@ Decided after a research pass against primary sources (`docs/research/notch-pane
   - `title`, 13 medium: row titles, the header label, the card's labels, "Saved".
   - `body`, 13 regular: the clipboard preview, the search field, empty states.
   - `meta`, 11 regular with monospaced digits: row previews, ages, counts, hints.
+  - `metaMatch`, 11 semibold: the query's words in a search result's preview, in the primary color. The one exception to two weights, so a match stands out by weight, not color alone.
 
   Symbols take their size from the text beside them. The "Saved" checkmark is the one larger symbol (about 22 pt).
 - **Text colors:** white at 1.0 / 0.6 / 0.5 (primary / secondary / tertiary). 0.5 is the floor: anything lower fails WCAG AA (4.5:1) for 11–13 pt text on black.
@@ -190,6 +191,7 @@ Decided after a research pass against primary sources (`docs/research/notch-pane
   - The search field below it shows a magnifier at its left and "esc" at its right in `meta` and the tertiary color.
 - **Save card:** the `tray.and.arrow.up` symbol, up to 3 lines of preview in `body`, and a `meta` line such as "Click to save · 1,284 characters". The preview starts at the clipboard's first visible character, so its first line isn't indented; the saved note keeps the text as it is.
 - **Rows:** title and preview on the left, and the age on the right in `meta` and the tertiary color ("2h", "3d", "Oct 28").
+  - In search, the preview is a snippet of the text after the title line: it starts about 24 characters before the first match, on a word boundary, with a leading "…", and every query word in it is in `metaMatch`. The row truncates its end with "…". A match only in the title, or an empty query, shows the normal preview.
 - **Menu bar icon:** the SF Symbol `tray.and.arrow.up`, which the HIG suggests over a custom image. Make a custom SF Symbol only if a brand mark is needed later.
 
 ## Testing Decisions
@@ -203,6 +205,7 @@ Decided after a research pass against primary sources (`docs/research/notch-pane
   - Saving existing text returns `alreadySaved` and writes nothing. Saving empty or whitespace-only text returns `empty`.
   - `notes` and `recent(limit)` are newest first.
   - Search matches every word, ignores case, looks at the full text, and an empty query returns everything.
+  - A search result's snippet (`SearchSnippet`) starts near the first match and marks every query word, matching like search.
   - `delete` removes the file and the note.
   - After files are added, edited, or deleted directly on disk, `reload()` reflects the change.
   - Files without frontmatter load with fallback values. Malformed or non-Markdown files are skipped without crashing.

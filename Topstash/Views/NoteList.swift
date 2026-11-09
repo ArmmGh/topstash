@@ -9,6 +9,8 @@ struct NoteList: View {
     let actions: PanelActions
     let notes: [Note]
     let emptyText: LocalizedStringKey
+    /// The search query, so each row's preview shows its match. `nil` in the recent list.
+    var query: String?
     /// The search results scroll; the recent list always fits.
     var scrolls = false
 
@@ -31,6 +33,7 @@ struct NoteList: View {
         ForEach(notes) { note in
             NoteRow(
                 note: note,
+                query: query,
                 isCopied: appModel.panel.copiedNote == note.id,
                 openInEditor: {
                     appModel.openInEditor(note)
