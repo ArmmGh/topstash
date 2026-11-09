@@ -501,6 +501,34 @@ extension NotesStoreTests {
         #expect(note.body == "Line one\r\nLine two")
     }
 
+    @Test(arguments: [
+        "2026-11-08T19:52:14+04:00",
+        "2026-11-08T15:52:14Z",
+        "2026-11-08T12:22:14-03:30",
+    ])
+    func createdWithAnOffsetOrZParsesToTheSameDate(created: String) throws {
+        try writeExternal("dated.md", "---\nid: abcd1234\ncreated: \(created)\ntype: text\n---\nBody")
+
+        let note = try #require(makeStore().notes.first)
+
+        #expect(note.created == Self.fixedDate)
+    }
+
+    /// Other tools may write sub-second precision. It's kept rather than ignored, so the note gets
+    /// its real date instead of falling back to the file's creation date.
+    @Test(arguments: [
+        (created: "2026-11-08T19:52:14.5+04:00", fraction: 0.5),
+        (created: "2026-11-08T15:52:14.250Z", fraction: 0.25),
+    ])
+    func createdWithFractionalSecondsKeepsTheFraction(created: String, fraction: TimeInterval) throws {
+        let url = try writeExternal("precise.md", "---\nid: abcd1234\ncreated: \(created)\ntype: text\n---\nBody")
+        try FileManager.default.setAttributes([.creationDate: Date(timeIntervalSince1970: 1_700_000_000)], ofItemAtPath: url.path(percentEncoded: false))
+
+        let note = try #require(makeStore().notes.first)
+
+        #expect(note.created == Self.fixedDate.addingTimeInterval(fraction))
+    }
+
     @Test func fileWithANonTextTypeIsSkipped() throws {
         try writeExternal("image.md", "---\nid: abcd1234\ncreated: 2026-11-08T19:52:14+04:00\ntype: image\n---\nimage.png")
 

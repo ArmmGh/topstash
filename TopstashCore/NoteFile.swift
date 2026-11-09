@@ -10,12 +10,10 @@ enum NoteFile {
         String(format: "%08x", UInt32.random(in: .min ... .max))
     }
 
-    /// ISO-8601 with seconds and offset in `timeZone`. UTC is written as `Z`.
+    /// ISO-8601 with seconds and offset in `timeZone`, such as `+04:00`. UTC is written as `Z`.
+    /// The colon offset separator is needed: the style's default writes `+0400`.
     static func createdString(_ date: Date, timeZone: TimeZone) -> String {
-        let formatter = ISO8601DateFormatter()
-        formatter.formatOptions = [.withInternetDateTime]
-        formatter.timeZone = timeZone
-        return formatter.string(from: date)
+        date.formatted(Date.ISO8601FormatStyle(timeZoneSeparator: .colon, timeZone: timeZone))
     }
 
     /// The exact file content: frontmatter, then the body untouched. No trailing newline is added.
@@ -51,12 +49,9 @@ enum NoteFile {
         // Other types are reserved for later versions, so they're skipped rather than shown as text.
         guard (fields["type"] ?? "").isEmpty || fields["type"] == noteType else { return .failure(.unsupportedType) }
         let noteID = fields["id"].flatMap { $0.isEmpty ? nil : $0 } ?? fallbackID(for: fileURL)
-        let created = fields["created"].flatMap { createdParser.date(from: $0) } ?? fileDate() ?? .distantPast
+        let created = fields["created"].flatMap { try? Date.ISO8601FormatStyle().parse($0) } ?? fileDate() ?? .distantPast
         return .success(Note(noteID: noteID, created: created, body: String(body), fileURL: fileURL))
     }
-
-    /// Shared because `reload()` parses one date per file. `ISO8601DateFormatter` is thread-safe.
-    nonisolated(unsafe) private static let createdParser = ISO8601DateFormatter()
 
     /// The fields between a leading `---` line and the next `---` line, and everything after the
     /// closing line's line break. `nil` when the text doesn't start with frontmatter: no `---` first
