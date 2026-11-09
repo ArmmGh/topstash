@@ -7,9 +7,25 @@ enum PasteAccess: Equatable {
     case denied
 }
 
+/// The clipboard as the app sees it: `SystemClipboard` in the app, a fake in tests.
+@MainActor
+protocol Clipboard {
+    /// The user's Paste setting for this app.
+    var access: PasteAccess { get }
+    /// Changes whenever any app replaces the clipboard's contents. Reading it never shows the alert.
+    var changeCount: Int { get }
+    /// Whether the clipboard holds text. Never shows the paste privacy alert.
+    func hasText() -> Bool
+    /// The clipboard's text. May show the paste privacy alert, so call it only on a click,
+    /// the shortcut, or when `access == .allowed`.
+    func readText() -> String?
+    /// Replaces the clipboard contents with `text`.
+    func write(_ text: String)
+}
+
 /// A thin wrapper around `NSPasteboard`.
 @MainActor
-struct Clipboard {
+struct SystemClipboard: Clipboard {
     private let pasteboard: NSPasteboard = .general
 
     /// The Paste privacy pane in System Settings.
