@@ -18,6 +18,10 @@ enum Preferences {
         return URL.documentsDirectory.appending(path: "Topstash", directoryHint: .isDirectory)
     }
 
+    static func pastesOnOptionReturn(_ defaults: UserDefaults = .standard) -> Bool {
+        defaults.bool(forKey: pastesOnOptionReturnKey)
+    }
+
     /// In seconds.
     static func hoverDelay(_ defaults: UserDefaults = .standard) -> Double {
         let milliseconds = defaults.object(forKey: hoverDelayMillisecondsKey) as? Int ?? defaultHoverDelayMilliseconds

@@ -185,10 +185,7 @@ final class AppModel {
 
     /// The Settings toggle, off by default: ⌥Return in search pastes the note into the previous
     /// app. Read on every press, so a change applies on the next one.
-    var pastesOnOptionReturn: Bool {
-        get { defaults.bool(forKey: Preferences.pastesOnOptionReturnKey) }
-        set { defaults.set(newValue, forKey: Preferences.pastesOnOptionReturnKey) }
-    }
+    var pastesOnOptionReturn: Bool { Preferences.pastesOnOptionReturn(defaults) }
 
     /// Clears the search view's status.
     @ObservationIgnored

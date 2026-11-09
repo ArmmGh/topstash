@@ -302,6 +302,13 @@ final class NotchPanelController {
         perform(state.dismiss())
     }
 
+    /// Return: copies the note and closes search.
+    func copyFromSearch(_ note: Note) {
+        guard panel.mode == .search else { return }
+        appModel.copy(note)
+        closeSearch()
+    }
+
     /// ⌥Return: copies the note. With the Settings toggle on and Accessibility access, closes the
     /// panel, which hands key status back to the frontmost app, then pastes. The panel never
     /// activates the app, so the frontmost app is still the one the user was in. Without access,
@@ -309,11 +316,11 @@ final class NotchPanelController {
     /// for access.
     func pasteFromSearch(_ note: Note) {
         guard panel.mode == .search else { return }
-        appModel.copy(note)
         guard appModel.pastesOnOptionReturn else {
-            closeSearch()
+            copyFromSearch(note)
             return
         }
+        appModel.copy(note)
         guard appModel.paster.requestAccess() else {
             appModel.showSearchStatus(.pasteNeedsAccess)
             return
@@ -478,6 +485,7 @@ extension NotchPanelController {
             closeSearch: { [weak self] in self?.closeSearch() },
             dismissAfterAction: { [weak self] in self?.dismissAfterAction() },
             dismissAfterCopy: { [weak self] in self?.dismissAfterCopy() },
+            copyFromSearch: { [weak self] in self?.copyFromSearch($0) },
             pasteFromSearch: { [weak self] in self?.pasteFromSearch($0) }
         )
     }

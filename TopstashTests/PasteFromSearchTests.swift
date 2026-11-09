@@ -4,56 +4,68 @@ import TopstashCore
 
 @testable import Topstash
 
-/// ⌥Return in search (`PanelActions.pasteFromSearch`), on a controller that was never started, so
-/// no window exists. That the previous app receives the paste is checked by hand.
+/// Return and ⌥Return in search (`PanelActions.copyFromSearch` and `pasteFromSearch`), on a
+/// controller that was never started, so no window exists. That the previous app receives the
+/// paste is checked by hand.
 @MainActor
 struct PasteFromSearchTests {
     let temp = TemporaryFolder()
     let clipboard = FakeClipboard(text: nil)
-    let paster: FakePaster
-    let appModel: AppModel
-    let controller: NotchPanelController
-    let note: Note
+    let paster = FakePaster()
+    let scheduler = ManualScheduler()
 
-    init() throws {
+    /// A controller in search mode with one note, and the toggle set to `pastes`.
+    func makeSearch(pastes: Bool = false) throws -> (NotchPanelController, AppModel, Note) {
         let defaults = UserDefaults(suiteName: "TopstashTests-\(UUID().uuidString)")!
         defaults.set(temp.url.path(percentEncoded: false), forKey: Preferences.notesFolderPathKey)
-        paster = FakePaster()
-        appModel = AppModel(defaults: defaults, clipboard: clipboard, paster: paster)
-        controller = NotchPanelController(appModel: appModel)
-        guard case .saved(let saved) = try appModel.store.save("Summarize this diff") else {
-            throw CancellationError()
+        defaults.set(pastes, forKey: Preferences.pastesOnOptionReturnKey)
+        let appModel = AppModel(
+            defaults: defaults, clipboard: clipboard, paster: paster, schedule: scheduler.schedule)
+        let controller = NotchPanelController(appModel: appModel, schedule: scheduler.schedule)
+        guard case .saved(let note) = try appModel.store.save("Summarize this diff") else {
+            throw CocoaError(.fileWriteUnknown)
         }
-        note = saved
         appModel.panel.mode = .open
         controller.openSearch()
+        return (controller, appModel, note)
     }
 
-    var panel: PanelModel { appModel.panel }
+    @Test func returnCopiesAndCloses() throws {
+        let (controller, appModel, note) = try makeSearch()
 
-    @Test func offByDefaultItCopiesAndClosesLikeReturn() {
+        controller.copyFromSearch(note)
+
+        #expect(clipboard.text == "Summarize this diff")
+        #expect(appModel.panel.mode == .closed)
+    }
+
+    @Test func offByDefaultOptionReturnCopiesAndClosesLikeReturn() throws {
+        let (controller, appModel, note) = try makeSearch()
+        #expect(!appModel.pastesOnOptionReturn)
+
         controller.pasteFromSearch(note)
 
         #expect(clipboard.text == "Summarize this diff")
-        #expect(panel.mode == .closed)
+        #expect(appModel.panel.mode == .closed)
         #expect(paster.pasteCount == 0)
     }
 
-    @Test func offItNeverAsksForAccess() {
+    @Test func offItNeverAsksForAccess() throws {
+        let (controller, appModel, note) = try makeSearch()
         paster.isAllowed = false
 
         controller.pasteFromSearch(note)
 
         #expect(paster.accessRequestCount == 0)
-        #expect(panel.searchStatus == nil)
+        #expect(appModel.panel.searchStatus == nil)
     }
 
-    @Test func onWithAccessItCopiesClosesThenPastes() {
-        appModel.pastesOnOptionReturn = true
+    @Test func onWithAccessItCopiesClosesThenPastes() throws {
+        let (controller, appModel, note) = try makeSearch(pastes: true)
         var modeAtPaste: PanelModel.Mode?
         var clipboardAtPaste: String?
-        paster.onPaste = { [panel, clipboard] in
-            modeAtPaste = panel.mode
+        paster.onPaste = { [clipboard] in
+            modeAtPaste = appModel.panel.mode
             clipboardAtPaste = clipboard.text
         }
 
@@ -64,8 +76,8 @@ struct PasteFromSearchTests {
         #expect(clipboardAtPaste == "Summarize this diff")
     }
 
-    @Test func onWithoutAccessItCopiesOnlyAndSaysWhy() {
-        appModel.pastesOnOptionReturn = true
+    @Test func onWithoutAccessItCopiesOnlyAndSaysWhy() throws {
+        let (controller, appModel, note) = try makeSearch(pastes: true)
         paster.isAllowed = false
 
         controller.pasteFromSearch(note)
@@ -73,21 +85,13 @@ struct PasteFromSearchTests {
         #expect(clipboard.text == "Summarize this diff")
         #expect(paster.accessRequestCount == 1)
         #expect(paster.pasteCount == 0)
-        #expect(panel.mode == .search)
-        #expect(panel.searchStatus == .pasteNeedsAccess)
+        #expect(appModel.panel.mode == .search)
+        #expect(appModel.panel.searchStatus == .pasteNeedsAccess)
     }
 
-    @Test func theAccessStatusClearsLikeTheShortcutsResult() {
-        let scheduler = ManualScheduler()
-        let defaults = UserDefaults(suiteName: "TopstashTests-\(UUID().uuidString)")!
-        defaults.set(temp.url.path(percentEncoded: false), forKey: Preferences.notesFolderPathKey)
-        let appModel = AppModel(
-            defaults: defaults, clipboard: clipboard, paster: FakePaster(isAllowed: false),
-            schedule: scheduler.schedule)
-        let controller = NotchPanelController(appModel: appModel)
-        appModel.pastesOnOptionReturn = true
-        appModel.panel.mode = .open
-        controller.openSearch()
+    @Test func theAccessStatusClearsLikeTheShortcutsResult() throws {
+        let (controller, appModel, note) = try makeSearch(pastes: true)
+        paster.isAllowed = false
 
         controller.pasteFromSearch(note)
         scheduler.advance(by: Motion.feedbackDuration)
@@ -95,24 +99,16 @@ struct PasteFromSearchTests {
         #expect(appModel.panel.searchStatus == nil)
     }
 
-    @Test func theToggleIsStoredInTheDefaults() {
-        let defaults = UserDefaults(suiteName: "TopstashTests-\(UUID().uuidString)")!
-        defaults.set(temp.url.path(percentEncoded: false), forKey: Preferences.notesFolderPathKey)
-
-        defaults.set(true, forKey: Preferences.pastesOnOptionReturnKey)
-
-        #expect(AppModel(defaults: defaults, clipboard: clipboard, paster: paster).pastesOnOptionReturn)
-    }
-
-    @Test func outsideSearchItDoesNothing() {
-        appModel.pastesOnOptionReturn = true
+    @Test func outsideSearchNeitherKeyDoesAnything() throws {
+        let (controller, appModel, note) = try makeSearch(pastes: true)
         controller.closeSearch()
-        panel.mode = .open
+        appModel.panel.mode = .open
 
+        controller.copyFromSearch(note)
         controller.pasteFromSearch(note)
 
         #expect(clipboard.text == nil)
         #expect(paster.pasteCount == 0)
-        #expect(panel.mode == .open)
+        #expect(appModel.panel.mode == .open)
     }
 }

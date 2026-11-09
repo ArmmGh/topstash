@@ -40,8 +40,14 @@ struct SearchView: View {
                     .focused($isFieldFocused)
                     .onKeyPress(.upArrow) { moveSelection(by: -1) }
                     .onKeyPress(.downArrow) { moveSelection(by: 1) }
-                    // The field takes Return, and ⌥Return, as submit before `onKeyPress` sees it.
-                    .onSubmit(submit)
+                    // Without this the field would type ⌥Return into the query, not submit.
+                    .onKeyPress(.return, phases: .down) { press in
+                        guard press.modifiers.contains(.option) else { return .ignored }
+                        pasteSelected()
+                        return .handled
+                    }
+                    // The field takes Return as submit before `onKeyPress` sees it.
+                    .onSubmit(copySelected)
                 // The shortcut's result. Not focusable, so typing continues in the field.
                 if let status = panel.searchStatus {
                     SearchStatusBadge(status: status, bounceTrigger: reduceMotion ? 0 : panel.saveCount)
@@ -100,9 +106,8 @@ struct SearchView: View {
         .padding(.horizontal, PanelLayout.inset)
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(
-            pastesOnOptionReturn
-                ? "Return copies the selected note. Option-Return pastes it. Up and down arrows move the selection."
-                : "Return copies the selected note. Up and down arrows move the selection.")
+            "Return copies the selected note.\(pastesOnOptionReturn ? " Option-Return pastes it." : "")"
+                + " Up and down arrows move the selection.")
     }
 
     private func keyHint(_ key: String, _ label: LocalizedStringKey) -> some View {
@@ -134,15 +139,16 @@ struct SearchView: View {
         AccessibilityNotification.Announcement(announcement).post()
     }
 
-    /// Return: copies the selected note and closes the panel at once, handing focus back to the app
-    /// the user was in. ⌥Return goes to `PanelActions.pasteFromSearch`. With no results it does nothing.
-    private func submit() {
+    /// Return: copies the selected note and closes the panel. With no results it does nothing.
+    private func copySelected() {
         guard let selectedNote else { return }
-        if NSApp.currentEvent?.modifierFlags.contains(.option) == true {
-            actions.pasteFromSearch(selectedNote)
-        } else {
-            appModel.copy(selectedNote)
-            actions.closeSearch()
-        }
+        actions.copyFromSearch(selectedNote)
+    }
+
+    /// ⌥Return: like Return, and pastes too when the Settings toggle is on. With no results it
+    /// does nothing.
+    private func pasteSelected() {
+        guard let selectedNote else { return }
+        actions.pasteFromSearch(selectedNote)
     }
 }

@@ -15,7 +15,10 @@ struct PanelActions {
     var dismissAfterAction: () -> Void
     /// A click copied a note: closes the panel, as `dismissAfterAction` does, once "Copied" has shown.
     var dismissAfterCopy: () -> Void
-    /// ⌥Return in search: copies the note, and, with the Settings toggle on, closes the panel and
-    /// pastes it into the frontmost app. With the toggle off it does what Return does.
+    /// Return in search: copies the note and closes the panel at once, handing focus back to the
+    /// app the user was in.
+    var copyFromSearch: (Note) -> Void
+    /// ⌥Return in search: with the Settings toggle on, also pastes the note into the frontmost
+    /// app. With the toggle off it does what Return does.
     var pasteFromSearch: (Note) -> Void
 }
