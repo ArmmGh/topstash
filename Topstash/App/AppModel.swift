@@ -228,9 +228,7 @@ final class AppModel {
     /// The size of the shape's body in the current mode. `PanelView` draws it, and
     /// `NotchPanelController` hit-tests against it.
     var shapeSize: CGSize {
-        PanelLayout.shapeSize(
-            for: panel.mode, closedSize: panel.closedSize, noteCount: store.notes.count,
-            saveCardHeight: panel.saveCardHeight)
+        PanelLayout.shapeSize(for: panel, noteCount: store.notes.count)
     }
 
     // MARK: - Context menu

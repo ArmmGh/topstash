@@ -73,8 +73,7 @@ struct PanelView: View {
                     .transition(Motion.content(reduceMotion: reduceMotion))
             case .search:
                 SearchView(appModel: appModel, actions: actions)
-                    .padding(.top, PanelLayout.notchClearance)
-                    .padding([.horizontal, .bottom], PanelLayout.inset)
+                    .padding(.bottom, PanelLayout.inset)
                     .frame(width: PanelLayout.searchSize.width, height: PanelLayout.searchSize.height)
                     .transition(Motion.content(reduceMotion: reduceMotion))
             }
@@ -85,18 +84,31 @@ struct PanelView: View {
 
     private var recentContent: some View {
         VStack(spacing: PanelLayout.sectionSpacing) {
-            SaveCardSlot(panel: panel) {
-                // Shows this save's result, not the state shown before the click: the clipboard can change in between.
-                appModel.showSaveResult(appModel.saveClipboard())
+            // The shortcut's feedback shows only the card; the header's band stays clear.
+            PanelHeader(
+                title: "Recent",
+                count: PanelHeader.countText(total: appModel.store.notes.count, matches: nil),
+                countLabel: "\(appModel.store.notes.count) notes",
+                buttonSymbol: "magnifyingglass",
+                buttonLabel: "Search Notes",
+                panel: panel,
+                action: actions.openSearch
+            )
+            .opacity(panel.showsOnlySaveCard ? 0 : 1)
+            .allowsHitTesting(!panel.showsOnlySaveCard)
+            .accessibilityHidden(panel.showsOnlySaveCard)
+            Group {
+                SaveCardSlot(panel: panel) {
+                    // Shows this save's result, not the state shown before the click: the clipboard can change in between.
+                    appModel.showSaveResult(appModel.saveClipboard())
+                }
+                if !panel.showsOnlySaveCard {
+                    recentList
+                }
             }
-            // The shortcut's feedback shows only the card.
-            if !panel.showsOnlySaveCard {
-                recentList
-                showAllButton
-            }
+            .padding(.horizontal, PanelLayout.inset)
         }
-        .padding(.top, PanelLayout.notchClearance)
-        .padding([.horizontal, .bottom], PanelLayout.inset)
+        .padding(.bottom, PanelLayout.inset)
         .frame(width: PanelLayout.panelWidth, height: shapeSize.height, alignment: .top)
         // When the card's height changes, the list moves with the shape's edge.
         .animation(Motion.shape(expanding: true, reduceMotion: reduceMotion), value: panel.saveCardHeight)
@@ -109,20 +121,5 @@ struct PanelView: View {
             notes: appModel.store.recent(limit: PanelLayout.recentCount),
             emptyText: "No notes yet"
         )
-    }
-
-    /// Expands the panel into the search view.
-    private var showAllButton: some View {
-        Button {
-            actions.showAll()
-        } label: {
-            Text("Show all (\(appModel.store.notes.count))")
-                .font(PanelStyle.title)
-                .foregroundStyle(PanelStyle.secondary)
-                .frame(maxWidth: .infinity)
-                .frame(height: PanelLayout.showAllHeight)
-                .contentShape(RoundedRectangle(cornerRadius: PanelLayout.rowCornerRadius))
-        }
-        .buttonStyle(.plain)
     }
 }

@@ -219,7 +219,11 @@ struct SaveCardSlot: View {
         ZStack {
             if !isSaved {
                 SaveCard(state: panel.saveCard, height: panel.saveCardHeight, action: action)
-                    .transition(Motion.saveCard(reduceMotion: reduceMotion, cardHeight: panel.saveCardHeight))
+                    .transition(
+                        Motion.saveCard(
+                            reduceMotion: reduceMotion,
+                            flyUpOffset: PanelLayout.saveCardFlyUpOffset(
+                                cardHeight: panel.saveCardHeight, headerHeight: panel.headerHeight)))
             }
             // Always in the hierarchy, so the bounce plays when `saveCount` changes.
             HStack(spacing: PanelLayout.savedCheckmarkSpacing) {

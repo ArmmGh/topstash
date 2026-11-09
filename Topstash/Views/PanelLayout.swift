@@ -26,8 +26,29 @@ enum PanelLayout {
     static let collapsedTopCornerRadius: CGFloat = 6
     static let collapsedBottomCornerRadius: CGFloat = 14
 
-    /// Space kept clear at the top of the shape for the hardware notch.
-    static let notchClearance: CGFloat = 38
+    // MARK: - Header
+
+    /// The header beside the notch is as tall as the notch, or the menu bar on screens without one,
+    /// but never shorter than its button.
+    static func headerHeight(forHoverAreaHeight hoverAreaHeight: CGFloat) -> CGFloat {
+        max(hoverAreaHeight, headerButtonSize)
+    }
+
+    /// Taller than any notch or menu bar, for sizing the window, which never changes.
+    static let maxHeaderHeight: CGFloat = 44
+    /// The header's circular button: search in the list, close in search.
+    static let headerButtonSize: CGFloat = 28
+    /// Between the header's count and its button.
+    static let headerSpacing: CGFloat = 8
+
+    /// The width of each side of the header, `inset` from the shape's edge to the notch, so nothing
+    /// in it sits under the notch. `notchWidth` is 0 on screens without one.
+    static func headerSideWidth(notchWidth: CGFloat) -> CGFloat {
+        (panelWidth - 2 * inset - notchWidth) / 2
+    }
+
+    // MARK: - Content
+
     /// The one inset of the 4 pt grid: from the shape's edge to the card and rows, and again inside
     /// each card and row, so every text edge and the card's icon sit `2 * inset` from the shape's edge.
     static let inset: CGFloat = 12
@@ -107,61 +128,60 @@ enum PanelLayout {
     static let rowLineSpacing: CGFloat = 2
     /// Between a row's text and its age.
     static let rowAgeSpacing: CGFloat = 8
-    /// Space between the save card and the recent list.
+    /// Between the header, the save card or search field, and the list.
     static let sectionSpacing: CGFloat = 8
 
-    /// The "Show all (N)" button under the recent list.
-    static let showAllHeight: CGFloat = 28
+    /// The shape's height with the tallest header and card and `recentCount` rows.
+    static let maxPanelHeight: CGFloat = recentPanelHeight(
+        rowCount: recentCount, saveCardHeight: maxSaveCardHeight, headerHeight: maxHeaderHeight)
 
-    /// The shape's height with the tallest card, `recentCount` rows, and the "Show all" button.
-    static let maxPanelHeight: CGFloat = recentPanelHeight(rowCount: recentCount, saveCardHeight: maxSaveCardHeight)
-
-    /// The shape's height with this many recent rows under a card this tall. With none, "No notes yet"
-    /// takes one row's height. Matches `PanelView`'s recent content, so the shape can animate to it
-    /// before the content is laid out.
-    static func recentPanelHeight(rowCount: Int, saveCardHeight: CGFloat) -> CGFloat {
+    /// The shape's height with this many recent rows under a header and card this tall. With none,
+    /// "No notes yet" takes one row's height. Matches `PanelView`'s recent content, so the shape can
+    /// animate to it before the content is laid out.
+    static func recentPanelHeight(rowCount: Int, saveCardHeight: CGFloat, headerHeight: CGFloat) -> CGFloat {
         let listHeight =
             rowCount == 0
             ? rowHeight
             : CGFloat(rowCount) * rowHeight + CGFloat(rowCount - 1) * rowSpacing
-        return notchClearance + saveCardHeight + sectionSpacing + listHeight
-            + sectionSpacing + showAllHeight + inset
+        return headerHeight + sectionSpacing + saveCardHeight + sectionSpacing + listHeight + inset
     }
 
-    /// The size of the shape's body (without the outward top corners) in `mode`. `closedSize` is the
-    /// notch's size (or the hover strip's, on screens without one); `noteCount` is how many notes
-    /// the store holds, of which the open panel lists up to `recentCount`; `saveCardHeight` is
-    /// `PanelModel.saveCardHeight`.
-    static func shapeSize(
-        for mode: PanelModel.Mode, closedSize: CGSize, noteCount: Int, saveCardHeight: CGFloat
-    ) -> CGSize {
-        switch mode {
+    /// The size of the shape's body (without the outward top corners) in the panel's mode: closed,
+    /// the notch's size (or the hover strip's, on screens without one); open, the header, the card,
+    /// and up to `recentCount` of the store's `noteCount` notes.
+    @MainActor static func shapeSize(for panel: PanelModel, noteCount: Int) -> CGSize {
+        switch panel.mode {
         case .closed:
-            closedSize
+            panel.closedSize
         case .open:
             CGSize(
                 width: panelWidth,
-                height: recentPanelHeight(rowCount: min(noteCount, recentCount), saveCardHeight: saveCardHeight))
+                height: recentPanelHeight(
+                    rowCount: min(noteCount, recentCount), saveCardHeight: panel.saveCardHeight,
+                    headerHeight: panel.headerHeight))
         case .search:
             searchSize
         case .feedback:
-            // Only the save card.
-            CGSize(width: panelWidth, height: notchClearance + saveCardHeight + inset)
+            // Only the save card, under the header's band.
+            CGSize(
+                width: panelWidth,
+                height: panel.headerHeight + sectionSpacing + panel.saveCardHeight + inset)
         }
     }
 
-    /// Moves the center of a saved card this tall from its slot up to the middle of the notch clearance.
-    static func saveCardFlyUpOffset(cardHeight: CGFloat) -> CGFloat {
-        -(notchClearance + cardHeight) / 2
+    /// Moves the center of a saved card this tall, under a header this tall, up to the middle of
+    /// the header: the notch.
+    static func saveCardFlyUpOffset(cardHeight: CGFloat, headerHeight: CGFloat) -> CGFloat {
+        -(headerHeight / 2 + sectionSpacing + cardHeight / 2)
     }
 
-    /// The shape in search mode: the search field above the scrollable list of every note.
+    /// The shape in search mode: the header, the search field, and the scrollable list of every note.
     static let searchSize = CGSize(width: panelWidth, height: 520)
     static let searchFieldHeight: CGFloat = 36
     /// Smaller than the card's 12, for the shorter field.
     static let searchFieldCornerRadius: CGFloat = 10
-    /// Between the search field's text and the shortcut's status.
-    static let searchStatusSpacing: CGFloat = 8
+    /// Between the search field's symbol, text, the shortcut's status, and "esc".
+    static let searchFieldSpacing: CGFloat = 8
 
     /// Width of the invisible hover strip on screens without a notch.
     static let fallbackHoverWidth: CGFloat = 200

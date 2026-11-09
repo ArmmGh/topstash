@@ -54,6 +54,12 @@ final class PanelModel {
     /// without one, the hover strip's width with no height, so nothing is drawn.
     /// Set by `NotchPanelController` when it places the window.
     var closedSize = CGSize(width: PanelLayout.fallbackHoverWidth, height: PanelLayout.hiddenMenuBarHoverHeight)
+    /// The header band's height: the notch's, or the menu bar's on screens without one
+    /// (`PanelLayout.headerHeight(forHoverAreaHeight:)`). Set by `NotchPanelController` with `closedSize`.
+    var headerHeight = PanelLayout.headerHeight(forHoverAreaHeight: PanelLayout.hiddenMenuBarHoverHeight)
+    /// The notch's width, which the header keeps clear, or 0 on screens without a notch, where
+    /// the closed shape has no height.
+    var notchWidth: CGFloat { closedSize.height > 0 ? closedSize.width : 0 }
     /// Counts new saves, bumped by `AppModel` with the haptic. Its changes trigger the checkmark
     /// bounce and the notch's gulp.
     var saveCount = 0

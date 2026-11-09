@@ -16,11 +16,11 @@ struct PanelActionsTests {
         return (NotchPanelController(appModel: appModel), appModel.panel)
     }
 
-    @Test func showAllOpensSearch() {
+    @Test func openSearchOpensSearch() {
         let (controller, panel) = makeController()
         panel.mode = .open
 
-        controller.showAll()
+        controller.openSearch()
 
         #expect(panel.mode == .search)
     }
@@ -28,7 +28,7 @@ struct PanelActionsTests {
     @Test func closeSearchClosesThePanelAndClearsTheQuery() {
         let (controller, panel) = makeController()
         panel.mode = .open
-        controller.showAll()
+        controller.openSearch()
         panel.query = "milk"
 
         controller.closeSearch()
@@ -58,7 +58,7 @@ struct PanelActionsTests {
     @Test func dismissAfterActionClosesSearch() {
         let (controller, panel) = makeController()
         panel.mode = .open
-        controller.showAll()
+        controller.openSearch()
 
         controller.dismissAfterAction()
 

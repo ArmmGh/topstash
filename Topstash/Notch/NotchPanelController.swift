@@ -193,6 +193,8 @@ final class NotchPanelController {
         // The shape grows out of, and collapses back into, the notch. Without a notch it
         // collapses into the top edge: the hover strip is invisible, so no pill is drawn.
         panel.closedSize = area.isNotch ? area.rect.size : CGSize(width: area.rect.width, height: 0)
+        // The hover area is the notch, or a strip as tall as the menu bar.
+        panel.headerHeight = PanelLayout.headerHeight(forHoverAreaHeight: area.rect.height)
     }
 
     /// Opens as `.open`, or as `.feedback` for the shortcut, which keeps the card the shortcut set.
@@ -401,14 +403,14 @@ extension NotchPanelController {
     /// What the panel's views call. Weak, so the views don't keep the controller alive.
     private var panelActions: PanelActions {
         PanelActions(
-            showAll: { [weak self] in self?.showAll() },
+            openSearch: { [weak self] in self?.openSearch() },
             closeSearch: { [weak self] in self?.closeSearch() },
             dismissAfterAction: { [weak self] in self?.dismissAfterAction() }
         )
     }
 
     /// Expands the open panel into search mode, which makes the panel key for the search field.
-    func showAll() {
+    func openSearch() {
         setMode(.search)
     }
 }

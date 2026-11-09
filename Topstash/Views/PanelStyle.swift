@@ -22,12 +22,12 @@ enum PanelStyle {
 
     /// Behind a row while the pointer is over it.
     static let hoverFill = PanelColor(standard: 0.06, increased: 0.12)
-    /// Behind the save card and the search field. Matches `systemFill` in dark mode.
+    /// Behind the save card, the search field, and the header's button. Matches `systemFill` in dark mode.
     static let surfaceFill = PanelColor(standard: 0.10, increased: 0.18)
 
     // MARK: - Fonts
 
-    /// Row titles, the card's labels, "Saved", and buttons.
+    /// Row titles, the header's title, the card's labels, and "Saved".
     static let title = Font.system(size: 13, weight: .medium)
     /// The clipboard preview, the search field, and empty-list messages.
     static let body = Font.system(size: bodySize)
@@ -38,6 +38,10 @@ enum PanelStyle {
     /// The save card's symbol: the system's Title 3 (15 pt), a step above the 13 pt text beside it,
     /// as in the prototype, so it reads as the card's icon rather than a glyph in the text.
     static let cardIcon = Font.title3.weight(.medium)
+    /// The header button's symbol, small inside its 28 pt circle.
+    static let headerIcon = Font.system(size: 12, weight: .semibold)
+    /// The search field's magnifier, the weight of the title text.
+    static let searchIcon = Font.system(size: 13, weight: .medium)
     /// The "Saved" checkmark, the one symbol much larger than the text beside it.
     static let savedIcon = Font.system(size: 22, weight: .semibold)
 
