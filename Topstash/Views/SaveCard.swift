@@ -31,20 +31,23 @@ struct SaveCard: View {
         case .readyWithoutPreview:
             Button(action: action) {
                 card(combiningAccessibility: false) {
-                    icon("tray.and.arrow.down")
-                    VStack(alignment: .leading, spacing: PanelLayout.cardLineSpacing) {
-                        label("Text ready to save")
-                        settingsHint("Allow paste access to see a preview")
-                    }
+                    readyWithoutPreviewContent(link: .text)
                 }
             }
             .buttonStyle(PressDipButtonStyle())
+            // The link is laid over the card instead of being a button inside the card's button,
+            // where macOS doesn't guarantee which button gets the click: saving would read the
+            // clipboard and show the alert the user was about to avoid. This copy has the same
+            // layout with everything but the link hidden, so clicks elsewhere still reach the card.
+            .overlay {
+                cardLayout { readyWithoutPreviewContent(link: .hitArea) }
+            }
         case .accessDenied:
             card(combiningAccessibility: false) {
                 icon("hand.raised")
                 VStack(alignment: .leading, spacing: PanelLayout.cardLineSpacing) {
                     label("Topstash can't read the clipboard")
-                    settingsHint("Allow paste access to save from here")
+                    settingsHint("Allow paste access to save from here", link: .button)
                 }
             }
             .foregroundStyle(.white.opacity(0.75))
@@ -78,33 +81,81 @@ struct SaveCard: View {
         combiningAccessibility: Bool = true,
         @ViewBuilder _ content: () -> some View
     ) -> some View {
+        cardLayout(content)
+            .foregroundStyle(.white)
+            .background(.white.opacity(0.12), in: RoundedRectangle(cornerRadius: PanelLayout.cardCornerRadius))
+            .contentShape(RoundedRectangle(cornerRadius: PanelLayout.cardCornerRadius))
+            .accessibilityElement(children: combiningAccessibility ? .combine : .contain)
+    }
+
+    /// The card's content layout, without its background or hit shape.
+    private func cardLayout(@ViewBuilder _ content: () -> some View) -> some View {
         HStack(alignment: .center, spacing: PanelLayout.cardIconSpacing) {
             content()
             Spacer(minLength: 0)
         }
-        .foregroundStyle(.white)
         .padding(.horizontal, PanelLayout.cardHorizontalPadding)
         .padding(.vertical, PanelLayout.cardVerticalPadding)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(.white.opacity(0.12), in: RoundedRectangle(cornerRadius: PanelLayout.cardCornerRadius))
-        .contentShape(RoundedRectangle(cornerRadius: PanelLayout.cardCornerRadius))
-        .accessibilityElement(children: combiningAccessibility ? .combine : .contain)
+    }
+
+    @ViewBuilder
+    private func readyWithoutPreviewContent(link: SettingsLink) -> some View {
+        let hidesRest = link == .hitArea
+        icon("tray.and.arrow.down")
+            .hidden(hidesRest)
+        VStack(alignment: .leading, spacing: PanelLayout.cardLineSpacing) {
+            label("Text ready to save")
+                .hidden(hidesRest)
+            settingsHint("Allow paste access to see a preview", link: link)
+        }
+    }
+
+    /// How `settingsHint` shows its "Open Settings" link.
+    private enum SettingsLink {
+        /// A button, in a card that isn't one.
+        case button
+        /// Only the link's look, inside the card's button; a `.hitArea` copy laid over it takes the clicks.
+        case text
+        /// An invisible button over a `.text` link, with the rest of the line hidden.
+        case hitArea
     }
 
     /// A secondary line with a link to the Paste privacy setting (#4).
-    private func settingsHint(_ text: String) -> some View {
+    private func settingsHint(_ text: String, link: SettingsLink) -> some View {
         HStack(spacing: PanelLayout.inlineSpacing) {
             Text(text)
                 .foregroundStyle(.white.opacity(0.55))
-            Button("Open Settings") {
-                NSWorkspace.shared.open(Clipboard.pastePrivacySettingsURL)
+                .hidden(link == .hitArea)
+            switch link {
+            case .button:
+                Button(action: Self.openPastePrivacySettings) { Self.linkText(isVisible: true) }
+                    .buttonStyle(.plain)
+            case .text:
+                Self.linkText(isVisible: true)
+                    .accessibilityHidden(true)
+            case .hitArea:
+                Button(action: Self.openPastePrivacySettings) {
+                    Self.linkText(isVisible: false)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Open Settings")
             }
-            .buttonStyle(.plain)
-            .underline()
-            .foregroundStyle(.white.opacity(0.85))
         }
         .font(.system(size: 11))
         .lineLimit(1)
+    }
+
+    /// Invisible but laid out the same, for the `.hitArea` copy.
+    private static func linkText(isVisible: Bool) -> some View {
+        Text("Open Settings")
+            .underline()
+            .foregroundStyle(isVisible ? .white.opacity(0.85) : .clear)
+    }
+
+    private static func openPastePrivacySettings() {
+        NSWorkspace.shared.open(Clipboard.pastePrivacySettingsURL)
     }
 
     private func icon(_ systemName: String) -> some View {
@@ -206,4 +257,12 @@ extension SaveCardState {
     }
 
     fileprivate static let savedResult = (text: "Saved", symbol: "checkmark.circle.fill")
+}
+
+private extension View {
+    /// `hidden()` when `isHidden`: invisible, still taking up its space, and not hit-testable.
+    @ViewBuilder
+    func hidden(_ isHidden: Bool) -> some View {
+        if isHidden { hidden() } else { self }
+    }
 }
