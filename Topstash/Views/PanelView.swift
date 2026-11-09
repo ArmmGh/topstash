@@ -74,7 +74,7 @@ struct PanelView: View {
             case .search:
                 SearchView(appModel: appModel, actions: actions)
                     .padding(.top, PanelLayout.notchClearance)
-                    .padding([.horizontal, .bottom], PanelLayout.contentPadding)
+                    .padding([.horizontal, .bottom], PanelLayout.inset)
                     .frame(width: PanelLayout.searchSize.width, height: PanelLayout.searchSize.height)
                     .transition(Motion.content(reduceMotion: reduceMotion))
             }
@@ -96,7 +96,7 @@ struct PanelView: View {
             }
         }
         .padding(.top, PanelLayout.notchClearance)
-        .padding([.horizontal, .bottom], PanelLayout.contentPadding)
+        .padding([.horizontal, .bottom], PanelLayout.inset)
         .frame(width: PanelLayout.panelWidth, height: shapeSize.height, alignment: .top)
     }
 
@@ -115,8 +115,8 @@ struct PanelView: View {
             actions.showAll()
         } label: {
             Text("Show all (\(appModel.store.notes.count))")
-                .font(PanelStyle.button)
-                .foregroundStyle(PanelStyle.muted)
+                .font(PanelStyle.title)
+                .foregroundStyle(PanelStyle.secondary)
                 .frame(maxWidth: .infinity)
                 .frame(height: PanelLayout.showAllHeight)
                 .contentShape(RoundedRectangle(cornerRadius: PanelLayout.rowCornerRadius))

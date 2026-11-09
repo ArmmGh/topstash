@@ -15,15 +15,15 @@ struct SaveCard: View {
         case .preview(let text, let characterCount):
             Button(action: action) {
                 card {
-                    icon("tray.and.arrow.down")
+                    icon(Self.saveSymbol)
                     VStack(alignment: .leading, spacing: PanelLayout.cardLineSpacing) {
                         // Already cut to its start by `previewText(_:)` when the state was set.
                         Text(text)
                             .font(PanelStyle.body)
                             .lineLimit(3)
                             .multilineTextAlignment(.leading)
-                        Text(Self.characterCountText(characterCount))
-                            .font(PanelStyle.caption)
+                        Text(Self.saveHintText(characterCount))
+                            .font(PanelStyle.meta)
                             .foregroundStyle(PanelStyle.secondary)
                     }
                 }
@@ -51,10 +51,10 @@ struct SaveCard: View {
                     settingsHint("Allow paste access to save from here", link: .button)
                 }
             }
-            .foregroundStyle(PanelStyle.muted)
+            .foregroundStyle(PanelStyle.secondary)
         case .alreadySaved:
             resultCard(.alreadySaved)
-                .foregroundStyle(PanelStyle.muted)
+                .foregroundStyle(PanelStyle.secondary)
         case .nothingToSave:
             resultCard(.nothingToSave)
                 .foregroundStyle(PanelStyle.tertiary)
@@ -88,19 +88,19 @@ struct SaveCard: View {
 
     /// The card's content layout, without its background or hit shape.
     private func cardLayout(@ViewBuilder _ content: () -> some View) -> some View {
-        HStack(alignment: .center, spacing: PanelLayout.cardIconSpacing) {
+        // The icon sits on the first line of text, whether the card has one line or four.
+        HStack(alignment: .firstTextBaseline, spacing: PanelLayout.cardIconSpacing) {
             content()
             Spacer(minLength: 0)
         }
-        .padding(.horizontal, PanelLayout.cardHorizontalPadding)
-        .padding(.vertical, PanelLayout.cardVerticalPadding)
+        .padding(PanelLayout.inset)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
     @ViewBuilder
     private func readyWithoutPreviewContent(link: SettingsLink) -> some View {
         let hidesRest = link == .hitArea
-        icon("tray.and.arrow.down")
+        icon(Self.saveSymbol)
             .hidden(hidesRest)
         VStack(alignment: .leading, spacing: PanelLayout.cardLineSpacing) {
             label("Text ready to save")
@@ -141,7 +141,7 @@ struct SaveCard: View {
                 .accessibilityLabel("Open Settings")
             }
         }
-        .font(PanelStyle.caption)
+        .font(PanelStyle.meta)
         .lineLimit(1)
     }
 
@@ -149,22 +149,25 @@ struct SaveCard: View {
     private static func linkText(isVisible: Bool) -> some View {
         Text("Open Settings")
             .underline()
-            .foregroundStyle(isVisible ? PanelStyle.link : .clear)
+            .foregroundStyle(PanelStyle.primary)
+            .opacity(isVisible ? 1 : 0)
     }
 
     private static func openPastePrivacySettings() {
         NSWorkspace.shared.open(SystemClipboard.pastePrivacySettingsURL)
     }
 
+    /// Sized from the `title` font beside it, a scale up.
     private func icon(_ systemName: String) -> some View {
         Image(systemName: systemName)
-            .font(PanelStyle.cardIcon)
+            .font(PanelStyle.title)
+            .imageScale(.large)
             .frame(width: PanelLayout.cardIconWidth)
     }
 
     private func label(_ text: String) -> some View {
         Text(text)
-            .font(PanelStyle.label)
+            .font(PanelStyle.title)
     }
 
     /// The text from its first non-blank line on, capped at `previewCharacterLimit`.
@@ -176,9 +179,12 @@ struct SaveCard: View {
         return String(text[lineStart...].prefix(previewCharacterLimit))
     }
 
-    /// "1 character", "1,234 characters".
-    static func characterCountText(_ count: Int) -> String {
-        "\(count.formatted()) \(count == 1 ? "character" : "characters")"
+    /// The arrow out of the tray: the clipboard text going up into the notch. Also the menu bar icon.
+    static let saveSymbol = "tray.and.arrow.up"
+
+    /// "Click to save · 1 character", "Click to save · 1,234 characters".
+    static func saveHintText(_ count: Int, locale: Locale = .current) -> String {
+        "Click to save · \(count.formatted(.number.locale(locale))) \(count == 1 ? "character" : "characters")"
     }
 }
 
@@ -206,7 +212,7 @@ struct SaveCardSlot: View {
                     .font(PanelStyle.savedIcon)
                     .symbolEffect(.bounce, value: bounceTrigger)
                 Text(ClipboardSaveResult.savedText)
-                    .font(PanelStyle.label)
+                    .font(PanelStyle.title)
             }
             .foregroundStyle(PanelStyle.primary)
             .opacity(isSaved ? 1 : 0)
@@ -240,8 +246,8 @@ struct SaveStatusBadge: View {
                 .onChange(of: bounceTrigger) { bounces += 1 }
             Text(result.label.text)
         }
-        .font(PanelStyle.captionEmphasized)
-        .foregroundStyle(PanelStyle.muted)
+        .font(PanelStyle.meta)
+        .foregroundStyle(PanelStyle.secondary)
         .lineLimit(1)
         .fixedSize()
         .accessibilityElement(children: .combine)
@@ -270,7 +276,7 @@ extension ClipboardSaveResult {
 extension View {
     /// The fill shared by the save card and the search field.
     func cardBackground() -> some View {
-        background(PanelStyle.cardFill, in: RoundedRectangle(cornerRadius: PanelLayout.cardCornerRadius))
+        background(PanelStyle.surfaceFill, in: RoundedRectangle(cornerRadius: PanelLayout.cardCornerRadius))
     }
 
     /// `hidden()` when `isHidden`: invisible, still taking up its space, and not hit-testable.

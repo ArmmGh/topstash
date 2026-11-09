@@ -15,9 +15,9 @@ enum PanelLayout {
     static let shadowOffsetY: CGFloat = 6
     static let shadowOpacity: Double = 0.45
 
-    /// The width of the visible black shape's body, without the outward top corners.
-    /// Its height follows the number of recent rows.
-    static let panelWidth: CGFloat = 380
+    /// The width of the visible black shape's body, without the outward top corners, in every open
+    /// mode: switching between the list and search changes only the height.
+    static let panelWidth: CGFloat = 400
 
     /// `NotchShape` radii while open. The outward top corners add `topCornerRadius` on each side.
     static let topCornerRadius: CGFloat = 15
@@ -28,16 +28,16 @@ enum PanelLayout {
 
     /// Space kept clear at the top of the shape for the hardware notch.
     static let notchClearance: CGFloat = 38
-    static let contentPadding: CGFloat = 14
+    /// The one inset of the 4 pt grid: from the shape's edge to the card and rows, and again inside
+    /// each card and row, so every text edge and the card's icon sit `2 * inset` from the shape's edge.
+    static let inset: CGFloat = 12
 
     static let cardCornerRadius: CGFloat = 12
-    /// Fits three preview lines plus the character count.
-    static let saveCardHeight: CGFloat = 84
-    static let cardHorizontalPadding: CGFloat = 14
-    static let cardVerticalPadding: CGFloat = 10
+    /// Fits three 16 pt preview lines, the 4 pt gap, the 13 pt hint, and `inset` above and below.
+    static let saveCardHeight: CGFloat = 92
     /// Between the card's icon and its text.
-    static let cardIconSpacing: CGFloat = 10
-    static let cardIconWidth: CGFloat = 24
+    static let cardIconSpacing: CGFloat = 12
+    static let cardIconWidth: CGFloat = 20
     /// Between the lines of the card's text.
     static let cardLineSpacing: CGFloat = 4
     /// Between the "Saved" checkmark and its label.
@@ -49,11 +49,14 @@ enum PanelLayout {
     /// How many of the newest notes the panel lists under the save card.
     static let recentCount = 5
     static let rowHeight: CGFloat = 40
-    static let rowSpacing: CGFloat = 2
-    static let rowCornerRadius: CGFloat = 8
+    /// Rows touch; only the hovered one shows a fill.
+    static let rowSpacing: CGFloat = 0
+    /// `bottomCornerRadius - inset`, so a row's corners nest inside the shape's.
+    static let rowCornerRadius: CGFloat = bottomCornerRadius - inset
     /// Between a row's title and preview.
     static let rowLineSpacing: CGFloat = 2
-    static let rowHorizontalPadding: CGFloat = 10
+    /// Between a row's text and its age.
+    static let rowAgeSpacing: CGFloat = 8
     /// Space between the save card and the recent list.
     static let sectionSpacing: CGFloat = 8
 
@@ -71,7 +74,7 @@ enum PanelLayout {
             ? rowHeight
             : CGFloat(rowCount) * rowHeight + CGFloat(rowCount - 1) * rowSpacing
         return notchClearance + saveCardHeight + sectionSpacing + listHeight
-            + sectionSpacing + showAllHeight + contentPadding
+            + sectionSpacing + showAllHeight + inset
     }
 
     /// The size of the shape's body (without the outward top corners) in `mode`. `closedSize` is the
@@ -91,15 +94,14 @@ enum PanelLayout {
     }
 
     /// The shape's height in the shortcut's feedback: only the save card.
-    static let feedbackPanelHeight: CGFloat = notchClearance + saveCardHeight + contentPadding
+    static let feedbackPanelHeight: CGFloat = notchClearance + saveCardHeight + inset
 
     /// Moves the saved card's center from its slot up to the middle of the notch clearance.
     static let saveCardFlyUpOffset: CGFloat = -(notchClearance + saveCardHeight) / 2
 
     /// The shape in search mode: the search field above the scrollable list of every note.
-    static let searchSize = CGSize(width: 400, height: 520)
+    static let searchSize = CGSize(width: panelWidth, height: 520)
     static let searchFieldHeight: CGFloat = 32
-    static let searchFieldHorizontalPadding: CGFloat = 12
     /// Between the search field's text and the shortcut's status.
     static let searchStatusSpacing: CGFloat = 8
 

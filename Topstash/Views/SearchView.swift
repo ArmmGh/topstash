@@ -17,7 +17,7 @@ struct SearchView: View {
             HStack(spacing: PanelLayout.searchStatusSpacing) {
                 TextField("Search notes", text: $panel.query)
                     .textFieldStyle(.plain)
-                    .font(PanelStyle.field)
+                    .font(PanelStyle.body)
                     .foregroundStyle(PanelStyle.primary)
                     .focused($isFieldFocused)
                 // The shortcut's result. Not focusable, so typing continues in the field.
@@ -26,7 +26,7 @@ struct SearchView: View {
                         .transition(.opacity)
                 }
             }
-            .padding(.horizontal, PanelLayout.searchFieldHorizontalPadding)
+            .padding(.horizontal, PanelLayout.inset)
             .frame(height: PanelLayout.searchFieldHeight)
             .cardBackground()
             .animation(Motion.reduced, value: panel.searchStatus)
