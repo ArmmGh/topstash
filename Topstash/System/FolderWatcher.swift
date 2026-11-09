@@ -3,21 +3,50 @@ import Foundation
 import os
 import TopstashCore
 
-/// Watches the notes folder with FSEvents and calls `onChange` once per batch of changes.
+/// Watches the notes folder with FSEvents and calls `onChange` once per batch of changes that
+/// `NotesStore` reads: a visible `.md` file in the top level of the folder. FSEvents streams are
+/// recursive, so changes in subfolders (`.git`, `.obsidian`) are filtered out here.
 /// File-level events catch in-place edits (`echo >> note.md`) that a directory `DispatchSource` misses.
-/// The stream latency is the debounce. If the folder itself is deleted or moved, `onChange` is called too.
+/// The stream latency is the debounce. If the folder itself is deleted or moved, or FSEvents asks for
+/// a rescan, `onChange` is called too.
 @MainActor
 final class FolderWatcher {
     let folder: URL
     private static let latency: TimeInterval = 0.3
     private let onChange: @MainActor () -> Void
     private var stream: FSEventStreamRef?
+    /// `folder` with symlinks resolved, as FSEvents reports paths (`/private/var`, not `/var`).
+    private let resolvedFolderPath: String
 
     private static let logger = Logger(category: "FolderWatcher")
 
     init(folder: URL, onChange: @escaping @MainActor () -> Void) {
         self.folder = folder
         self.onChange = onChange
+        resolvedFolderPath = Self.comparablePath(folder.resolvingSymlinksInPath())
+    }
+
+    /// The standardized path without a trailing slash, so a folder URL and a file's parent compare equal.
+    private static func comparablePath(_ url: URL) -> String {
+        let path = url.standardizedFileURL.path(percentEncoded: false)
+        return path.count > 1 && path.hasSuffix("/") ? String(path.dropLast()) : path
+    }
+
+    /// Flags that mean the events don't say which files changed, or that the folder itself did.
+    private static let rescanFlags = FSEventStreamEventFlags(
+        kFSEventStreamEventFlagMustScanSubDirs | kFSEventStreamEventFlagUserDropped
+            | kFSEventStreamEventFlagKernelDropped | kFSEventStreamEventFlagRootChanged
+    )
+
+    /// Whether a batch of events touches anything `NotesStore.reload()` reads.
+    private func isRelevant(paths: [String], flags: [FSEventStreamEventFlags]) -> Bool {
+        zip(paths, flags).contains { path, flags in
+            if flags & Self.rescanFlags != 0 { return true }
+            let url = URL(filePath: path, directoryHint: .notDirectory)
+            let name = url.lastPathComponent
+            guard !name.hasPrefix("."), url.pathExtension.lowercased() == "md" else { return false }
+            return Self.comparablePath(url.deletingLastPathComponent()) == resolvedFolderPath
+        }
     }
 
     /// Starts watching. Does nothing if it's already watching.
@@ -38,14 +67,22 @@ final class FolderWatcher {
             },
             copyDescription: nil
         )
-        let callback: FSEventStreamCallback = { _, info, _, _, _, _ in
+        let callback: FSEventStreamCallback = { _, info, count, eventPaths, eventFlags, _ in
             guard let info else { return }
+            // `kFSEventStreamCreateFlagUseCFTypes` makes `eventPaths` a CFArray of CFStrings.
+            let paths = unsafeBitCast(eventPaths, to: NSArray.self) as? [String] ?? []
+            let flags = Array(UnsafeBufferPointer(start: eventFlags, count: count))
             // Delivered on the main queue (see `FSEventStreamSetDispatchQueue` below).
             MainActor.assumeIsolated {
-                Unmanaged<FolderWatcher>.fromOpaque(info).takeUnretainedValue().onChange()
+                let watcher = Unmanaged<FolderWatcher>.fromOpaque(info).takeUnretainedValue()
+                if watcher.isRelevant(paths: paths, flags: flags) {
+                    watcher.onChange()
+                }
             }
         }
-        let flags = FSEventStreamCreateFlags(kFSEventStreamCreateFlagFileEvents | kFSEventStreamCreateFlagWatchRoot)
+        let flags = FSEventStreamCreateFlags(
+            kFSEventStreamCreateFlagFileEvents | kFSEventStreamCreateFlagWatchRoot | kFSEventStreamCreateFlagUseCFTypes
+        )
         guard let stream = FSEventStreamCreate(
             kCFAllocatorDefault,
             callback,
