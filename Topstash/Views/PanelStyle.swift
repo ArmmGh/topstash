@@ -30,7 +30,9 @@ enum PanelStyle {
     /// Row titles, the card's labels, "Saved", and buttons.
     static let title = Font.system(size: 13, weight: .medium)
     /// The clipboard preview, the search field, and empty-list messages.
-    static let body = Font.system(size: 13)
+    static let body = Font.system(size: bodySize)
+    /// `body`'s size, for measuring the preview's lines (`PanelLayout.previewLineCount`).
+    static let bodySize: CGFloat = 13
     /// Small lines: row previews, ages, counts, and hints. Digits are monospaced so counts don't jitter.
     static let meta = Font.system(size: 11).monospacedDigit()
     /// The save card's symbol: the system's Title 3 (15 pt), a step above the 13 pt text beside it,

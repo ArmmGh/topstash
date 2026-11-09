@@ -28,7 +28,7 @@ struct SearchView: View {
             }
             .padding(.horizontal, PanelLayout.inset)
             .frame(height: PanelLayout.searchFieldHeight)
-            .cardBackground()
+            .cardBackground(cornerRadius: PanelLayout.searchFieldCornerRadius)
             .animation(Motion.reduced, value: panel.searchStatus)
             results
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)

@@ -98,6 +98,8 @@ struct PanelView: View {
         .padding(.top, PanelLayout.notchClearance)
         .padding([.horizontal, .bottom], PanelLayout.inset)
         .frame(width: PanelLayout.panelWidth, height: shapeSize.height, alignment: .top)
+        // When the card's height changes, the list moves with the shape's edge.
+        .animation(Motion.shape(expanding: true, reduceMotion: reduceMotion), value: panel.saveCardHeight)
     }
 
     private var recentList: some View {

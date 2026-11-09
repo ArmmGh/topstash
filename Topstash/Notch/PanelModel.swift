@@ -31,7 +31,16 @@ final class PanelModel {
     /// The `Note.id` (file URL) of the row showing "Copied", cleared by `AppModel.copy` after a moment.
     var copiedNote: Note.ID?
     /// Set by `AppModel.refreshSaveCard()` and `AppModel.showSaveResult(_:reverts:)`.
-    var saveCard: SaveCardState = .nothingToSave
+    var saveCard: SaveCardState = .nothingToSave {
+        didSet {
+            // The checkmark takes the place of the card that flew up, so the panel doesn't resize
+            // under it; the next card brings its own height.
+            if saveCard != .saved { saveCardHeight = PanelLayout.saveCardHeight(for: saveCard) }
+        }
+    }
+    /// The card slot's height, which the shape's height depends on: `PanelLayout.saveCardHeight(for:)`
+    /// of the card shown, or of the card before `.saved`.
+    private(set) var saveCardHeight = PanelLayout.saveCardHeight(for: .nothingToSave)
     /// The search field's text.
     var query = ""
     /// The shortcut's result while searching, shown next to the search field for a moment.
@@ -55,7 +64,8 @@ final class PanelModel {
 /// wrapped `ClipboardSaveResult`: `refreshSaveCard()` reaches most of them without a save, and the
 /// card has no use for the saved `Note`.
 enum SaveCardState: Equatable {
-    /// The clipboard text, unsaved: only its start (`SaveCard.previewText`), and the full text's length.
+    /// The clipboard text, unsaved: only the part the card shows (`SaveCard.previewText`), and the
+    /// full text's length.
     case preview(text: String, characterCount: Int)
     /// The clipboard has text, but reading it would show the paste privacy alert.
     case readyWithoutPreview

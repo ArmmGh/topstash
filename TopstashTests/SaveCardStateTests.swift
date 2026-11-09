@@ -32,12 +32,13 @@ struct SaveCardStateTests {
         #expect(appModel.panel.saveCard == .nothingToSave)
     }
 
-    @Test func unsavedTextIsPreviewedFromItsFirstVisibleLine() {
-        let appModel = makeAppModel(clipboard: FakeClipboard(text: "\n\n  Buy milk\nand eggs"))
+    @Test func unsavedTextIsPreviewedFromItsFirstVisibleCharacter() {
+        let appModel = makeAppModel(clipboard: FakeClipboard(text: "\n\n  Buy milk\n  and eggs\n\n"))
 
         appModel.refreshSaveCard()
 
-        #expect(appModel.panel.saveCard == .preview(text: "  Buy milk\nand eggs", characterCount: 21))
+        // Lines after the first keep their indentation; the count is the full text's.
+        #expect(appModel.panel.saveCard == .preview(text: "Buy milk\n  and eggs", characterCount: 25))
     }
 
     @Test func textAlreadyInTheStoreIsAlreadySaved() throws {

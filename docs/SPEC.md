@@ -181,13 +181,13 @@ Decided after a research pass against primary sources (`docs/research/notch-pane
 - **Fills:** white 0.06 for hover and 0.10 for surfaces (the save card, the search field, the header button). 0.10 matches the system's `systemFill` in dark mode.
 - **Increase Contrast:** when `colorSchemeContrast` is `.increased`, each text and fill level steps up. The values are picked on the device.
 - **Keyboard selection:** a 1.5 pt ring of white 0.6 on the hover fill. This clears WCAG 1.4.11's 3:1 for state indicators while staying black and white; a fill-only highlight doesn't (0.16 on 0.10 is 1.2:1).
-- **Spacing:** a 4 pt grid and one 12 pt inset, used from the shape's edge to the card and rows and again inside each card and row. Every text edge and the card's icon sit 24 pt from the shape's edge. Rows are 40 pt tall.
-- **Radii:** the shape is 15 (outward top) / 20 (bottom); the card is 12; rows are 8, which is 20 − 12, so they nest inside the bottom corners. The radii are set by hand, because `ConcentricRectangle` needs macOS 26.
+- **Spacing:** a 4 pt grid and one 12 pt inset, used from the shape's edge to the card and rows and again inside each card and row. Every text edge and the card's icon sit 24 pt from the shape's edge. Rows are 40 pt tall, and the search field 36. The save card fits its text, so its height follows the text's lines rather than the grid: 12 pt, the preview's lines (16 pt each), 4 pt, the 13 pt hint, 12 pt. A card with only a label is 40 pt.
+- **Radii:** the shape is 15 (outward top) / 20 (bottom); the card is 12; the search field is 10; rows are 8, which is 20 − 12, so they nest inside the bottom corners. The radii are set by hand, because `ConcentricRectangle` needs macOS 26.
 - **Width:** 400 pt in both the list and search. Switching modes changes only the height.
 - **Header:** a band beside the notch, as tall as the notch (`safeAreaInsets.top`; the menu bar's height on screens without one). It replaces the fixed 38 pt clearance and the "Show all" bar.
   - Left: "Recent", or "Search" in search mode, in `title` and the secondary color.
   - Right: the note count in `meta` and the tertiary color, then a 28 × 28 pt circular button on the surface fill: search in the list, close in search.
-- **Save card:** the `tray.and.arrow.up` symbol, up to 3 lines of preview in `body`, and a `meta` line such as "Click to save · 1,284 characters".
+- **Save card:** the `tray.and.arrow.up` symbol, up to 3 lines of preview in `body`, and a `meta` line such as "Click to save · 1,284 characters". The preview starts at the clipboard's first visible character, so its first line isn't indented; the saved note keeps the text as it is.
 - **Rows:** title and preview on the left, and the age on the right in `meta` and the tertiary color ("2h", "3d", "Oct 28").
 - **Menu bar icon:** the SF Symbol `tray.and.arrow.up`, which the HIG suggests over a custom image. Make a custom SF Symbol only if a brand mark is needed later.
 
