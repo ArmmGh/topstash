@@ -7,7 +7,9 @@ import ServiceManagement
 final class LaunchAtLogin {
     private(set) var status: SMAppService.Status
 
-    var isEnabled: Bool { status == .enabled }
+    /// Also true while registered but waiting for approval in Login Items, so turning the toggle
+    /// off unregisters the app.
+    var isEnabled: Bool { status == .enabled || status == .requiresApproval }
 
     init() {
         status = SMAppService.mainApp.status
