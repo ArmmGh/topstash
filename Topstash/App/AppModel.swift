@@ -9,20 +9,20 @@ final class AppModel {
     /// Replaced when the folder changes (#9). Views always read `appModel.store`.
     private(set) var store: NotesStore
     let panel: PanelModel
-    let clipboard: Clipboard
+    let clipboard: any Clipboard
 
     @ObservationIgnored
     private var copiedResetTask: Task<Void, Never>?
     @ObservationIgnored
     private let logger = Logger(category: "AppModel")
 
-    /// Creates the notes folder if it's missing.
-    init(defaults: UserDefaults = .standard) {
+    /// Creates the notes folder if it's missing. Tests pass their own defaults and a fake clipboard.
+    init(defaults: UserDefaults = .standard, clipboard: any Clipboard = SystemClipboard()) {
         let folder = Preferences.notesFolder(defaults)
         self.defaults = defaults
         store = NotesStore(folder: folder)
         panel = PanelModel()
-        clipboard = Clipboard()
+        self.clipboard = clipboard
         do {
             try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
         } catch {

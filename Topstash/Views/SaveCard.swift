@@ -156,7 +156,7 @@ struct SaveCard: View {
     }
 
     private static func openPastePrivacySettings() {
-        NSWorkspace.shared.open(Clipboard.pastePrivacySettingsURL)
+        NSWorkspace.shared.open(SystemClipboard.pastePrivacySettingsURL)
     }
 
     private func icon(_ systemName: String) -> some View {

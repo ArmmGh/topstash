@@ -8,6 +8,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var panelController: NotchPanelController?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
+        // The unit tests run inside the app. There, the notch panel and the global shortcut
+        // would only get in the way of a copy of Topstash the user may have running.
+        guard !Self.isHostingTests else { return }
+
         let panelController = NotchPanelController(appModel: appModel)
         panelController.start()
         self.panelController = panelController
@@ -18,4 +22,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             panelController?.saveFromShortcut()
         }
     }
+
+    /// Set by Xcode when it launches the app to host the test bundle.
+    private static let isHostingTests = ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] != nil
 }

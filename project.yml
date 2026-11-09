@@ -65,7 +65,10 @@ targets:
     platform: macOS
     sources:
       - TopstashTests
+    # Hosted in the app, so tests can `@testable import Topstash` as well as use TopstashCore.
+    # XcodeGen sets TEST_HOST and BUNDLE_LOADER from the app dependency.
     dependencies:
+      - target: Topstash
       - target: TopstashCore
     settings:
       base:
