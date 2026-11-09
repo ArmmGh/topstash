@@ -3,7 +3,7 @@ import KeyboardShortcuts
 import ServiceManagement
 import SwiftUI
 
-/// The Settings window: notes folder, save shortcut, hover delay, and launch at login.
+/// The Settings window: notes folder, save and search shortcuts, hover delay, and launch at login.
 struct SettingsView: View {
     let appModel: AppModel
 
@@ -77,6 +77,7 @@ struct SettingsView: View {
         Section {
             // KeyboardShortcuts stores the shortcut in UserDefaults and re-registers it right away.
             KeyboardShortcuts.Recorder("Save clipboard", name: .saveClipboard)
+            KeyboardShortcuts.Recorder("Search notes", name: .searchNotes)
         }
     }
 

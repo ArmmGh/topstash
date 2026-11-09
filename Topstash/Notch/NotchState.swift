@@ -22,6 +22,9 @@ enum NotchEffect: Equatable {
     case cancelHoverDelay
     /// Places the window on the screen and opens the panel as `.open`, ending a running close.
     case open(CGDirectDisplayID)
+    /// Places the window on the screen and opens the panel as `.search`, which makes it key so the
+    /// field takes typing. From any mode, ending a running close.
+    case openSearch(CGDirectDisplayID)
     /// Switches to `.closed` and runs the close animation, then reports `closeAnimationEnded()`.
     case close
     /// Ends a running close, refreshes the save card, and switches to `.open`: the cursor is back
@@ -138,6 +141,18 @@ enum NotchState: Equatable {
     mutating func dismiss() -> [NotchEffect] {
         self = .dismissed(fadingOn: windowDisplayID)
         return [.close]
+    }
+
+    /// The search shortcut or "Search Notes…" in the menu bar. Closes search as a dismissal if it's
+    /// open, like Esc; otherwise opens search on `displayID`, the screen with the cursor, from any
+    /// state, dropping a running hover delay.
+    mutating func toggleSearch(on displayID: CGDirectDisplayID, mode: PanelModel.Mode) -> [NotchEffect] {
+        if case .shown = self, mode == .search {
+            return dismiss()
+        }
+        let effects: [NotchEffect] = if case .hovering = self { [.cancelHoverDelay] } else { [] }
+        self = .shown(displayID)
+        return effects + [.openSearch(displayID)]
     }
 
     /// The shortcut's feedback is up: switches to `.open` if the cursor is over the panel or its

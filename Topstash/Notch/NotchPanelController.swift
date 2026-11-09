@@ -135,6 +135,8 @@ final class NotchPanelController {
                 cancelHoverDelay()
             case .open(let displayID):
                 open(on: displayID)
+            case .openSearch(let displayID):
+                open(on: displayID, as: .search)
             case .close:
                 // The content fades out, the shape collapses into the hover area, then the window is ordered out.
                 setMode(.closed)
@@ -202,7 +204,8 @@ final class NotchPanelController {
         panel.headerHeight = PanelLayout.headerHeight(forHoverAreaHeight: area.rect.height)
     }
 
-    /// Opens as `.open`, or as `.feedback` for the shortcut, which keeps the card the shortcut set.
+    /// Opens as `.open`, as `.feedback` for the save shortcut, which keeps the card the shortcut set,
+    /// or as `.search` for the search shortcut. Also switches a panel already shown to that mode.
     private func open(on displayID: CGDirectDisplayID, as mode: PanelModel.Mode = .open) {
         guard let window,
             let screen = Self.screen(withID: displayID),
@@ -228,6 +231,10 @@ final class NotchPanelController {
         updateClickThrough(at: NSEvent.mouseLocation)
         // Never makeKey or activate: the frontmost app keeps keyboard focus. Only search mode makes it key.
         window.orderFrontRegardless()
+        if mode == .search {
+            // `beginSearch()` made it key before it was ordered in; again now that it's on screen.
+            window.makeKey()
+        }
     }
 
     /// Reports `closeAnimationEnded()` once the close animation has run. `panel.mode` is already `.closed`.
@@ -398,6 +405,23 @@ final class NotchPanelController {
                 self.startFeedbackTimer()
             }
         }
+    }
+
+    /// The search shortcut and "Search Notes…": opens search on the screen with the cursor, or
+    /// closes it if it's open. The panel becomes key so the field takes typing, without
+    /// activating the app; Esc hands typing back to the app the user was in.
+    func toggleSearchFromShortcut() {
+        guard let displayID = displayIDUnderCursor() else {
+            logger.error("No screen to open search on")
+            return
+        }
+        perform(state.toggleSearch(on: displayID, mode: panel.mode))
+    }
+
+    /// "Search Notes…" in the menu bar: like the search shortcut, but never closes search.
+    func openSearchFromMenu() {
+        guard panel.mode != .search else { return }
+        toggleSearchFromShortcut()
     }
 
     /// The screen containing the cursor, else the main screen.

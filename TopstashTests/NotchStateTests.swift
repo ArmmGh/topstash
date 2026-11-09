@@ -234,6 +234,63 @@ struct NotchStateTests {
         #expect(state == .shown(Self.screen1))
     }
 
+    // MARK: - Search shortcut
+
+    @Test func theSearchShortcutOpensSearchOnTheScreenWithTheCursor() {
+        var state = NotchState.idle
+
+        #expect(state.toggleSearch(on: Self.screen2, mode: .closed) == [.openSearch(Self.screen2)])
+        #expect(state == .shown(Self.screen2))
+    }
+
+    @Test func theSearchShortcutOpensSearchFromTheOpenPanelOrTheShortcutsFeedback() {
+        for mode in [PanelModel.Mode.open, .feedback] {
+            var state = NotchState.shown(Self.screen1)
+
+            #expect(state.toggleSearch(on: Self.screen1, mode: mode) == [.openSearch(Self.screen1)])
+            #expect(state == .shown(Self.screen1))
+        }
+    }
+
+    @Test func theSearchShortcutDuringTheHoverDelayDropsTheDelay() {
+        var state = NotchState.hovering(Self.screen1, fadingOn: nil)
+
+        #expect(state.toggleSearch(on: Self.screen1, mode: .closed) == [.cancelHoverDelay, .openSearch(Self.screen1)])
+        #expect(state == .shown(Self.screen1))
+        #expect(state.hoverDelayEnded(on: Self.screen1) == [])
+    }
+
+    @Test func theSearchShortcutOpensSearchWhileThePanelIsClosingOrDismissed() {
+        for start in [NotchState.closing(Self.screen1), .dismissed(fadingOn: Self.screen1), .dismissed(fadingOn: nil)] {
+            var state = start
+
+            #expect(state.toggleSearch(on: Self.screen1, mode: .closed) == [.openSearch(Self.screen1)])
+            #expect(state == .shown(Self.screen1))
+        }
+    }
+
+    @Test func theSearchShortcutClosesSearchAsADismissal() {
+        var state = NotchState.shown(Self.screen1)
+
+        #expect(state.toggleSearch(on: Self.screen1, mode: .search) == [.close])
+        #expect(state == .dismissed(fadingOn: Self.screen1))
+    }
+
+    @Test func searchOpenedByTheShortcutStaysOpenAwayFromTheNotchAndEscClosesItForGood() {
+        var state = NotchState.idle
+        _ = state.toggleSearch(on: Self.screen1, mode: .closed)
+
+        #expect(state.mouseMoved(surroundings(elsewhere, mode: .search)) == [])
+        #expect(state == .shown(Self.screen1))
+
+        // Esc: the cursor is away from the notch, so the next move ends the dismissal.
+        #expect(state.dismiss() == [.close])
+        #expect(state.mouseMoved(surroundings(elsewhere, mode: .closed)) == [])
+        #expect(state == .closing(Self.screen1))
+        #expect(state.closeAnimationEnded() == [.orderOut])
+        #expect(state == .idle)
+    }
+
     // MARK: - Screen changes
 
     @Test func aScreenChangeRePlacesTheOpenPanel() {
