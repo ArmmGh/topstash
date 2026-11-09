@@ -1,8 +1,4 @@
 # Builds and tests the app on every push and pull request to main.
-#
-# NOTE: This workflow will fail until ticket 01 adds project.yml (and the app
-# and test targets). It starts passing once `xcodegen generate` has a project
-# to generate.
 name: CI
 
 on:
@@ -29,6 +25,9 @@ jobs:
 
       - name: Show Xcode version
         run: xcodebuild -version
+
+      - name: Check formatting
+        run: xcrun swift-format lint --strict --recursive Topstash TopstashCore TopstashTests
 
       - name: Install XcodeGen
         run: brew install xcodegen

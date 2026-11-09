@@ -1,0 +1,13 @@
+/// The panel changes views ask for. `NotchPanelController`, which owns the window, supplies them,
+/// so each action can change the panel's mode together with the window's key status and event
+/// monitors. Views never assign `PanelModel.mode` themselves.
+@MainActor
+struct PanelActions {
+    /// "Show all": expands the panel into search mode with the search field focused.
+    var showAll: () -> Void
+    /// Esc in search mode: closes the panel and hands keyboard focus back to the frontmost app.
+    var closeSearch: () -> Void
+    /// Closes the panel after an action such as Open in Editor. The cursor still over the
+    /// fading panel doesn't bring it back.
+    var dismissAfterAction: () -> Void
+}

@@ -14,7 +14,7 @@ Hover over the notch, click once, and the text on your clipboard is saved as a M
 - **Search.** "Show all" expands into full-text search across every note.
 - **Plain Markdown files.** Each note is a `.md` file with minimal frontmatter, in a folder you choose (default `~/Documents/Topstash/`). Edit, grep, sync, or version them yourself. Changes made outside the app show up automatically.
 - **Works without a notch.** On external displays, an invisible area at the top center of the screen does the same job.
-- **Global shortcut.** Press ⌥⌘S (configurable) to save without opening the panel.
+- **Global shortcut.** Press ⌥⌘S anywhere to save without touching the mouse; the panel drops down briefly to show the result. While Topstash runs, ⌥⌘S takes over "Save All" in Xcode and VS Code, so you can change it in Settings.
 - **Stays out of the way.** No Dock icon. A menu bar icon gives you Settings, Open notes folder, and Quit. Optional launch at login.
 - **Respects clipboard privacy.** Without paste access, the app saves without previewing your clipboard on hover.
 

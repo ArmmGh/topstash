@@ -87,8 +87,8 @@ A small macOS app that lives in the MacBook notch. When I hover over the notch, 
 - **Platform:** macOS 14+ (Sonoma). Swift with SwiftUI for views and AppKit for the window, mouse, clipboard, and screen work. Not sandboxed. MIT license.
 - **Project setup:** XcodeGen (`project.yml`) generates the Xcode project, and the app builds with `xcodebuild`.
 - **Dependencies:** only `KeyboardShortcuts` (sindresorhus, MIT) for the global shortcut and its recorder control in Settings. Launch at login uses the built-in `SMAppService`. Frontmatter is parsed by hand (only three fields), with no YAML library. No notch library: DynamicNotchKit and NotchKit were evaluated, but they target showing content from the notch when the app decides to, not opening on hover after a delay, and their fallback for screens without a notch is a visible pill, which is out of scope.
-- **App shell:** the app is an agent app (`LSUIElement`), so it has no Dock icon. A SwiftUI `MenuBarExtra` provides Settings, Open notes folder, and Quit. A SwiftUI `Settings` scene stores preferences with `@AppStorage`: the notes folder, the hover delay, and launch at login.
-- **Architecture:** plain Model + View with `@Observable`, with no MVVM layer. Modules:
+- **App shell:** the app is an agent app (`LSUIElement`), so it has no Dock icon. A SwiftUI `MenuBarExtra` provides Settings, Open notes folder, and Quit. A SwiftUI `Settings` scene stores the notes folder and the hover delay with `@AppStorage`. Launch at login is not stored: its state is always read from `SMAppService.mainApp.status`, because the user can also change it in System Settings.
+- **Architecture:** plain Model + View with `@Observable`, with no MVVM layer. The Model (`Note`, `NotesStore`, `NoteFile`) lives in a `TopstashCore` framework (Foundation and CryptoKit only, no AppKit or SwiftUI; logging via `os.Logger`), so tests use only its public API and never launch the app. Everything UI-facing is `@MainActor`. Ticket #1 has the full file layout and signatures. Modules:
   - **NotesStore** (`@Observable`, deep module, the main seam): owns the in-memory list of notes for one folder. Its interface:
     - `notes`: all notes, newest first.
     - `recent(limit)`: the newest notes, up to the limit.
@@ -97,18 +97,20 @@ A small macOS app that lives in the MacBook notch. When I hover over the notch, 
     - `save(text)`: returns `saved(note)`, `alreadySaved(note)`, or `empty`.
     - `delete(note)`.
     - `reload()`.
-    - The folder location is passed in when the store is created.
+    - The folder location is passed in when the store is created, along with an injectable clock and time zone for tests.
+  - **AppModel** (`@Observable`): the composition root. It owns the current `NotesStore` (replaced when the folder changes), the `FolderWatcher`, the `Clipboard`, and `PanelModel`. It holds the actions shared by the save card, the menu bar, and the shortcut: save clipboard, copy, delete, open in editor, and set folder.
+  - **PanelModel** (`@Observable`): UI state of the panel: mode (closed, open, search, feedback), save card state, search query, and the "Copied" row.
   - **NoteFile:** turns a note into Markdown with frontmatter and back, and builds filenames. Used only by NotesStore.
-  - **FolderWatcher:** watches the notes folder (FSEvents or DispatchSource) and calls `NotesStore.reload()` when anything changes, with a debounce.
+  - **FolderWatcher:** watches the notes folder with FSEvents (file-level events; a directory `DispatchSource` would miss in-place edits) and calls `NotesStore.reload()` when anything changes. The stream latency (0.3 s) is the debounce.
   - **Clipboard:** a thin wrapper around `NSPasteboard.general`. It provides:
-    - `hasText()` via the `detect` APIs, which don't trigger the privacy alert.
+    - `hasText()` via `availableType(from: [.string])`, which inspects types, not contents. The `detect` APIs only recognize patterns such as URLs and numbers, not "any text", so they can't answer this.
     - `readText()`.
-    - `canReadWithoutPrompt` based on `accessBehavior`.
+    - `access` (`allowed`, `wouldPrompt`, `denied`) based on `accessBehavior` on macOS 15.4 and later; always `allowed` before that.
     - `write(text)`.
-  - **NotchPanelController:** for each screen, works out the hover area: the notch rectangle when there is one (from `safeAreaInsets` and the auxiliary top areas), otherwise a notch-sized strip at the top center. It tracks the mouse there, applies the hover delay, places and shows or hides the panel, and rebuilds the hover areas when the screen setup changes.
+  - **NotchPanelController:** for each screen, works out the hover area: the notch rectangle when there is one (from `safeAreaInsets` and the auxiliary top areas), otherwise a notch-sized strip at the top center. It tracks the mouse with global and local `mouseMoved` event monitors (no Accessibility permission, and no invisible window over the menu bar), applies the hover delay, places and shows or hides the panel, and rebuilds the hover areas when the screen setup changes.
   - **NotchPanel:** a borderless `NSPanel` that doesn't activate the app or take focus. It sits above the menu bar, appears on all Spaces and over full-screen apps, and hosts SwiftUI content. It becomes key only while the search field needs typing.
   - **Views:** `PanelView`, which contains `SaveCard`, the recent list, an expanded search view, and `NoteRow`.
-- **Note model:** `id` (a short random hex string), `created` (an ISO-8601 date with time-zone offset), `type` (`text` for now), `body` (the exact clipboard text), `title` (worked out from the first non-empty line, never stored), and the file URL.
+- **Note model:** identity (`Identifiable.id`) is the file URL, because frontmatter ids repeat when a user copies a file. The frontmatter id is stored as `noteID` (a short random hex string), `created` (an ISO-8601 date with time-zone offset), `type` (`text` for now), `body` (the exact clipboard text), `title` (worked out from the first non-empty line, never stored), and the file URL.
 - **File format:** one `.md` file per note, with frontmatter followed by the body exactly as saved:
   ```
   ---
@@ -121,20 +123,25 @@ A small macOS app that lives in the MacBook notch. When I hover over the notch, 
   - Filenames follow `yyyy-MM-dd-HHmm-<slug>.md`. The slug comes from the title (lowercase, ASCII, hyphenated, length-limited). If the name is already taken, a numeric suffix keeps it unique.
   - Files without frontmatter are read with fallbacks: `created` comes from the file's creation date, `type` is `text`, and `id` is derived from the path. The app doesn't rewrite them.
 - **Duplicate detection:** an exact match on the body text. Comparison may ignore leading and trailing whitespace only.
-- **Ordering:** by `created`, newest first. No usage tracking: copying a note doesn't reorder it and no copy count is kept.
+- **Ordering:** by `created`, newest first, with ties broken by filename (descending) so the order is always the same. No usage tracking: copying a note doesn't reorder it and no copy count is kept.
 - **Save card states:**
   - Has text and can read: preview plus character count; clicking saves.
   - Has text but reading would trigger the alert: "Text ready to save" plus a hint linking to `x-apple.systempreferences:com.apple.settings.PrivacySecurity.extension?Privacy_Pasteboard`. Clicking reads the clipboard and saves.
+  - Has text but paste access is denied: "Topstash can't read the clipboard" plus the same link; clicking does nothing.
   - Already saved: a label only; clicking does nothing.
   - Nothing to save: greyed out.
 - **Hover delay:** 250 ms by default, adjustable in Settings.
+- **Delete:** moves the file to the Trash. No confirmation dialog.
+- **Titles:** the first non-empty line, skipping lines that are only a code fence and removing leading `#` heading markers.
+- **Unknown note types:** files whose `type` isn't `text` are skipped by v1, not shown as text.
+- **Folder scanning:** top level only, not recursive. Hidden files are skipped.
 
 ## Design & Motion
 
 Decided after researching open-source notch apps (NotchKit and DynamicNotchKit, both MIT; boring.notch is GPL-3.0, read only, never copied; NotchDrop, MIT) and Apple's HIG and the WWDC23 session "Animate with springs".
 
 - **Look:** a single black shape that grows out of the notch, the same in light and dark mode. Its top corners curve outward (reverse fillets) so it looks like part of the hardware notch. Radii (top/bottom) are about 6/14 pt when collapsed and about 15/20 pt when expanded, clamped so the path never crosses itself. An oversized black backing is masked by the shape so spring overshoot never shows a gap.
-- **Window:** a fixed-size transparent `NSPanel` in which only the SwiftUI shape animates; the window frame is never animated. Clicks pass through outside the shape (`hitTest`, `ignoresMouseEvents` while collapsed). `hasShadow = false`, and the shadow is drawn in SwiftUI with padding. The first click on a card must register (`acceptsFirstMouse`). Collection behavior: `[.fullScreenAuxiliary, .canJoinAllSpaces, .stationary, .ignoresCycle]`.
+- **Window:** a fixed-size transparent `NSPanel` in which only the SwiftUI shape animates; the window frame is never animated. The panel is ordered out while closed, so it never blocks clicks. While open, it takes mouse events only while the cursor is over the visible shape (`ignoresMouseEvents` follows the cursor), so clicks around the shape reach the windows below. `hasShadow = false`, and the shadow is drawn in SwiftUI with padding. The first click on a card must register (`acceptsFirstMouse`). Collection behavior: `[.fullScreenAuxiliary, .canJoinAllSpaces, .stationary, .ignoresCycle]`.
 - **Shape motion:** expanding uses `.snappy(duration: 0.4)` (bounce about 0.15); collapsing uses `.smooth(duration: 0.3)` with no bounce.
 - **Content:** comes in with opacity, blur 8→0, and scale 0.96→1 anchored at the top, using `.easeOut(0.22).delay(0.07)`. It leaves with opacity only, `.easeIn(0.12)`, before the shape closes. Rows are not staggered.
 - **Save feedback (about 0.6 s total):** the card dips to scale 0.96 on press. On save, the card shrinks and flies up into the notch, the notch does a small "gulp" bump (`.spring(response: 0.3, dampingFraction: 0.5)`, scale 1.04), a checkmark appears with `.symbolEffect(.bounce)`, and a trackpad haptic fires.
@@ -142,8 +149,8 @@ Decided after researching open-source notch apps (NotchKit and DynamicNotchKit, 
 
 ## Testing Decisions
 
-- **One seam: `NotesStore`, pointed at a real temporary folder.** Nothing is mocked: no fake file system and no fake clipboard. Tests call only the public interface and check two things: what the store returns and which files are on disk. Implementation details, such as NoteFile's internals or private helpers, are never tested directly.
-- **Framework:** Swift Testing, in the app's unit test target.
+- **One seam: `NotesStore`, pointed at a real temporary folder.** Nothing is mocked: no fake file system and no fake clipboard. Tests call only the public interface and check two things: what the store returns and which files are on disk. Implementation details, such as NoteFile's internals or private helpers, are never tested directly. The one exception to "nothing is mocked": `NotesStore.init(trash:)` takes the function that moves a file to the Trash (the real `trashItem` by default), so delete tests move files into a second temporary folder and never touch the user's real Trash.
+- **Framework:** Swift Testing, in a `TopstashTests` bundle with no test host that links only `TopstashCore`.
 - **Behaviors covered:**
   - Saving creates exactly one `.md` file with valid frontmatter, and its body is identical to the input, including whitespace and code fences.
   - Filenames follow the pattern. Two saves with the same slug in the same minute produce two distinct files.
