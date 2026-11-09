@@ -38,7 +38,8 @@ final class NotchPanel: NSPanel {
     }
 
     private static func editAction(for event: NSEvent) -> Selector? {
-        let modifiers = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
+        // Only the modifiers a shortcut is made of: Caps Lock, Fn, and the numeric-pad flag are ignored.
+        let modifiers = event.modifierFlags.intersection([.command, .shift, .option, .control])
         switch (modifiers, event.charactersIgnoringModifiers?.lowercased()) {
         case ([.command], "v"): return #selector(NSText.paste(_:))
         case ([.command], "c"): return #selector(NSText.copy(_:))
