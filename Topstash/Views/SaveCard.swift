@@ -53,27 +53,24 @@ struct SaveCard: View {
             }
             .foregroundStyle(PanelStyle.secondary)
         case .alreadySaved:
-            resultCard
+            resultCard(.alreadySaved)
                 .foregroundStyle(PanelStyle.secondary)
         case .nothingToSave:
-            resultCard
+            resultCard(.nothingToSave)
                 .foregroundStyle(PanelStyle.tertiary)
         case .saved:
             // `SaveCardSlot` shows its checkmark instead of a card.
             EmptyView()
         case .failed:
-            resultCard
+            resultCard(.failed)
         }
     }
 
-    /// A card with only the state's result label.
-    @ViewBuilder
-    private var resultCard: some View {
-        if let result = state.result {
-            card {
-                icon(result.symbol)
-                label(result.text)
-            }
+    /// A card with only the result's label.
+    private func resultCard(_ result: ClipboardSaveResult) -> some View {
+        card {
+            icon(result.symbol)
+            label(result.text)
         }
     }
 
@@ -204,10 +201,10 @@ struct SaveCardSlot: View {
             }
             // Always in the hierarchy, so the bounce plays when `saveCount` changes.
             HStack(spacing: PanelLayout.savedCheckmarkSpacing) {
-                Image(systemName: SaveCardState.savedResult.symbol)
+                Image(systemName: ClipboardSaveResult.savedSymbol)
                     .font(PanelStyle.savedIcon)
                     .symbolEffect(.bounce, value: bounceTrigger)
-                Text(SaveCardState.savedResult.text)
+                Text(ClipboardSaveResult.savedText)
                     .font(PanelStyle.label)
             }
             .foregroundStyle(PanelStyle.primary)
@@ -223,7 +220,7 @@ struct SaveCardSlot: View {
 /// The shortcut's result in search mode (#10), where there's no card: the card's label, compact,
 /// next to the search field.
 struct SaveStatusBadge: View {
-    let state: SaveCardState
+    let result: ClipboardSaveResult
     /// 0 with Reduce Motion, otherwise `saveCount`.
     let bounceTrigger: Int
 
@@ -233,41 +230,50 @@ struct SaveStatusBadge: View {
     @State private var bounces = 0
 
     var body: some View {
-        if let result = state.result {
-            HStack(spacing: PanelLayout.inlineSpacing) {
-                Image(systemName: result.symbol)
-                    .symbolEffect(.bounce, value: bounces)
-                    .task {
-                        if state == .saved, bounceTrigger != 0 { bounces += 1 }
-                    }
-                    .onChange(of: bounceTrigger) { bounces += 1 }
-                Text(result.text)
-            }
-            .font(PanelStyle.captionEmphasized)
-            .foregroundStyle(PanelStyle.secondary)
-            .lineLimit(1)
-            .fixedSize()
-            .accessibilityElement(children: .combine)
+        HStack(spacing: PanelLayout.inlineSpacing) {
+            Image(systemName: result.symbol)
+                .symbolEffect(.bounce, value: bounces)
+                .task {
+                    if case .saved = result, bounceTrigger != 0 { bounces += 1 }
+                }
+                .onChange(of: bounceTrigger) { bounces += 1 }
+            Text(result.text)
         }
+        .font(PanelStyle.captionEmphasized)
+        .foregroundStyle(PanelStyle.secondary)
+        .lineLimit(1)
+        .fixedSize()
+        .accessibilityElement(children: .combine)
     }
 }
 
-extension SaveCardState {
-    /// The label and symbol of a save's result, shared by the card, the checkmark, and the search
-    /// view's status. `nil` for the states that aren't a result.
-    fileprivate var result: (text: String, symbol: String)? {
+extension ClipboardSaveResult {
+    /// The result's label, shared by the card, the checkmark, and the search view's status.
+    fileprivate var text: String {
         switch self {
-        case .saved: Self.savedResult
-        case .alreadySaved: ("Already saved", "checkmark")
-        case .nothingToSave: ("Nothing to save", "tray")
-        case .failed: ("Couldn't save", "exclamationmark.triangle")
+        case .saved: Self.savedText
+        case .alreadySaved: "Already saved"
+        case .nothingToSave: "Nothing to save"
+        case .failed: "Couldn't save"
         // Only the search view's status uses this; the card has its own `.accessDenied` layout.
-        case .accessDenied: ("Can't read the clipboard", "hand.raised")
-        case .preview, .readyWithoutPreview: nil
+        case .accessDenied: "Can't read the clipboard"
         }
     }
 
-    fileprivate static let savedResult = (text: "Saved", symbol: "checkmark.circle.fill")
+    /// The SF Symbol shown with `text`.
+    fileprivate var symbol: String {
+        switch self {
+        case .saved: Self.savedSymbol
+        case .alreadySaved: "checkmark"
+        case .nothingToSave: "tray"
+        case .failed: "exclamationmark.triangle"
+        case .accessDenied: "hand.raised"
+        }
+    }
+
+    /// The checkmark's label and symbol, for `SaveCardSlot`, which has no result at hand.
+    fileprivate static let savedText = "Saved"
+    fileprivate static let savedSymbol = "checkmark.circle.fill"
 }
 
 extension View {
