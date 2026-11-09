@@ -199,7 +199,9 @@ extension SaveCardState {
         case .alreadySaved: ("Already saved", "checkmark")
         case .nothingToSave: ("Nothing to save", "tray")
         case .failed: ("Couldn't save", "exclamationmark.triangle")
-        case .preview, .readyWithoutPreview, .accessDenied: nil
+        // Only the search view's status uses this; the card has its own `.accessDenied` layout.
+        case .accessDenied: ("Can't read the clipboard", "hand.raised")
+        case .preview, .readyWithoutPreview: nil
         }
     }
 

@@ -46,12 +46,20 @@ final class AppModel {
         self.watcher = watcher
     }
 
-    /// Reads the clipboard and saves its text as a note.
+    /// Reading the clipboard returned nothing although it holds text: paste access is denied,
+    /// in Settings or at the alert this read showed.
+    struct ClipboardAccessDenied: Error {}
+
+    /// Reads the clipboard and saves its text as a note. Fails with `ClipboardAccessDenied` when
+    /// the clipboard holds text that Topstash isn't allowed to read.
     func saveClipboard() -> Result<SaveResult, any Error> {
         let changeCount = clipboard.changeCount
         let read = clipboard.readText()
         if let read, clipboard.changeCount == changeCount {
             knownClipboard = (read, changeCount)
+        }
+        if read == nil, clipboard.hasText() {
+            return .failure(ClipboardAccessDenied())
         }
         let text = read ?? ""
         do {
@@ -141,7 +149,6 @@ final class AppModel {
         let revertDelay: Double? = switch state {
         // The checkmark shows for the save feedback's length (#11), then the card returns.
         case .saved: Motion.saveFeedbackDuration
-        // The refresh afterwards picks up `.accessDenied` if the user denied access at the alert.
         case .nothingToSave: Motion.nothingToSaveDuration
         case .failed: Motion.failedDuration
         // "Already saved" is the clipboard's state anyway.
@@ -171,13 +178,13 @@ final class AppModel {
     @ObservationIgnored
     private var searchStatusResetTask: Task<Void, Never>?
 
-    /// `.empty` is also what a read denied at the paste privacy alert returns.
-    /// On `.failure`, `saveClipboard` has logged the error.
+    /// On any `.failure` but `ClipboardAccessDenied`, `saveClipboard` has logged the error.
     private static func cardState(for result: Result<SaveResult, any Error>) -> SaveCardState {
         switch result {
         case .success(.saved): .saved
         case .success(.alreadySaved): .alreadySaved
         case .success(.empty): .nothingToSave
+        case .failure(is ClipboardAccessDenied): .accessDenied
         case .failure: .failed
         }
     }

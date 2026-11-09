@@ -38,7 +38,7 @@ final class PanelModel {
     /// The search field's text.
     var query = ""
     /// The shortcut's result while searching (#10), shown next to the search field for a moment.
-    /// One of `.saved`, `.alreadySaved`, `.nothingToSave`, `.failed`.
+    /// One of `.saved`, `.alreadySaved`, `.nothingToSave`, `.accessDenied`, `.failed`.
     var searchStatus: SaveCardState?
     /// True in `.feedback`, and kept while closing from it, so the list doesn't pop in during the fade.
     private(set) var showsOnlySaveCard = false
