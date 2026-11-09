@@ -12,17 +12,26 @@ final class AppModel {
     let panel: PanelModel
     let clipboard: any Clipboard
 
+    /// Clears "Copied" on a row.
     @ObservationIgnored
-    private var copiedResetTask: Task<Void, Never>?
+    private let copiedReset: DelayedAction
     @ObservationIgnored
     private let logger = Logger(category: "AppModel")
 
-    /// Opens the notes folder, creating it if it's missing. Tests pass their own defaults and a fake clipboard.
-    init(defaults: UserDefaults = .standard, clipboard: any Clipboard = SystemClipboard()) {
+    /// Opens the notes folder, creating it if it's missing. Tests pass their own defaults, a fake
+    /// clipboard, and a scheduler they advance by hand.
+    init(
+        defaults: UserDefaults = .standard,
+        clipboard: any Clipboard = SystemClipboard(),
+        scheduler: any Scheduler = TaskScheduler()
+    ) {
         let folder = Preferences.notesFolder(defaults)
         self.defaults = defaults
         panel = PanelModel()
         self.clipboard = clipboard
+        copiedReset = DelayedAction(scheduler: scheduler)
+        saveCardReset = DelayedAction(scheduler: scheduler)
+        searchStatusReset = DelayedAction(scheduler: scheduler)
         // There's no other folder to fall back to at startup, so a folder that can't be created is
         // only logged, and its store has no notes.
         (store, watcher) = Self.open(folder) { error in
@@ -61,8 +70,7 @@ final class AppModel {
         clipboard.write(note.body)
         knownClipboard = (note.body, clipboard.changeCount)
         panel.copiedNote = note.id
-        copiedResetTask?.cancel()
-        copiedResetTask = .afterDelay(Motion.copiedDuration) { [weak self] in
+        copiedReset.schedule(after: Motion.copiedDuration) { [weak self] in
             self?.panel.copiedNote = nil
         }
         // The clipboard now holds a saved note, so the card reads "Already saved".
@@ -71,8 +79,9 @@ final class AppModel {
 
     // MARK: - Save card (#3)
 
+    /// Reverts a transient result on the card to the clipboard's state.
     @ObservationIgnored
-    private var saveCardResetTask: Task<Void, Never>?
+    private let saveCardReset: DelayedAction
 
     /// The text the app itself last put on (copy) or read from (save) the clipboard, with the
     /// clipboard's `changeCount` at that moment. While the count is unchanged, the clipboard still
@@ -125,13 +134,13 @@ final class AppModel {
     /// state after their `cardRevertDelay`, unless `reverts` is false (the shortcut's feedback panel, which hides
     /// or refreshes the card itself when its time is up).
     func showSaveResult(_ result: ClipboardSaveResult, reverts: Bool = true) {
-        saveCardResetTask?.cancel()
+        saveCardReset.cancel()
         panel.saveCard = result.cardState
         if case .saved = result {
             playSaveFeedback()
         }
         guard reverts, let revertDelay = result.cardRevertDelay else { return }
-        saveCardResetTask = .afterDelay(revertDelay) { [weak self] in
+        saveCardReset.schedule(after: revertDelay) { [weak self] in
             self?.refreshSaveCard()
         }
     }
@@ -143,19 +152,19 @@ final class AppModel {
         if case .saved = result {
             playSaveFeedback()
         }
-        searchStatusResetTask?.cancel()
-        searchStatusResetTask = .afterDelay(Motion.feedbackDuration) { [weak self] in
+        searchStatusReset.schedule(after: Motion.feedbackDuration) { [weak self] in
             self?.panel.searchStatus = nil
         }
     }
 
+    /// Clears the search view's status.
     @ObservationIgnored
-    private var searchStatusResetTask: Task<Void, Never>?
+    private let searchStatusReset: DelayedAction
 
     /// The card for a save the shortcut made while the panel was closed (#10), until its feedback
     /// plays: the saved text as if it were unsaved, so it has a card to fly up (#11).
     func showCardBeforeSave(of text: String) {
-        saveCardResetTask?.cancel()
+        saveCardReset.cancel()
         panel.saveCard = Self.previewCard(for: text)
     }
 
