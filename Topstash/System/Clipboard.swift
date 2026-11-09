@@ -28,8 +28,10 @@ struct Clipboard {
         case .ask:
             return .wouldPrompt
         case .default:
-            // Placeholder until the manual check in #4 shows whether `.default` alerts on macOS 26.
-            return .wouldPrompt
+            // On macOS 15.x the alert is an opt-in developer preview, so the untouched setting
+            // never alerts. Placeholder for macOS 26+ until the manual check in #4 shows whether it does.
+            if #available(macOS 26, *) { return .wouldPrompt }
+            return .allowed
         @unknown default:
             return .wouldPrompt
         }
