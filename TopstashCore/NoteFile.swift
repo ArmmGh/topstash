@@ -7,8 +7,7 @@ enum NoteFile {
 
     /// 8 lowercase hex characters from a random `UInt32`.
     static func makeID() -> String {
-        let hex = String(UInt32.random(in: .min ... .max), radix: 16)
-        return String(repeating: "0", count: 8 - hex.count) + hex
+        String(format: "%08x", UInt32.random(in: .min ... .max))
     }
 
     /// ISO-8601 with seconds and offset in `timeZone`. UTC is written as `Z`.
@@ -38,12 +37,13 @@ enum NoteFile {
     /// `fileDate` is only called when it's needed. Never writes to the file.
     static func note(from data: Data, fileURL: URL, fileDate: () -> Date?) -> Result<Note, SkipReason> {
         guard let text = String(data: data, encoding: .utf8) else { return .failure(.notUTF8) }
-        guard !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return .failure(.empty) }
+        // Stops at the first visible character, unlike trimming a copy of the whole file.
+        guard !text.allSatisfy(\.isWhitespace) else { return .failure(.empty) }
 
         var fields: [String: String] = [:]
         var body = Substring(text)
         if let (parsed, rest) = frontmatter(of: text) {
-            guard !rest.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return .failure(.emptyBody) }
+            guard !rest.allSatisfy(\.isWhitespace) else { return .failure(.emptyBody) }
             fields = parsed
             body = rest
         }
@@ -52,7 +52,7 @@ enum NoteFile {
         guard (fields["type"] ?? "").isEmpty || fields["type"] == noteType else { return .failure(.unsupportedType) }
         let noteID = fields["id"].flatMap { $0.isEmpty ? nil : $0 } ?? fallbackID(for: fileURL)
         let created = fields["created"].flatMap { createdParser.date(from: $0) } ?? fileDate() ?? .distantPast
-        return .success(Note(noteID: noteID, created: created, type: noteType, body: String(body), fileURL: fileURL))
+        return .success(Note(noteID: noteID, created: created, body: String(body), fileURL: fileURL))
     }
 
     /// Shared because `reload()` parses one date per file. `ISO8601DateFormatter` is thread-safe.
@@ -63,20 +63,29 @@ enum NoteFile {
     /// line, no closing `---`, or no `key: value` line in between. Such a file is plain Markdown that
     /// may start with a horizontal rule (story 39), so it's read whole, as the body.
     /// Lines end at `\n` or `\r\n`, so a `---` line may have a trailing `\r`.
+    /// Reads lines only up to the closing `---`, not the whole body.
     private static func frontmatter(of text: String) -> (fields: [String: String], body: Substring)? {
-        let lines = text.split(omittingEmptySubsequences: false) { $0 == "\n" || $0 == "\r\n" }
-        guard lines.first == "---", let close = lines.dropFirst().firstIndex(of: "---") else { return nil }
         var fields: [String: String] = [:]
-        for line in lines[1 ..< close] {
-            guard let colon = line.firstIndex(of: ":") else { continue }
-            let key = line[..<colon].trimmingCharacters(in: .whitespaces)
-            guard isFieldKey(key) else { continue }
-            fields[key] = line[line.index(after: colon)...].trimmingCharacters(in: .whitespaces)
+        var lineStart = text.startIndex
+        var isFirstLine = true
+        while lineStart < text.endIndex {
+            let lineEnd = text[lineStart...].firstIndex { $0 == "\n" || $0 == "\r\n" } ?? text.endIndex
+            let line = text[lineStart ..< lineEnd]
+            let nextLineStart = lineEnd < text.endIndex ? text.index(after: lineEnd) : text.endIndex
+            if isFirstLine {
+                guard line == "---" else { return nil }
+                isFirstLine = false
+            } else if line == "---" {
+                return fields.isEmpty ? nil : (fields, text[nextLineStart...])
+            } else if let colon = line.firstIndex(of: ":") {
+                let key = line[..<colon].trimmingCharacters(in: .whitespaces)
+                if isFieldKey(key) {
+                    fields[key] = line[line.index(after: colon)...].trimmingCharacters(in: .whitespaces)
+                }
+            }
+            lineStart = nextLineStart
         }
-        guard !fields.isEmpty else { return nil }
-        let closingEnd = lines[close].endIndex
-        let bodyStart = closingEnd < text.endIndex ? text.index(after: closingEnd) : text.endIndex
-        return (fields, text[bodyStart...])
+        return nil
     }
 
     /// A frontmatter key: one word of ASCII letters, digits, `_`, or `-`. Prose like
@@ -185,8 +194,8 @@ enum NoteFile {
                 slug.append("-")
             }
         }
-        slug = String(slug.trimmingCharacters(in: ["-"]).prefix(50))
-        slug = slug.trimmingCharacters(in: ["-"])
+        // No leading `-` is ever added; a trailing one may be left, or exposed by the cut.
+        slug = String(slug.prefix(50)).trimmingCharacters(in: ["-"])
         return slug.isEmpty ? "note" : slug
     }
 

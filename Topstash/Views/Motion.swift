@@ -49,14 +49,12 @@ enum Motion {
     static let contentOut: Animation = .easeIn(duration: contentOutDuration)
     /// The notch's bump when a saved card flies into it.
     static let gulp: Animation = .spring(response: 0.3, dampingFraction: 0.5)
-    /// Replaces the shape's springs when Reduce Motion is on.
+    /// Replaces the shape's springs when Reduce Motion is on. Also fades the shortcut's status in search mode (#10).
     static let reduced: Animation = .easeOut(duration: reducedDuration)
     /// The save card's dip while pressed.
     static let press: Animation = .snappy(duration: pressDuration)
     /// The saved card shrinking up into the notch.
     static let flyUp: Animation = .easeIn(duration: flyUpDuration)
-    /// The shortcut's status in search mode (#10) fading in and out.
-    static let searchStatus: Animation = .easeOut(duration: reducedDuration)
 
     // MARK: Amounts
 

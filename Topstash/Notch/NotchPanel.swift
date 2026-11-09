@@ -14,15 +14,10 @@ final class NotchPanel: NSPanel {
             backing: .buffered,
             defer: true
         )
+        configureAsOverlay()
         isFloatingPanel = true
         level = .statusBar
-        collectionBehavior = [.fullScreenAuxiliary, .canJoinAllSpaces, .stationary, .ignoresCycle]
-        isOpaque = false
-        backgroundColor = .clear
-        hasShadow = false
-        hidesOnDeactivate = false
         acceptsMouseMovedEvents = true
-        isReleasedWhenClosed = false
         contentView = FirstMouseHostingView(rootView: rootView)
     }
 
@@ -67,14 +62,10 @@ final class KeyHandbackPanel: NSPanel {
             backing: .buffered,
             defer: true
         )
-        isOpaque = false
-        backgroundColor = .clear
+        // The same Spaces and full-screen behavior as the notch panel, so it can take key status on any of them.
+        configureAsOverlay()
         alphaValue = 0
-        hasShadow = false
         ignoresMouseEvents = true
-        hidesOnDeactivate = false
-        isReleasedWhenClosed = false
-        collectionBehavior = [.fullScreenAuxiliary, .canJoinAllSpaces, .stationary, .ignoresCycle]
     }
 
     override var canBecomeKey: Bool { true }
@@ -85,5 +76,18 @@ final class KeyHandbackPanel: NSPanel {
     func handBackKey() {
         makeKeyAndOrderFront(nil)
         orderOut(nil)
+    }
+}
+
+private extension NSPanel {
+    /// Transparent, shadowless, kept when the app deactivates or the panel closes, and shown on
+    /// every Space and over full-screen apps.
+    func configureAsOverlay() {
+        isOpaque = false
+        backgroundColor = .clear
+        hasShadow = false
+        hidesOnDeactivate = false
+        isReleasedWhenClosed = false
+        collectionBehavior = [.fullScreenAuxiliary, .canJoinAllSpaces, .stationary, .ignoresCycle]
     }
 }

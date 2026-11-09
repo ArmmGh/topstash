@@ -23,10 +23,10 @@ struct NotchShape: Shape {
     }
 
     func path(in rect: CGRect) -> Path {
-        let bodyWidth = max(bodySize.width, 0)
-        let height = max(bodySize.height, 0)
+        let bodyWidth = bodySize.width
+        let height = bodySize.height
         guard bodyWidth > 0, height > 0 else { return Path() }
-        // The radii are clamped against the whole width, fillets included, as before.
+        // The radii are clamped against the whole width, fillets included.
         let (top, bottom) = Self.clampedRadii(
             top: topCornerRadius, bottom: bottomCornerRadius, width: bodyWidth + 2 * max(topCornerRadius, 0), height: height
         )

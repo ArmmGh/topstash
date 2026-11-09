@@ -10,9 +10,14 @@ struct NotesStoreTests {
     static let fixedDate = Date(timeIntervalSince1970: 1_794_153_134)
     static let yerevan = TimeZone(identifier: "Asia/Yerevan")!
 
-    func makeStore(folder: URL? = nil, timeZone: TimeZone = yerevan, clock: Clock? = nil) -> NotesStore {
+    func makeStore(
+        folder: URL? = nil,
+        timeZone: TimeZone = yerevan,
+        clock: Clock? = nil,
+        trash: @escaping (URL) throws -> Void = NotesStore.moveToTrash
+    ) -> NotesStore {
         let now: () -> Date = if let clock { { clock.now } } else { { Self.fixedDate } }
-        return NotesStore(folder: folder ?? temp.url, now: now, timeZone: timeZone)
+        return NotesStore(folder: folder ?? temp.url, now: now, timeZone: timeZone, trash: trash)
     }
 
     /// A clock that starts at `fixedDate` and moves only when told to.
@@ -220,18 +225,12 @@ struct NotesStoreTests {
     @Test func onlyVisibleTopLevelMarkdownFilesAreLoaded() throws {
         let note = try savedNote(makeStore().save("Top level"))
         let data = try fileBytes(note)
-        let fileManager = FileManager.default
-        func write(_ path: String) throws {
-            let url = temp.url.appending(path: path, directoryHint: .notDirectory)
-            try fileManager.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
-            try data.write(to: url)
+        for path in [
+            "UPPER.MD", "not-markdown.txt", ".hidden.md", "sub/nested.md", ".obsidian/hidden-dir.md",
+            "looks-like-a-note.md/inside.md",
+        ] {
+            try writeExternal(path, data)
         }
-        try write("UPPER.MD")
-        try write("not-markdown.txt")
-        try write(".hidden.md")
-        try write("sub/nested.md")
-        try write(".obsidian/hidden-dir.md")
-        try write("looks-like-a-note.md/inside.md")
 
         let names = makeStore().notes.map(\.fileURL.lastPathComponent)
 
@@ -281,7 +280,9 @@ struct NotesStoreTests {
     }
 
     @Test func createdMatchesTheSecondsWrittenToTheFile() throws {
-        let store = NotesStore(folder: temp.url, now: { Self.fixedDate.addingTimeInterval(0.75) }, timeZone: Self.yerevan)
+        let clock = Clock()
+        clock.advance(seconds: 0.75)
+        let store = makeStore(clock: clock)
 
         let note = try savedNote(store.save("Sub-second clock"))
 
@@ -357,7 +358,7 @@ struct NotesStoreTests {
 extension NotesStoreTests {
     /// A store whose Trash is `trash`, so tests never touch the real Trash.
     func makeStore(trashingInto trash: TemporaryFolder) -> NotesStore {
-        NotesStore(folder: temp.url, now: { Self.fixedDate }, timeZone: Self.yerevan) { url in
+        makeStore { url in
             try FileManager.default.moveItem(at: url, to: trash.url.appending(path: url.lastPathComponent))
         }
     }
@@ -394,9 +395,7 @@ extension NotesStoreTests {
     struct TrashFailed: Error {}
 
     @Test func aFailedTrashThrowsAndKeepsTheNoteAndItsFile() throws {
-        let store = NotesStore(folder: temp.url, now: { Self.fixedDate }, timeZone: Self.yerevan) { _ in
-            throw TrashFailed()
-        }
+        let store = makeStore { _ in throw TrashFailed() }
         let note = try savedNote(store.save("Can't trash me"))
 
         #expect(throws: TrashFailed.self) { try store.delete(note) }
@@ -424,6 +423,7 @@ extension NotesStoreTests {
 
 extension NotesStoreTests {
     /// Writes `contents` to `name` in the temp folder, as another program would.
+    /// `name` may be a relative path; its folders are created.
     @discardableResult
     func writeExternal(_ name: String, _ contents: String) throws -> URL {
         try writeExternal(name, Data(contents.utf8))
@@ -432,6 +432,7 @@ extension NotesStoreTests {
     @discardableResult
     func writeExternal(_ name: String, _ data: Data) throws -> URL {
         let url = temp.url.appending(path: name, directoryHint: .notDirectory)
+        try FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
         try data.write(to: url)
         return url
     }

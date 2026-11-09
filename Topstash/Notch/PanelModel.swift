@@ -29,8 +29,6 @@ final class PanelModel {
             }
         }
     }
-    /// Size of the visible shape, reported by `PanelView`. The controller's hover and click-through checks use it.
-    var contentSize: CGSize = .zero
     /// The `Note.id` (file URL) of the row showing "Copied", cleared by `AppModel.copy` after a moment.
     var copiedNote: Note.ID?
     /// Set by `AppModel.refreshSaveCard()` and `AppModel.showSaveResult(_:reverts:)`.

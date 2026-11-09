@@ -43,8 +43,7 @@ final class FolderWatcher {
         zip(paths, flags).contains { path, flags in
             if flags & Self.rescanFlags != 0 { return true }
             let url = URL(filePath: path, directoryHint: .notDirectory)
-            let name = url.lastPathComponent
-            guard !name.hasPrefix("."), url.pathExtension.lowercased() == "md" else { return false }
+            guard NotesStore.isNoteFile(named: url.lastPathComponent) else { return false }
             return Self.comparablePath(url.deletingLastPathComponent()) == resolvedFolderPath
         }
     }

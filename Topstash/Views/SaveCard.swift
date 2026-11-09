@@ -17,7 +17,8 @@ struct SaveCard: View {
                 card {
                     icon("tray.and.arrow.down")
                     VStack(alignment: .leading, spacing: PanelLayout.cardLineSpacing) {
-                        Text(Self.previewText(text))
+                        // Already cut to its start by `previewText(_:)` when the state was set.
+                        Text(text)
                             .font(.system(size: 12))
                             .lineLimit(3)
                             .multilineTextAlignment(.leading)
@@ -83,7 +84,7 @@ struct SaveCard: View {
     ) -> some View {
         cardLayout(content)
             .foregroundStyle(.white)
-            .background(.white.opacity(0.12), in: RoundedRectangle(cornerRadius: PanelLayout.cardCornerRadius))
+            .cardBackground()
             .contentShape(RoundedRectangle(cornerRadius: PanelLayout.cardCornerRadius))
             .accessibilityElement(children: combiningAccessibility ? .combine : .contain)
     }
@@ -269,10 +270,15 @@ extension SaveCardState {
     fileprivate static let savedResult = (text: "Saved", symbol: "checkmark.circle.fill")
 }
 
-private extension View {
+extension View {
+    /// The fill shared by the save card and the search field.
+    func cardBackground() -> some View {
+        background(.white.opacity(0.12), in: RoundedRectangle(cornerRadius: PanelLayout.cardCornerRadius))
+    }
+
     /// `hidden()` when `isHidden`: invisible, still taking up its space, and not hit-testable.
     @ViewBuilder
-    func hidden(_ isHidden: Bool) -> some View {
+    fileprivate func hidden(_ isHidden: Bool) -> some View {
         if isHidden { hidden() } else { self }
     }
 }

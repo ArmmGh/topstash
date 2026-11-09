@@ -141,7 +141,6 @@ final class AppModel {
     /// or refreshes the card itself when its time is up).
     func showSaveResult(_ result: Result<SaveResult, any Error>, reverts: Bool = true) {
         saveCardResetTask?.cancel()
-        saveCardResetTask = nil
         let state = Self.cardState(for: result)
         panel.saveCard = state
         if state == .saved {
@@ -157,7 +156,6 @@ final class AppModel {
         }
         guard reverts, let revertDelay else { return }
         saveCardResetTask = .afterDelay(revertDelay) { [weak self] in
-            self?.saveCardResetTask = nil
             self?.refreshSaveCard()
         }
     }
@@ -194,7 +192,6 @@ final class AppModel {
     /// plays: the saved text as if it were unsaved, so it has a card to fly up (#11).
     func showCardBeforeSave(of text: String) {
         saveCardResetTask?.cancel()
-        saveCardResetTask = nil
         panel.saveCard = Self.previewCard(for: text)
     }
 
@@ -222,13 +219,29 @@ final class AppModel {
     func setFolder(_ url: URL) throws {
         try FileManager.default.createDirectory(at: url, withIntermediateDirectories: true)
         defaults.set(url.path(percentEncoded: false), forKey: Preferences.notesFolderPathKey)
-        // #9's order: stop watching the old folder, then load the new one and watch it.
-        watcher?.stop()
         store = NotesStore(folder: url)
         startWatching(url)
         // "Copied" belongs to a note of the old folder, and the clipboard may count as saved now.
         panel.copiedNote = nil
         refreshSaveCard()
+    }
+
+    /// The size of the shape's body (without the outward top corners) in the current mode. `PanelView`
+    /// draws it, and `NotchPanelController` hit-tests against it.
+    var shapeSize: CGSize {
+        switch panel.mode {
+        case .closed:
+            panel.closedSize
+        case .open:
+            CGSize(
+                width: PanelLayout.panelWidth,
+                height: PanelLayout.recentPanelHeight(rowCount: min(store.notes.count, PanelLayout.recentCount))
+            )
+        case .search:
+            PanelLayout.searchSize
+        case .feedback:
+            CGSize(width: PanelLayout.panelWidth, height: PanelLayout.feedbackPanelHeight)
+        }
     }
 
     // MARK: - Context menu (#6)

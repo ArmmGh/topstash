@@ -6,7 +6,6 @@ import TopstashCore
 @MainActor
 final class NotchPanelController {
     private let appModel: AppModel
-    private let defaults: UserDefaults
     private let logger = Logger(category: "NotchPanel")
 
     private var window: NotchPanel?
@@ -36,9 +35,8 @@ final class NotchPanelController {
 
     private var panel: PanelModel { appModel.panel }
 
-    init(appModel: AppModel, defaults: UserDefaults = .standard) {
+    init(appModel: AppModel) {
         self.appModel = appModel
-        self.defaults = defaults
     }
 
     func start() {
@@ -102,7 +100,7 @@ final class NotchPanelController {
 
         guard let window, let openDisplayID else { return }
         if let screen = Self.screen(withID: openDisplayID), let area = hoverArea(on: openDisplayID) {
-            place(window, on: screen, centeredOn: area.rect, isNotch: area.isNotch)
+            place(window, on: screen, area: area)
         } else {
             // The panel's screen is gone: close right away, without the fade.
             panel.mode = .closed
@@ -163,7 +161,7 @@ final class NotchPanelController {
         cancelHoverDelay()
 
         // Read on every hover, so a change in Settings (#9) applies without a restart.
-        let delay = Preferences.hoverDelay(defaults)
+        let delay = Preferences.hoverDelay()
         let displayID = area.displayID
         hoverDisplayID = displayID
         hoverTask = .afterDelay(delay) { [weak self] in
@@ -182,10 +180,10 @@ final class NotchPanelController {
 
     // MARK: - Showing and hiding
 
-    /// The visible shape: `contentSize` hanging from the top center of the window.
+    /// The visible shape: `appModel.shapeSize` hanging from the top center of the window.
     private var visibleRect: NSRect {
         guard let window else { return .zero }
-        let size = panel.contentSize
+        let size = appModel.shapeSize
         let frame = window.frame
         return NSRect(x: frame.midX - size.width / 2, y: frame.maxY - size.height, width: size.width, height: size.height)
     }
@@ -202,13 +200,13 @@ final class NotchPanelController {
     }
 
     /// Top edge on the screen's top edge, centered on the hover area. The size never changes.
-    private func place(_ window: NotchPanel, on screen: NSScreen, centeredOn hoverRect: NSRect, isNotch: Bool) {
+    private func place(_ window: NotchPanel, on screen: NSScreen, area: HoverArea) {
         let size = PanelLayout.windowSize
-        let origin = NSPoint(x: hoverRect.midX - size.width / 2, y: screen.frame.maxY - size.height)
+        let origin = NSPoint(x: area.rect.midX - size.width / 2, y: screen.frame.maxY - size.height)
         window.setFrame(NSRect(origin: origin, size: size), display: false)
         // The shape grows out of, and collapses back into, the notch (#11). Without a notch it
         // collapses into the top edge: the hover strip is invisible, so no pill is drawn (story 6).
-        panel.closedSize = isNotch ? hoverRect.size : CGSize(width: hoverRect.width, height: 0)
+        panel.closedSize = area.isNotch ? area.rect.size : CGSize(width: area.rect.width, height: 0)
     }
 
     /// Opens as `.open`, or as `.feedback` for the shortcut, which keeps the card the shortcut set.
@@ -221,7 +219,7 @@ final class NotchPanelController {
         closeTask = nil
         isDismissed = false
 
-        place(window, on: screen, centeredOn: area.rect, isNotch: area.isNotch)
+        place(window, on: screen, area: area)
         openDisplayID = displayID
 
         // Re-evaluated on every open, because the clipboard may have changed while closed.
@@ -229,9 +227,6 @@ final class NotchPanelController {
             appModel.refreshSaveCard()
         }
         panel.mode = mode
-        // `contentSize` follows the new mode after the next layout; until the cursor moves, the
-        // shape counts as its closed size. On a notch that contains the cursor when it opened by
-        // hovering; without a notch it has no height, so the first click waits for a mouse move.
         updateClickThrough(at: NSEvent.mouseLocation)
         // Never makeKey or activate: the frontmost app keeps keyboard focus. Only search mode makes it key.
         window.orderFrontRegardless()
@@ -277,7 +272,6 @@ final class NotchPanelController {
     private func modeChanged(from old: PanelModel.Mode, to new: PanelModel.Mode) {
         if old == .feedback {
             feedbackTask?.cancel()
-            feedbackTask = nil
         }
         if new == .search {
             beginSearch()
@@ -409,7 +403,7 @@ final class NotchPanelController {
     /// The screen containing the cursor, else the main screen.
     private func displayIDUnderCursor() -> CGDirectDisplayID? {
         let location = NSEvent.mouseLocation
-        let screen = NSScreen.screens.first { NSMouseInRect(location, $0.frame, false) } ?? NSScreen.main
+        let screen = NSScreen.screens.first { Self.isPoint(location, in: $0.frame) } ?? NSScreen.main
         return screen.flatMap(Self.displayID(of:))
     }
 
@@ -417,9 +411,7 @@ final class NotchPanelController {
     private func startFeedbackTimer() {
         feedbackTask?.cancel()
         feedbackTask = .afterDelay(Motion.feedbackDuration) { [weak self] in
-            guard let self else { return }
-            self.feedbackTask = nil
-            self.feedbackEnded()
+            self?.feedbackEnded()
         }
     }
 

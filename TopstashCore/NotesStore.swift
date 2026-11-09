@@ -13,7 +13,9 @@ public enum SaveResult: Equatable, Sendable {
 public final class NotesStore {
     public let folder: URL
     /// Newest first.
-    public private(set) var notes: [Note] = []
+    public private(set) var notes: [Note] = [] {
+        didSet { notesByTrimmedBody = nil }
+    }
 
     private let now: () -> Date
     private let timeZone: TimeZone
@@ -35,8 +37,8 @@ public final class NotesStore {
 
     /// Bumped by every change to `notes`, so a background reload that started before it is dropped.
     @ObservationIgnored private var generation = 0
-    /// Each trimmed body, mapped to the newest note holding it, for `existingNote(for:)`.
-    /// Built on first use after `notes` changes; set to `nil` wherever `notes` is assigned.
+    /// Each trimmed body, mapped to the newest note holding it, for `existingNote(trimmed:)`.
+    /// Built on first use; cleared whenever `notes` changes.
     @ObservationIgnored private var notesByTrimmedBody: [String: Note]?
 
     /// Reads the folder on the calling (main) thread. Used when the store is created, so `notes`
@@ -64,7 +66,6 @@ public final class NotesStore {
         // Skipping an equal assignment keeps SwiftUI from redrawing for nothing.
         if loaded != notes {
             notes = loaded
-            notesByTrimmedBody = nil
         }
     }
 
@@ -73,14 +74,16 @@ public final class NotesStore {
     /// (Optimize Mac Storage) is skipped and its download started, instead of blocking until it
     /// arrives; the download's file change reloads again.
     private nonisolated static func loadNotes(in folder: URL) -> [Note] {
-        let keys: Set<URLResourceKey> = [.isRegularFileKey, .ubiquitousItemDownloadingStatusKey]
+        let keys: Set<URLResourceKey> = [
+            .isRegularFileKey, .ubiquitousItemDownloadingStatusKey, .creationDateKey, .contentModificationDateKey,
+        ]
         let urls = (try? FileManager.default.contentsOfDirectory(
             at: folder,
             includingPropertiesForKeys: Array(keys),
             options: .skipsHiddenFiles
         )) ?? []
         var loaded: [Note] = []
-        for url in urls where url.pathExtension.lowercased() == "md" {
+        for url in urls where isNoteFile(named: url.lastPathComponent) {
             let values = try? url.resourceValues(forKeys: keys)
             guard values?.isRegularFile == true else { continue }
             // Built from `folder` so ids match the URLs `save` returns.
@@ -91,7 +94,9 @@ public final class NotesStore {
                 continue
             }
             guard let data = try? Data(contentsOf: fileURL) else { continue }
-            switch NoteFile.note(from: data, fileURL: fileURL, fileDate: { fileDate(of: fileURL) }) {
+            // A file without a `created` falls back to its creation date, else its modification date.
+            let fileDate = { values?.creationDate ?? values?.contentModificationDate }
+            switch NoteFile.note(from: data, fileURL: fileURL, fileDate: fileDate) {
             case .success(let note):
                 loaded.append(note)
             case .failure(let reason):
@@ -104,10 +109,10 @@ public final class NotesStore {
 
     private nonisolated static let logger = Logger(category: "NotesStore")
 
-    /// The fallback `created` for a file without one: its creation date, else its modification date.
-    private nonisolated static func fileDate(of url: URL) -> Date? {
-        let values = try? url.resourceValues(forKeys: [.creationDateKey, .contentModificationDateKey])
-        return values?.creationDate ?? values?.contentModificationDate
+    /// Whether a file in the top level of the folder is read as a note: a visible `.md` file.
+    /// `FolderWatcher` uses it to ignore changes to anything else.
+    public nonisolated static func isNoteFile(named name: String) -> Bool {
+        !name.hasPrefix(".") && name.lowercased().hasSuffix(".md")
     }
 
     /// The newest notes, up to `limit`. Empty for a limit of 0 or less.
@@ -129,8 +134,9 @@ public final class NotesStore {
     /// `.alreadySaved` with the existing note; neither writes anything. Folder and write errors are thrown.
     @discardableResult
     public func save(_ text: String) throws -> SaveResult {
-        guard !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return .empty }
-        if let existing = existingNote(for: text) { return .alreadySaved(existing) }
+        let trimmed = Self.trimmed(text)
+        guard !trimmed.isEmpty else { return .empty }
+        if let existing = existingNote(trimmed: trimmed) { return .alreadySaved(existing) }
         try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
         // Whole seconds, so the note matches what the frontmatter stores.
         let created = Date(timeIntervalSince1970: now().timeIntervalSince1970.rounded(.down))
@@ -138,11 +144,14 @@ public final class NotesStore {
         let fileURL = NoteFile.availableURL(in: folder, created: created, timeZone: timeZone, body: text)
         let data = NoteFile.contents(noteID: noteID, created: created, timeZone: timeZone, body: text)
         try data.write(to: fileURL, options: .atomic)
-        let note = Note(noteID: noteID, created: created, type: NoteFile.noteType, body: text, fileURL: fileURL)
+        let note = Note(noteID: noteID, created: created, body: text, fileURL: fileURL)
         let index = notes.firstIndex { NoteFile.isOrderedBefore(note, $0) } ?? notes.endIndex
         generation += 1
+        // No note held this text, so the index only gains the new note instead of being rebuilt.
+        let byBody = notesByTrimmedBody
         notes.insert(note, at: index)
-        notesByTrimmedBody = nil
+        notesByTrimmedBody = byBody
+        notesByTrimmedBody?[trimmed] = note
         return .saved(note)
     }
 
@@ -160,7 +169,6 @@ public final class NotesStore {
         }
         generation += 1
         notes.removeAll { $0.id == note.id }
-        notesByTrimmedBody = nil
     }
 
     /// The default `trash`.
@@ -173,12 +181,11 @@ public final class NotesStore {
     /// Whether a note already holds `text`, ignoring only leading and trailing whitespace and newlines.
     /// Text that trims to empty never matches.
     public func contains(_ text: String) -> Bool {
-        existingNote(for: text) != nil
+        existingNote(trimmed: Self.trimmed(text)) != nil
     }
 
-    /// The newest note whose body equals `text` after trimming both.
-    private func existingNote(for text: String) -> Note? {
-        let trimmed = Self.trimmed(text)
+    /// The newest note whose trimmed body equals `trimmed`, text already trimmed by the caller.
+    private func existingNote(trimmed: String) -> Note? {
         guard !trimmed.isEmpty else { return nil }
         if notesByTrimmedBody == nil {
             var index: [String: Note] = [:]

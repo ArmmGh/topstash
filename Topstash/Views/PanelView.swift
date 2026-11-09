@@ -16,25 +16,11 @@ struct PanelView: View {
             content
         }
         .frame(width: PanelLayout.windowSize.width, height: PanelLayout.windowSize.height, alignment: .top)
-        .onChange(of: shapeSize, initial: true) { panel.contentSize = shapeSize }
     }
 
     // MARK: - Shape
 
-    /// The size of the shape's body (without the outward top corners) in the current mode.
-    private var shapeSize: CGSize {
-        switch panel.mode {
-        case .closed:
-            return panel.closedSize
-        case .open:
-            let rowCount = appModel.store.recent(limit: PanelLayout.recentCount).count
-            return CGSize(width: PanelLayout.panelWidth, height: PanelLayout.recentPanelHeight(rowCount: rowCount))
-        case .search:
-            return PanelLayout.searchSize
-        case .feedback:
-            return CGSize(width: PanelLayout.panelWidth, height: PanelLayout.feedbackPanelHeight)
-        }
-    }
+    private var shapeSize: CGSize { appModel.shapeSize }
 
     private var topCornerRadius: CGFloat {
         isOpen ? PanelLayout.topCornerRadius : PanelLayout.collapsedTopCornerRadius

@@ -10,7 +10,7 @@ enum PasteAccess: Equatable {
 /// A thin wrapper around `NSPasteboard`.
 @MainActor
 struct Clipboard {
-    var pasteboard: NSPasteboard = .general
+    private let pasteboard: NSPasteboard = .general
 
     /// The Paste privacy pane in System Settings.
     static let pastePrivacySettingsURL = URL(
