@@ -136,7 +136,14 @@ final class NotchPanelController {
             // `feedbackEnded()` decides when the time is up.
             break
         case .closed:
-            if closeTask != nil, !isDismissed, overOpenPanel {
+            if isDismissed {
+                // Stays closed until the cursor leaves the hover area and the fading shape;
+                // after that, hovering opens the panel again.
+                cancelHoverDelay()
+                if hovered == nil, !overOpenPanel {
+                    isDismissed = false
+                }
+            } else if closeTask != nil, overOpenPanel {
                 // The cursor came back during the fade.
                 closeTask?.cancel()
                 closeTask = nil
