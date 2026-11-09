@@ -126,19 +126,42 @@ enum NoteFile {
 
     /// The text after the title line with every whitespace run collapsed to one space, trimmed,
     /// and cut to 140 characters. Empty when nothing follows the title line.
+    /// Stops reading at the 140th character, so a long note costs no more than a short one.
     static func preview(of body: String) -> String {
         guard let rest = splitAtTitleLine(body)?.rest else { return "" }
-        let words = rest.split(whereSeparator: { $0.isWhitespace || $0.isNewline })
-        return String(words.joined(separator: " ").prefix(140))
+        let limit = 140
+        var preview = ""
+        var count = 0
+        var spaceBefore = false
+        for character in rest {
+            if character.isWhitespace {
+                spaceBefore = !preview.isEmpty
+                continue
+            }
+            if spaceBefore {
+                guard count < limit else { break }
+                preview.append(" ")
+                count += 1
+                spaceBefore = false
+            }
+            guard count < limit else { break }
+            preview.append(character)
+            count += 1
+        }
+        return preview
     }
 
-    /// The title line and everything after it.
+    /// The title line and everything after it. Reads lines only up to the title line.
     private static func splitAtTitleLine(_ body: String) -> (title: String, rest: Substring)? {
-        for line in body.split(omittingEmptySubsequences: false, whereSeparator: \.isNewline) {
-            let trimmed = line.trimmingCharacters(in: .whitespaces)
-            if trimmed.isEmpty || isCodeFence(trimmed) { continue }
-            let title = trimmed.drop { $0 == "#" }.trimmingCharacters(in: .whitespaces)
-            if !title.isEmpty { return (title, body[line.endIndex...]) }
+        var lineStart = body.startIndex
+        while lineStart < body.endIndex {
+            let lineEnd = body[lineStart...].firstIndex(where: \.isNewline) ?? body.endIndex
+            let trimmed = body[lineStart ..< lineEnd].trimmingCharacters(in: .whitespaces)
+            if !trimmed.isEmpty, !isCodeFence(trimmed) {
+                let title = trimmed.drop { $0 == "#" }.trimmingCharacters(in: .whitespaces)
+                if !title.isEmpty { return (title, body[lineEnd...]) }
+            }
+            lineStart = lineEnd < body.endIndex ? body.index(after: lineEnd) : body.endIndex
         }
         return nil
     }
