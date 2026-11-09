@@ -35,6 +35,9 @@ public final class NotesStore {
 
     /// Bumped by every change to `notes`, so a background reload that started before it is dropped.
     @ObservationIgnored private var generation = 0
+    /// Each trimmed body, mapped to the newest note holding it, for `existingNote(for:)`.
+    /// Built on first use after `notes` changes; set to `nil` wherever `notes` is assigned.
+    @ObservationIgnored private var notesByTrimmedBody: [String: Note]?
 
     /// Reads the folder on the calling (main) thread. Used when the store is created, so `notes`
     /// is filled from the start; folder changes use `reloadInBackground()`.
@@ -61,6 +64,7 @@ public final class NotesStore {
         // Skipping an equal assignment keeps SwiftUI from redrawing for nothing.
         if loaded != notes {
             notes = loaded
+            notesByTrimmedBody = nil
         }
     }
 
@@ -138,6 +142,7 @@ public final class NotesStore {
         let index = notes.firstIndex { NoteFile.isOrderedBefore(note, $0) } ?? notes.endIndex
         generation += 1
         notes.insert(note, at: index)
+        notesByTrimmedBody = nil
         return .saved(note)
     }
 
@@ -155,6 +160,7 @@ public final class NotesStore {
         }
         generation += 1
         notes.removeAll { $0.id == note.id }
+        notesByTrimmedBody = nil
     }
 
     /// The default `trash`.
@@ -170,11 +176,20 @@ public final class NotesStore {
         existingNote(for: text) != nil
     }
 
-    /// The newest note whose body equals `text` after trimming both. A linear scan over `notes`.
+    /// The newest note whose body equals `text` after trimming both.
     private func existingNote(for text: String) -> Note? {
         let trimmed = Self.trimmed(text)
         guard !trimmed.isEmpty else { return nil }
-        return notes.first { Self.trimmed($0.body) == trimmed }
+        if notesByTrimmedBody == nil {
+            var index: [String: Note] = [:]
+            // `notes` is newest first, so the first note seen for a body is kept.
+            for note in notes {
+                let key = Self.trimmed(note.body)
+                if index[key] == nil { index[key] = note }
+            }
+            notesByTrimmedBody = index
+        }
+        return notesByTrimmedBody?[trimmed]
     }
 
     private static func trimmed(_ text: String) -> String {
