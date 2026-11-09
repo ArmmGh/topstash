@@ -223,13 +223,23 @@ struct SaveCardSlot: View {
 /// next to the search field.
 struct SaveStatusBadge: View {
     let state: SaveCardState
+    /// 0 with Reduce Motion, otherwise `saveCount`.
     let bounceTrigger: Int
+
+    /// Bumped when the badge appears showing a new save, and on every save while it's shown. The
+    /// badge is inserted in the same update that bumps `saveCount`, so a `symbolEffect` keyed on
+    /// `bounceTrigger` alone would see no change for the first save.
+    @State private var bounces = 0
 
     var body: some View {
         if let result = state.result {
             HStack(spacing: PanelLayout.inlineSpacing) {
                 Image(systemName: result.symbol)
-                    .symbolEffect(.bounce, value: bounceTrigger)
+                    .symbolEffect(.bounce, value: bounces)
+                    .task {
+                        if state == .saved, bounceTrigger != 0 { bounces += 1 }
+                    }
+                    .onChange(of: bounceTrigger) { bounces += 1 }
                 Text(result.text)
             }
             .font(.system(size: 11, weight: .medium))
