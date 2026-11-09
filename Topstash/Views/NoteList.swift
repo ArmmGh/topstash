@@ -5,6 +5,8 @@ import TopstashCore
 /// Shared by the recent list and the search results (#5).
 struct NoteList: View {
     let appModel: AppModel
+    /// Closes the panel after Open in Editor.
+    let actions: any PanelActions
     let notes: [Note]
     let emptyText: LocalizedStringKey
     /// The search results scroll; the recent list always fits.
@@ -30,7 +32,10 @@ struct NoteList: View {
             NoteRow(
                 note: note,
                 isCopied: appModel.panel.copiedNote == note.id,
-                openInEditor: { appModel.openInEditor(note) },
+                openInEditor: {
+                    appModel.openInEditor(note)
+                    actions.dismissAfterAction()
+                },
                 delete: { appModel.delete(note) }
             ) {
                 appModel.copy(note)
