@@ -93,9 +93,29 @@ struct SaveCardStateTests {
         }
 
         appModel.copy(note)
+        appModel.refreshSaveCard()
 
         #expect(appModel.panel.saveCard == .alreadySaved)
         #expect(clipboard.readCount == 0)
+    }
+
+    /// The card would shrink to "Already saved" and move the list, with the row just clicked,
+    /// out from under the cursor. It catches up the next time it's refreshed, as when the panel opens.
+    @Test func copyingKeepsTheCardUntilItsNextRefresh() throws {
+        let clipboard = FakeClipboard(text: "Call mom")
+        let appModel = makeAppModel(clipboard: clipboard)
+        guard case .saved(let note) = try appModel.store.save("Buy milk") else {
+            Issue.record("The note wasn't saved")
+            return
+        }
+        appModel.refreshSaveCard()
+        let card = appModel.panel.saveCard
+
+        appModel.copy(note)
+
+        #expect(appModel.panel.saveCard == card)
+        appModel.refreshSaveCard()
+        #expect(appModel.panel.saveCard == .alreadySaved)
     }
 
     @Test func textTheAppSavedIsAlreadySavedWithoutReadingAgainWhenReadingWouldPrompt() {

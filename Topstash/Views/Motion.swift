@@ -53,6 +53,8 @@ enum Motion {
     static let reduced: Animation = .easeOut(duration: reducedDuration)
     /// The save card's dip while pressed.
     static let press: Animation = .snappy(duration: pressDuration)
+    /// "Copied" taking the place of a row's preview, and the preview coming back.
+    static let copiedSwap: Animation = .snappy(duration: contentInDuration)
     /// The saved card shrinking up into the notch.
     static let flyUp: Animation = .easeIn(duration: flyUpDuration)
 
@@ -64,6 +66,8 @@ enum Motion {
     static let gulpScale: CGFloat = 1.04
     /// How small the saved card gets as it flies into the notch.
     static let flyUpScale: CGFloat = 0.2
+    /// How far "Copied" rises into a row's preview line, and the preview rises out of it.
+    static let copiedRise: CGFloat = 6
 
     // MARK: Composed
 
@@ -81,6 +85,18 @@ enum Motion {
     /// out with opacity only. Only opacity with Reduce Motion.
     static func content(reduceMotion: Bool) -> AnyTransition {
         .asymmetric(insertion: contentInsertion(reduceMotion: reduceMotion), removal: .opacity.animation(contentOut))
+    }
+
+    /// A row's preview line switching between the preview and "Copied": the new line rises in from
+    /// below with blur, like panel content, while the old one rises out. Only cross-fades with Reduce Motion.
+    static func copiedLine(reduceMotion: Bool) -> AnyTransition {
+        guard !reduceMotion else { return .opacity }
+        return .asymmetric(
+            insertion: .opacity
+                .combined(with: .modifier(active: Blur(radius: contentInBlur / 2), identity: Blur(radius: 0)))
+                .combined(with: .offset(y: copiedRise)),
+            removal: .opacity.combined(with: .offset(y: -copiedRise))
+        )
     }
 
     /// The save card: it flies up into the notch (`flyUpOffset`) when saved and comes back like panel content.

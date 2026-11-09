@@ -63,17 +63,20 @@ final class AppModel {
         }
     }
 
-    /// Copies the note's full body to the clipboard and shows "Copied" on its row for a moment.
-    /// Nothing about the note or the order of notes changes.
+    /// Copies the note's full body to the clipboard and shows "Copied" on its row for a moment,
+    /// with the same haptic as a save. Nothing about the note or the order of notes changes.
     func copy(_ note: Note) {
         clipboard.write(note.body)
         knownClipboard = (note.body, clipboard.changeCount)
         panel.copiedNote = note.id
+        panel.copyCount += 1
+        NSHapticFeedbackManager.defaultPerformer.perform(.generic, performanceTime: .now)
         copiedReset.schedule(after: Motion.copiedDuration) { [weak self] in
             self?.panel.copiedNote = nil
         }
-        // The clipboard now holds a saved note, so the card reads "Already saved".
-        refreshSaveCard()
+        // The card isn't refreshed: as "Already saved" it would shrink and move the list, with the
+        // row just clicked, out from under the cursor. It catches up when the panel next opens, and
+        // a click on it meanwhile finds the note already saved.
     }
 
     // MARK: - Save card

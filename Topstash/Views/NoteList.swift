@@ -45,6 +45,7 @@ struct NoteList: View {
                 note: note,
                 query: query,
                 isCopied: appModel.panel.copiedNote == note.id,
+                copyCount: appModel.panel.copyCount,
                 isSelected: selectedNote == note.id,
                 openInEditor: {
                     appModel.openInEditor(note)

@@ -36,6 +36,18 @@ struct FeedbackTimingTests {
         #expect(appModel.panel.copiedNote == nil)
     }
 
+    /// Every copy bumps the count, even of the row already showing "Copied", so its checkmark
+    /// bounces again.
+    @Test func everyCopyCountsSoTheCheckmarkBouncesAgain() throws {
+        let appModel = makeAppModel(clipboard: FakeClipboard(text: nil))
+        let note = try savedNote("Buy milk", in: appModel)
+
+        appModel.copy(note)
+        appModel.copy(note)
+
+        #expect(appModel.panel.copyCount == 2)
+    }
+
     @Test func copyingAnotherNoteRestartsCopied() throws {
         let appModel = makeAppModel(clipboard: FakeClipboard(text: nil))
         let first = try savedNote("Buy milk", in: appModel)

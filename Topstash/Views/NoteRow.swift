@@ -10,6 +10,8 @@ struct NoteRow: View {
     let query: String?
     /// Shows "Copied" in place of the preview.
     let isCopied: Bool
+    /// `PanelModel.copyCount`: bounces the checkmark on every copy.
+    let copyCount: Int
     /// The search result ↑/↓ selected, which Return copies.
     let isSelected: Bool
     let openInEditor: () -> Void
@@ -18,6 +20,7 @@ struct NoteRow: View {
 
     @State private var isHovered = false
     @Environment(\.colorSchemeContrast) private var contrast
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         let preview = previewText
@@ -30,14 +33,16 @@ struct NoteRow: View {
                     // A one-line note has no preview, so its title centers in the row.
                     Group {
                         if isCopied {
-                            Label("Copied", systemImage: "checkmark")
+                            CopiedLabel(bounceTrigger: reduceMotion ? 0 : copyCount)
                         } else if !preview.characters.isEmpty {
                             Text(preview)
+                                .foregroundStyle(PanelStyle.secondary)
                         }
                     }
                     .font(PanelStyle.meta)
-                    .foregroundStyle(PanelStyle.secondary)
+                    .transition(Motion.copiedLine(reduceMotion: reduceMotion))
                 }
+                .animation(reduceMotion ? Motion.reduced : Motion.copiedSwap, value: isCopied)
                 .lineLimit(1)
                 .truncationMode(.tail)
                 Spacer(minLength: 0)
@@ -51,15 +56,17 @@ struct NoteRow: View {
             // Every row is exactly this tall: `PanelLayout.scrollOffset` works out where rows are from it.
             .frame(height: PanelLayout.rowHeight)
             .background {
-                // Hovering another row shows its fill without moving the selection.
-                if isSelected || isHovered { rowShape.fill(PanelStyle.hoverFill) }
+                // Hovering another row shows its fill without moving the selection. The copied row
+                // keeps its fill while it shows "Copied", wherever the cursor goes.
+                if isSelected || isHovered || isCopied { rowShape.fill(PanelStyle.hoverFill) }
                 if isSelected {
                     rowShape.strokeBorder(PanelStyle.selectionRing, lineWidth: PanelLayout.selectionRingWidth)
                 }
             }
             .contentShape(rowShape)
         }
-        .buttonStyle(.plain)
+        // Dips while pressed, like the save card.
+        .buttonStyle(PressDipButtonStyle())
         .accessibilityAddTraits(isSelected ? .isSelected : [])
         .contextMenu {
             Button("Open in Editor", action: openInEditor)
@@ -96,5 +103,28 @@ struct NoteRow: View {
 
     private var rowShape: RoundedRectangle {
         RoundedRectangle(cornerRadius: PanelLayout.rowCornerRadius)
+    }
+}
+
+/// "Copied" with the save's checkmark, in the primary color, which bounces as it comes in and on
+/// every copy after. Not with Reduce Motion (`bounceTrigger` 0).
+private struct CopiedLabel: View {
+    let bounceTrigger: Int
+
+    /// Bumped when the label appears and on every copy while it shows: it's inserted in the same
+    /// update that bumps `copyCount`, so a `symbolEffect` keyed on the count alone wouldn't play
+    /// the first time (as in `SaveStatusBadge`).
+    @State private var bounces = 0
+
+    var body: some View {
+        HStack(spacing: PanelLayout.inlineSpacing) {
+            Image(systemName: "checkmark.circle.fill")
+                .symbolEffect(.bounce, value: bounces)
+                .task { if bounceTrigger != 0 { bounces += 1 } }
+                .onChange(of: bounceTrigger) { bounces += 1 }
+            Text("Copied")
+        }
+        .foregroundStyle(PanelStyle.primary)
+        .accessibilityElement(children: .combine)
     }
 }

@@ -82,6 +82,9 @@ final class PanelModel {
     /// Counts new saves, bumped by `AppModel` with the haptic. Its changes trigger the checkmark
     /// bounce and the notch's gulp.
     var saveCount = 0
+    /// Counts copies, bumped by `AppModel` with the haptic. Its changes bounce the "Copied" checkmark,
+    /// also when the row already shows it.
+    var copyCount = 0
 }
 
 /// What the save card shows. Only `.preview` and `.readyWithoutPreview` are clickable.
