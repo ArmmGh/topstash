@@ -5,7 +5,7 @@ struct TopstashApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
 
     var body: some Scene {
-        MenuBarExtra("Topstash", systemImage: SaveCard.saveSymbol) {
+        MenuBarExtra("Topstash", systemImage: PanelStyle.saveSymbol) {
             MenuBarMenu(appModel: appDelegate.appModel)
         }
         Settings {

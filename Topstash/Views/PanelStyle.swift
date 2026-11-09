@@ -35,15 +35,18 @@ enum PanelStyle {
     static let meta = Font.system(size: 11).monospacedDigit()
     /// The "Saved" checkmark, the one symbol larger than the text beside it.
     static let savedIcon = Font.system(size: 22, weight: .semibold)
+
+    // MARK: - Symbols
+
+    /// The arrow out of the tray: the clipboard text going up into the notch. On the save card and
+    /// in the menu bar.
+    static let saveSymbol = "tray.and.arrow.up"
 }
 
 /// White at an opacity that steps up when Increase Contrast is on.
 struct PanelColor: ShapeStyle {
     let standard: Double
     let increased: Double
-
-    /// No fill, for a state that shows none.
-    static let clear = PanelColor(standard: 0, increased: 0)
 
     func resolve(in environment: EnvironmentValues) -> Color {
         Color.white.opacity(environment.colorSchemeContrast == .increased ? increased : standard)

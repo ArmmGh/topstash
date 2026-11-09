@@ -51,7 +51,7 @@ struct PanelShapeSizeTests {
         #expect(size == CGSize(width: 400, height: 142))
     }
 
-    @Test func switchingBetweenTheListAndSearchChangesOnlyTheHeight() {
+    @Test func listAndSearchHaveTheSameWidth() {
         let notch = CGSize(width: 185, height: 32)
 
         let open = PanelLayout.shapeSize(for: .open, closedSize: notch, noteCount: 5)

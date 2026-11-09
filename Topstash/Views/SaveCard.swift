@@ -15,7 +15,7 @@ struct SaveCard: View {
         case .preview(let text, let characterCount):
             Button(action: action) {
                 card {
-                    icon(Self.saveSymbol)
+                    icon(PanelStyle.saveSymbol)
                     VStack(alignment: .leading, spacing: PanelLayout.cardLineSpacing) {
                         // Already cut to its start by `previewText(_:)` when the state was set.
                         Text(text)
@@ -100,7 +100,7 @@ struct SaveCard: View {
     @ViewBuilder
     private func readyWithoutPreviewContent(link: SettingsLink) -> some View {
         let hidesRest = link == .hitArea
-        icon(Self.saveSymbol)
+        icon(PanelStyle.saveSymbol)
             .hidden(hidesRest)
         VStack(alignment: .leading, spacing: PanelLayout.cardLineSpacing) {
             label("Text ready to save")
@@ -157,12 +157,12 @@ struct SaveCard: View {
         NSWorkspace.shared.open(SystemClipboard.pastePrivacySettingsURL)
     }
 
-    /// Sized from the `title` font beside it, a scale up.
+    /// Sized from the `title` font beside it. Leading in its frame, so every symbol starts at the
+    /// same 24 pt edge as the row text.
     private func icon(_ systemName: String) -> some View {
         Image(systemName: systemName)
             .font(PanelStyle.title)
-            .imageScale(.large)
-            .frame(width: PanelLayout.cardIconWidth)
+            .frame(width: PanelLayout.cardIconWidth, alignment: .leading)
     }
 
     private func label(_ text: String) -> some View {
@@ -178,9 +178,6 @@ struct SaveCard: View {
             ?? text.startIndex
         return String(text[lineStart...].prefix(previewCharacterLimit))
     }
-
-    /// The arrow out of the tray: the clipboard text going up into the notch. Also the menu bar icon.
-    static let saveSymbol = "tray.and.arrow.up"
 
     /// "Click to save · 1 character", "Click to save · 1,234 characters".
     static func saveHintText(_ count: Int, locale: Locale = .current) -> String {

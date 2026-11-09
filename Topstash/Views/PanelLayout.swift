@@ -33,7 +33,8 @@ enum PanelLayout {
     static let inset: CGFloat = 12
 
     static let cardCornerRadius: CGFloat = 12
-    /// Fits three 16 pt preview lines, the 4 pt gap, the 13 pt hint, and `inset` above and below.
+    /// Fits three 16 pt preview lines, the 4 pt gap, the 13 pt hint, and `inset` above and below
+    /// (89 pt), rounded up to the 4 pt grid.
     static let saveCardHeight: CGFloat = 92
     /// Between the card's icon and its text.
     static let cardIconSpacing: CGFloat = 12

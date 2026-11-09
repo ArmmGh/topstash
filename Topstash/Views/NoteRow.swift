@@ -42,7 +42,9 @@ struct NoteRow: View {
             }
             .padding(.horizontal, PanelLayout.inset)
             .frame(height: PanelLayout.rowHeight)
-            .background(isHovered ? PanelStyle.hoverFill : PanelColor.clear, in: rowShape)
+            .background {
+                if isHovered { rowShape.fill(PanelStyle.hoverFill) }
+            }
             .contentShape(rowShape)
         }
         .buttonStyle(.plain)
