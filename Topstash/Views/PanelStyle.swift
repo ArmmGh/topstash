@@ -33,7 +33,10 @@ enum PanelStyle {
     static let body = Font.system(size: 13)
     /// Small lines: row previews, ages, counts, and hints. Digits are monospaced so counts don't jitter.
     static let meta = Font.system(size: 11).monospacedDigit()
-    /// The "Saved" checkmark, the one symbol larger than the text beside it.
+    /// The save card's symbol: the system's Title 3 (15 pt), a step above the 13 pt text beside it,
+    /// as in the prototype, so it reads as the card's icon rather than a glyph in the text.
+    static let cardIcon = Font.title3.weight(.medium)
+    /// The "Saved" checkmark, the one symbol much larger than the text beside it.
     static let savedIcon = Font.system(size: 22, weight: .semibold)
 
     // MARK: - Symbols

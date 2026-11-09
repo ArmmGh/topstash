@@ -44,20 +44,18 @@ struct SaveCard: View {
                 cardLayout { readyWithoutPreviewContent(link: .hitArea) }
             }
         case .accessDenied:
-            card(combiningAccessibility: false) {
+            card(style: PanelStyle.secondary, combiningAccessibility: false) {
                 icon("hand.raised")
                 VStack(alignment: .leading, spacing: PanelLayout.cardLineSpacing) {
                     label("Topstash can't read the clipboard")
                     settingsHint("Allow paste access to save from here", link: .button)
                 }
             }
-            .foregroundStyle(PanelStyle.secondary)
         case .alreadySaved:
-            resultCard(.alreadySaved)
-                .foregroundStyle(PanelStyle.secondary)
+            // Dimmer: nothing to do.
+            resultCard(.alreadySaved, style: PanelStyle.secondary)
         case .nothingToSave:
-            resultCard(.nothingToSave)
-                .foregroundStyle(PanelStyle.tertiary)
+            resultCard(.nothingToSave, style: PanelStyle.tertiary)
         case .saved:
             // `SaveCardSlot` shows its checkmark instead of a card.
             EmptyView()
@@ -67,20 +65,22 @@ struct SaveCard: View {
     }
 
     /// A card with only the result's label.
-    private func resultCard(_ result: ClipboardSaveResult) -> some View {
-        card {
+    private func resultCard(_ result: ClipboardSaveResult, style: PanelColor = PanelStyle.primary) -> some View {
+        card(style: style) {
             icon(result.label.symbol)
             label(result.label.text)
         }
     }
 
+    /// `style` colors the card's text and symbol; text with its own style, such as the hint, keeps it.
     /// `combiningAccessibility: false` keeps the settings link a separate accessibility element.
     private func card(
+        style: PanelColor = PanelStyle.primary,
         combiningAccessibility: Bool = true,
         @ViewBuilder _ content: () -> some View
     ) -> some View {
         cardLayout(content)
-            .foregroundStyle(PanelStyle.primary)
+            .foregroundStyle(style)
             .cardBackground()
             .contentShape(RoundedRectangle(cornerRadius: PanelLayout.cardCornerRadius))
             .accessibilityElement(children: combiningAccessibility ? .combine : .contain)
@@ -157,11 +157,10 @@ struct SaveCard: View {
         NSWorkspace.shared.open(SystemClipboard.pastePrivacySettingsURL)
     }
 
-    /// Sized from the `title` font beside it. Leading in its frame, so every symbol starts at the
-    /// same 24 pt edge as the row text.
+    /// Leading in its frame, so every symbol starts at the same 24 pt edge as the row text.
     private func icon(_ systemName: String) -> some View {
         Image(systemName: systemName)
-            .font(PanelStyle.title)
+            .font(PanelStyle.cardIcon)
             .frame(width: PanelLayout.cardIconWidth, alignment: .leading)
     }
 
