@@ -31,8 +31,8 @@ final class AppModel {
         startWatching(folder)
     }
 
-    /// Reloads the store whenever the folder changes on disk. Our own saves trigger a reload too,
-    /// which is harmless: `reload()` assigns `notes` only when something changed.
+    /// Reloads the store, off the main thread, whenever the folder changes on disk. Our own saves
+    /// trigger a reload too, which is harmless: `notes` is assigned only when something changed.
     @ObservationIgnored
     private var watcher: FolderWatcher?
 
@@ -40,7 +40,7 @@ final class AppModel {
     private func startWatching(_ folder: URL) {
         watcher?.stop()
         let watcher = FolderWatcher(folder: folder) { [weak self] in
-            self?.store.reload()
+            self?.store.reloadInBackground()
         }
         watcher.start()
         self.watcher = watcher

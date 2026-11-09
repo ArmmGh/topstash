@@ -33,38 +33,75 @@ public final class NotesStore {
         reload()
     }
 
-    /// Reads every visible `.md` file in the top level of the folder, skipping files that don't parse.
-    /// A missing folder means no notes. Assigns `notes` only when the result differs.
+    /// Bumped by every change to `notes`, so a background reload that started before it is dropped.
+    @ObservationIgnored private var generation = 0
+
+    /// Reads the folder on the calling (main) thread. Used when the store is created, so `notes`
+    /// is filled from the start; folder changes use `reloadInBackground()`.
+    /// Assigns `notes` only when the result differs.
     public func reload() {
-        let urls = (try? FileManager.default.contentsOfDirectory(
-            at: folder,
-            includingPropertiesForKeys: [.isRegularFileKey],
-            options: .skipsHiddenFiles
-        )) ?? []
-        var loaded: [Note] = []
-        for url in urls where url.pathExtension.lowercased() == "md" {
-            guard (try? url.resourceValues(forKeys: [.isRegularFileKey]))?.isRegularFile == true else { continue }
-            // Built from `folder` so ids match the URLs `save` returns.
-            let fileURL = folder.appending(path: url.lastPathComponent, directoryHint: .notDirectory)
-            guard let data = try? Data(contentsOf: fileURL) else { continue }
-            switch NoteFile.note(from: data, fileURL: fileURL, fileDate: { Self.fileDate(of: fileURL) }) {
-            case .success(let note):
-                loaded.append(note)
-            case .failure(let reason):
-                Self.logger.debug("Skipped \(fileURL.lastPathComponent, privacy: .public): \(reason.rawValue, privacy: .public)")
-            }
+        generation += 1
+        apply(Self.loadNotes(in: folder))
+    }
+
+    /// Reads the folder off the main thread, then assigns `notes` unless a save, a delete, or a newer
+    /// reload happened in the meantime (the file change behind it triggers another reload).
+    public func reloadInBackground() {
+        generation += 1
+        let started = generation
+        let folder = folder
+        Task {
+            let loaded = await Task.detached(priority: .userInitiated) { Self.loadNotes(in: folder) }.value
+            guard started == generation else { return }
+            apply(loaded)
         }
-        loaded.sort(by: NoteFile.isOrderedBefore)
+    }
+
+    private func apply(_ loaded: [Note]) {
         // Skipping an equal assignment keeps SwiftUI from redrawing for nothing.
         if loaded != notes {
             notes = loaded
         }
     }
 
-    private static let logger = Logger(category: "NotesStore")
+    /// Every visible `.md` file in the top level of `folder`, newest first, skipping files that don't
+    /// parse. A missing folder means no notes. An iCloud file whose contents aren't on this Mac
+    /// (Optimize Mac Storage) is skipped and its download started, instead of blocking until it
+    /// arrives; the download's file change reloads again.
+    private nonisolated static func loadNotes(in folder: URL) -> [Note] {
+        let keys: Set<URLResourceKey> = [.isRegularFileKey, .ubiquitousItemDownloadingStatusKey]
+        let urls = (try? FileManager.default.contentsOfDirectory(
+            at: folder,
+            includingPropertiesForKeys: Array(keys),
+            options: .skipsHiddenFiles
+        )) ?? []
+        var loaded: [Note] = []
+        for url in urls where url.pathExtension.lowercased() == "md" {
+            let values = try? url.resourceValues(forKeys: keys)
+            guard values?.isRegularFile == true else { continue }
+            // Built from `folder` so ids match the URLs `save` returns.
+            let fileURL = folder.appending(path: url.lastPathComponent, directoryHint: .notDirectory)
+            if let status = values?.ubiquitousItemDownloadingStatus, status != .current {
+                try? FileManager.default.startDownloadingUbiquitousItem(at: fileURL)
+                logger.debug("Skipped \(fileURL.lastPathComponent, privacy: .public): not downloaded from iCloud yet")
+                continue
+            }
+            guard let data = try? Data(contentsOf: fileURL) else { continue }
+            switch NoteFile.note(from: data, fileURL: fileURL, fileDate: { fileDate(of: fileURL) }) {
+            case .success(let note):
+                loaded.append(note)
+            case .failure(let reason):
+                logger.debug("Skipped \(fileURL.lastPathComponent, privacy: .public): \(reason.rawValue, privacy: .public)")
+            }
+        }
+        loaded.sort(by: NoteFile.isOrderedBefore)
+        return loaded
+    }
+
+    private nonisolated static let logger = Logger(category: "NotesStore")
 
     /// The fallback `created` for a file without one: its creation date, else its modification date.
-    private static func fileDate(of url: URL) -> Date? {
+    private nonisolated static func fileDate(of url: URL) -> Date? {
         let values = try? url.resourceValues(forKeys: [.creationDateKey, .contentModificationDateKey])
         return values?.creationDate ?? values?.contentModificationDate
     }
@@ -99,6 +136,7 @@ public final class NotesStore {
         try data.write(to: fileURL, options: .atomic)
         let note = Note(noteID: noteID, created: created, type: NoteFile.noteType, body: text, fileURL: fileURL)
         let index = notes.firstIndex { NoteFile.isOrderedBefore(note, $0) } ?? notes.endIndex
+        generation += 1
         notes.insert(note, at: index)
         return .saved(note)
     }
@@ -115,6 +153,7 @@ public final class NotesStore {
         } catch {
             // Already removed on disk: nothing to move.
         }
+        generation += 1
         notes.removeAll { $0.id == note.id }
     }
 

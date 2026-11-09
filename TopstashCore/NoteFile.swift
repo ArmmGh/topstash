@@ -61,7 +61,7 @@ enum NoteFile {
         // Other types are reserved for later versions, so they're skipped rather than shown as text.
         guard (fields["type"] ?? "").isEmpty || fields["type"] == noteType else { return .failure(.unsupportedType) }
         let noteID = fields["id"].flatMap { $0.isEmpty ? nil : $0 } ?? fallbackID(for: fileURL)
-        let created = fields["created"].flatMap { ISO8601DateFormatter().date(from: $0) } ?? fileDate() ?? .distantPast
+        let created = fields["created"].flatMap { createdParser.date(from: $0) } ?? fileDate() ?? .distantPast
         return .success(Note(noteID: noteID, created: created, type: noteType, body: String(body), fileURL: fileURL))
     }
 
@@ -73,6 +73,8 @@ enum NoteFile {
         /// The lines between the `---` lines, and everything after the closing line's line break.
         case closed(lines: ArraySlice<Substring>, body: Substring)
     }
+    /// Shared because `reload()` parses one date per file. `ISO8601DateFormatter` is thread-safe.
+    nonisolated(unsafe) private static let createdParser = ISO8601DateFormatter()
 
     /// Lines end at `\n` or `\r\n`, so a `---` line may have a trailing `\r`.
     private static func frontmatter(of text: String) -> Frontmatter {
