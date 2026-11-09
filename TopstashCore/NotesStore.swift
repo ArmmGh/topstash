@@ -46,8 +46,11 @@ public final class NotesStore {
     /// it can describe (a save adds one body), otherwise it's cleared and rebuilt on next use.
     private func setNotes(_ newNotes: [Note], indexing: ((inout [String: Note]) -> Void)? = nil) {
         generation += 1
-        if let indexing, notesByTrimmedBody != nil {
-            indexing(&notesByTrimmedBody!)
+        if let indexing, var index = notesByTrimmedBody {
+            // Released first, so `index` is the only reference and is updated without a copy.
+            notesByTrimmedBody = nil
+            indexing(&index)
+            notesByTrimmedBody = index
         } else {
             notesByTrimmedBody = nil
         }
