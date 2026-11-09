@@ -73,6 +73,22 @@ enum PanelLayout {
             + sectionSpacing + showAllHeight + contentPadding
     }
 
+    /// The size of the shape's body (without the outward top corners) in `mode`. `closedSize` is the
+    /// notch's size (or the hover strip's, on screens without one); `noteCount` is how many notes
+    /// the store holds, of which the open panel lists up to `recentCount`.
+    static func shapeSize(for mode: PanelModel.Mode, closedSize: CGSize, noteCount: Int) -> CGSize {
+        switch mode {
+        case .closed:
+            closedSize
+        case .open:
+            CGSize(width: panelWidth, height: recentPanelHeight(rowCount: min(noteCount, recentCount)))
+        case .search:
+            searchSize
+        case .feedback:
+            CGSize(width: panelWidth, height: feedbackPanelHeight)
+        }
+    }
+
     /// The shape's height in the shortcut's feedback (#10): only the save card.
     static let feedbackPanelHeight: CGFloat = notchClearance + saveCardHeight + contentPadding
 
