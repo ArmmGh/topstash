@@ -55,3 +55,34 @@ final class NotchPanel: NSPanel {
 private final class FirstMouseHostingView<Content: View>: NSHostingView<Content> {
     override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
 }
+
+/// An invisible, never-visible-to-the-user panel whose only job is to take key status from the
+/// notch panel and give it straight back to the frontmost app (see `handBackKey()`).
+final class KeyHandbackPanel: NSPanel {
+    init() {
+        super.init(
+            contentRect: NSRect(x: 0, y: 0, width: 1, height: 1),
+            styleMask: [.borderless, .nonactivatingPanel],
+            backing: .buffered,
+            defer: true
+        )
+        isOpaque = false
+        backgroundColor = .clear
+        alphaValue = 0
+        hasShadow = false
+        ignoresMouseEvents = true
+        hidesOnDeactivate = false
+        isReleasedWhenClosed = false
+        collectionBehavior = [.fullScreenAuxiliary, .canJoinAllSpaces, .stationary, .ignoresCycle]
+    }
+
+    override var canBecomeKey: Bool { true }
+    override var canBecomeMain: Bool { false }
+
+    /// Becomes key, then orders out: like any key panel of a non-active app that is ordered out,
+    /// key status returns to the frontmost app's window.
+    func handBackKey() {
+        makeKeyAndOrderFront(nil)
+        orderOut(nil)
+    }
+}

@@ -10,6 +10,8 @@ final class NotchPanelController {
     private let logger = Logger(category: "NotchPanel")
 
     private var window: NotchPanel?
+    /// Hands key status back to the frontmost app when search closes, without ordering `window` out.
+    private let keyHandback = KeyHandbackPanel()
     /// One per connected screen.
     private var hoverAreas: [HoverArea] = []
     /// The screen the panel is shown on, while the window is ordered in.
@@ -306,13 +308,12 @@ final class NotchPanelController {
         }
         searchResignObserver = nil
 
-        guard closing, let window else { return }
-        // The next keystroke must go to the frontmost app's window, not the closing panel. Ordering
-        // the key panel out hands key status back at once; ordering it straight back in doesn't take
-        // it again (`canBecomeKey` is false outside search, and `orderFrontRegardless` never makes
-        // key). Then the content and shape animate out like any close (#11).
-        window.orderOut(nil)
-        window.orderFrontRegardless()
+        guard closing else { return }
+        // The next keystroke must go to the frontmost app's window, not the closing panel, while the
+        // content and shape animate out like any close (#11). Ordering a key window out hands key
+        // status back to the frontmost app, but ordering the panel itself out and back in blanks it
+        // for a moment. So an invisible window takes key status from the panel and is ordered out.
+        keyHandback.handBackKey()
         // Esc or a click outside means "close": the cursor still over the panel doesn't reopen it.
         isDismissed = true
         orderOutAfterClosing()
