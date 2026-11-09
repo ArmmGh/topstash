@@ -125,12 +125,13 @@ final class AppModel {
             return
         }
         let text = clipboard.readText() ?? ""
-        if text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+        // Stops at the first visible character, unlike trimming a copy of the whole text.
+        if text.allSatisfy(\.isWhitespace) {
             panel.saveCard = .nothingToSave
         } else if store.contains(text) {
             panel.saveCard = .alreadySaved
         } else {
-            panel.saveCard = .preview(text: text, characterCount: text.count)
+            panel.saveCard = Self.previewCard(for: text)
         }
     }
 
@@ -194,7 +195,13 @@ final class AppModel {
     func showCardBeforeSave(of text: String) {
         saveCardResetTask?.cancel()
         saveCardResetTask = nil
-        panel.saveCard = .preview(text: text, characterCount: text.count)
+        panel.saveCard = Self.previewCard(for: text)
+    }
+
+    /// Keeps only the part of the text the card shows, so the panel doesn't hold, and compare on
+    /// every update, a clipboard that may be megabytes long.
+    private static func previewCard(for text: String) -> SaveCardState {
+        .preview(text: SaveCard.previewText(text), characterCount: text.count)
     }
 
     /// The haptic, and through `panel.saveCount` the checkmark bounce and the notch's gulp (#11).

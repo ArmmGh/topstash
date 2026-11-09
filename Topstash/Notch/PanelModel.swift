@@ -61,7 +61,7 @@ final class PanelModel {
 
 /// What the save card shows. Only `.preview` and `.readyWithoutPreview` are clickable.
 enum SaveCardState: Equatable {
-    /// The clipboard text, unsaved.
+    /// The clipboard text, unsaved: only its start (`SaveCard.previewText`), and the full text's length.
     case preview(text: String, characterCount: Int)
     /// The clipboard has text, but reading it would show the paste privacy alert (#4).
     case readyWithoutPreview
