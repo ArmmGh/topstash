@@ -4,9 +4,9 @@ Save clipboard text from your MacBook's notch.
 
 Hover over the notch, click once, and the text on your clipboard is saved as a Markdown note. Built for keeping the useful one-off prompts you find online in one place, where you can find them again and paste them into your coding agent.
 
-> **Early development.** Nothing here is ready to use yet. Features below are planned, not shipped.
+> **Early development (v0.1.0).** There are no signed or notarized releases yet, so build it from source to try it.
 
-## Planned features
+## Features
 
 - **Hover to open.** A panel drops down from the notch after a short hover (about 250 ms, adjustable), and closes when the cursor leaves. It does not take focus from the app you are using.
 - **One-click save.** The panel previews your clipboard text. One click saves it as a note. No title or tag prompts. Duplicates are detected.
@@ -38,6 +38,10 @@ To run the tests:
 ```sh
 xcodebuild test -scheme Topstash -destination 'platform=macOS'
 ```
+
+## Usage
+
+Run the app from Xcode or the build folder. Topstash has no Dock icon or main window; look for its icon in the menu bar, where you'll find Settings, Open Notes Folder, and Quit. Hover over the notch (or the top center of a screen without one) to open the panel.
 
 ## Contributing
 
