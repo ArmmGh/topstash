@@ -5,7 +5,7 @@ import SwiftUI
 /// only while `allowsKey` says so (the search field), and even then the frontmost app stays frontmost.
 final class NotchPanel: NSPanel {
     private let allowsKey: () -> Bool
-    /// The primary button went down anywhere in the panel, before any view sees it.
+    /// The primary or secondary button went down anywhere in the panel, before any view sees it.
     var onPressBegan: () -> Void = {}
     /// A force click or a three-finger tap, wherever the cursor is in the panel. `buttonIsDown` is
     /// false for the tap, which no mouse-up follows. The Look up hook and pressure stage 2 may both
@@ -84,8 +84,8 @@ private final class FirstMouseHostingView<Content: View>: NSHostingView<Content>
     }
 }
 
-/// Reports each primary press and its pressure reaching stage 2 (a force click). Never recognizes,
-/// so the SwiftUI button under it still gets the click, its press dip, and its context menu.
+/// Reports each primary or secondary press, and pressure reaching stage 2 (a force click). Never
+/// recognizes, so the SwiftUI button under it still gets the click, its press dip, and its context menu.
 private final class ForceClickRecognizer: NSGestureRecognizer {
     var onPressBegan: () -> Void = {}
     var onStageTwo: () -> Void = {}
@@ -99,6 +99,8 @@ private final class ForceClickRecognizer: NSGestureRecognizer {
     required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
 
     override func mouseDown(with event: NSEvent) { onPressBegan() }
+    // So the context menu's Preview, which comes after it, isn't taken for a force click's mouse-up.
+    override func rightMouseDown(with event: NSEvent) { onPressBegan() }
 
     override func pressureChange(with event: NSEvent) {
         // `PanelModel.forceClick` counts one per press, so the repeats while held don't matter.

@@ -31,9 +31,9 @@ struct ForceClickTests {
         panel.forceClick(buttonIsDown: true)
 
         #expect(panel.peekedNote == notes[1].id)
-        #expect(panel.consumeCopySuppression(notes[1].id))
+        #expect(panel.consumeForceClickRelease(notes[1].id))
         // Only that one mouse-up: the next click copies.
-        #expect(!panel.consumeCopySuppression(notes[1].id))
+        #expect(!panel.consumeForceClickRelease(notes[1].id))
     }
 
     @Test func lookUpAndStageTwoInOnePressToggleOnce() throws {
@@ -58,7 +58,7 @@ struct ForceClickTests {
 
         panel.forceClick(buttonIsDown: false)
         #expect(panel.peekedNote == notes[0].id)
-        #expect(!panel.consumeCopySuppression(notes[0].id))
+        #expect(!panel.consumeForceClickRelease(notes[0].id))
 
         panel.forceClick(buttonIsDown: false)
         #expect(panel.peekedNote == nil)
@@ -73,7 +73,7 @@ struct ForceClickTests {
         panel.forceClick(buttonIsDown: true)
 
         #expect(panel.peekedNote == nil)
-        #expect(!panel.consumeCopySuppression(notes[0].id))
+        #expect(!panel.consumeForceClickRelease(notes[0].id))
     }
 
     @Test func leavingTheLastRowAfterEnteringTheNextKeepsTheNext() throws {
@@ -97,7 +97,7 @@ struct ForceClickTests {
 
         panel.pressBegan()
 
-        #expect(!panel.consumeCopySuppression(notes[0].id))
+        #expect(!panel.consumeForceClickRelease(notes[0].id))
     }
 
     @Test func aModeChangeForgetsTheHoveredRow() throws {
