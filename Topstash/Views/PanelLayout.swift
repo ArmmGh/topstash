@@ -191,20 +191,51 @@ enum PanelLayout {
     /// How many lines, up to `maxPeekLines`, `text` wraps to in a row's peek. 0 when it's empty.
     static func peekLineCount(_ text: String) -> Int {
         guard !text.isEmpty else { return 0 }
+        let (storage, container) = peekLayout(of: text, maxLines: maxPeekLines)
+        let layoutManager = storage.layoutManagers[0]
+        var lines = 0
+        layoutManager.enumerateLineFragments(
+            forGlyphRange: layoutManager.glyphRange(for: container)
+        ) { _, _, _, _, _ in lines += 1 }
+        return min(max(1, lines), maxPeekLines)
+    }
+
+    /// How far to scroll a peek of `text` so the character at `index`, its first search match, is in
+    /// view: not at all when it's on one of the first `maxPeekLines` lines, or else enough to put its
+    /// line second, under a line of context. Measured like `peekLineCount(_:)`.
+    static func peekScrollOffset(showing index: String.Index, in text: String) -> CGFloat {
+        let (storage, _) = peekLayout(of: text, maxLines: 0)
+        let layoutManager = storage.layoutManagers[0]
+        let glyph = layoutManager.glyphIndexForCharacter(at: NSRange(index..<index, in: text).location)
+        var line = 0
+        var found = false
+        layoutManager.enumerateLineFragments(
+            forGlyphRange: NSRange(location: 0, length: layoutManager.numberOfGlyphs)
+        ) { _, _, _, glyphs, stop in
+            if NSLocationInRange(glyph, glyphs) {
+                found = true
+                stop.pointee = true
+            } else {
+                line += 1
+            }
+        }
+        guard found, line >= maxPeekLines else { return 0 }
+        return CGFloat(line - 1) * peekLineHeight
+    }
+
+    /// `text` laid out as a peek draws it: in `meta`, wrapped at `peekWidth`, up to `maxLines` lines (0 for all).
+    private static func peekLayout(of text: String, maxLines: Int) -> (NSTextStorage, NSTextContainer) {
         let storage = NSTextStorage(
             string: text,
             attributes: [.font: NSFont.monospacedDigitSystemFont(ofSize: PanelStyle.metaSize, weight: .regular)])
         let layoutManager = NSLayoutManager()
         let container = NSTextContainer(size: CGSize(width: peekWidth, height: .greatestFiniteMagnitude))
         container.lineFragmentPadding = 0
-        container.maximumNumberOfLines = maxPeekLines
+        container.maximumNumberOfLines = maxLines
         layoutManager.addTextContainer(container)
         storage.addLayoutManager(layoutManager)
-        var lines = 0
-        layoutManager.enumerateLineFragments(
-            forGlyphRange: layoutManager.glyphRange(for: container)
-        ) { _, _, _, _, _ in lines += 1 }
-        return min(max(1, lines), maxPeekLines)
+        // The storage, which owns the layout manager: the manager doesn't keep its text alive.
+        return (storage, container)
     }
 
     /// The ring around the keyboard-selected search result.

@@ -37,6 +37,33 @@ struct PeekLayoutTests {
         #expect(PanelLayout.rowHeight + PanelLayout.maxPeekExtraHeight == 195)
     }
 
+    // MARK: Scrolling to the first match
+
+    /// Lines "1" to "40".
+    let fortyLines = (1...40).map(String.init).joined(separator: "\n")
+
+    func scrollOffset(toLine line: String, in text: String) -> CGFloat {
+        PanelLayout.peekScrollOffset(showing: text.range(of: "\n\(line)\n")!.lowerBound, in: text)
+    }
+
+    @Test func aMatchInTheFirstTwelveLinesLeavesThePeekAtTheTop() {
+        #expect(PanelLayout.peekScrollOffset(showing: fortyLines.startIndex, in: fortyLines) == 0)
+        // The newline before "12" is on line 11.
+        #expect(scrollOffset(toLine: "12", in: fortyLines) == 0)
+    }
+
+    @Test func aMatchFurtherDownScrollsItToTheSecondLine() {
+        // The newline before "20" is on line 19: scrolled 17 lines of 14 pt, one line of context above it.
+        #expect(Double(scrollOffset(toLine: "20", in: fortyLines)) == 238)
+    }
+
+    @Test func wrappedLinesCountTowardsTheMatchsLine() {
+        // Wraps to more than one line, so line 20 is further down than in `fortyLines`.
+        let text = String(repeating: "wrap ", count: 40) + "\n" + fortyLines
+
+        #expect(Double(scrollOffset(toLine: "20", in: text)) > 238)
+    }
+
     // MARK: Shape
 
     func makePanel(_ mode: PanelModel.Mode) -> PanelModel {
