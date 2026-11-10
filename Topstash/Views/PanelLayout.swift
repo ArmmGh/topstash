@@ -135,6 +135,8 @@ enum PanelLayout {
         (rowHeight - cardTextLineHeight - rowLineSpacing - previewLineHeight) / 2
     /// Between a row's text and its age.
     static let rowAgeSpacing: CGFloat = 8
+    /// The peek chevron's hit area, over the row's age and flush with its right edge.
+    static let peekChevronSize: CGFloat = 20
     /// Between the header, the save card or search field, and the list.
     static let sectionSpacing: CGFloat = 8
 
