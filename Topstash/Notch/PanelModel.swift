@@ -16,10 +16,12 @@ final class PanelModel {
     }
 
     /// Closing resets `query` and the selection, so the next open shows the recent list with an empty query.
+    /// Every change collapses the peek, so each open starts with every row collapsed.
     /// Only `NotchPanelController` sets it, together with what the window does in each mode; views
     /// ask for changes through `PanelActions`. Setting it has no effect on windows or focus.
     var mode: Mode = .closed {
         didSet {
+            if mode != oldValue { peek = nil }
             if mode == .closed {
                 query = ""
                 selection = 0
@@ -45,7 +47,12 @@ final class PanelModel {
     /// The search field's text. A new query selects the first result.
     var query = "" {
         // The field sets its text again on Return, so only a different query resets the selection.
-        didSet { if query != oldValue { selection = 0 } }
+        didSet {
+            if query != oldValue {
+                selection = 0
+                peek = nil
+            }
+        }
     }
     /// The keyboard selection: an index into the search results, which may outlast results that
     /// were deleted. Read it through `selectedResult(among:)`.
@@ -62,6 +69,29 @@ final class PanelModel {
     func moveSelection(by step: Int, among count: Int) {
         guard let current = selectedResult(among: count) else { return }
         selection = min(max(current + step, 0), count - 1)
+    }
+
+    // MARK: Peek
+
+    /// The row expanded in place to show its note's text, if any. At most one row peeks.
+    private(set) var peek: NotePeek?
+    /// The `Note.id` of the row that peeks.
+    var peekedNote: Note.ID? { peek?.note }
+
+    /// Expands the note's row in place, collapsing any other, or collapses it if it already peeks.
+    /// Never copies. The text and the row's extra height are worked out here, once per expansion.
+    func togglePeek(_ note: Note) {
+        if peek?.note == note.id {
+            peek = nil
+        } else {
+            let text = note.peekText
+            peek = NotePeek(note: note.id, text: text, lineCount: PanelLayout.peekLineCount(text))
+        }
+    }
+
+    /// Collapses the row that peeks, if any.
+    func collapsePeek() {
+        peek = nil
     }
 
     /// True in `.feedback`, and kept while closing from it, so the list doesn't pop in during the fade.
@@ -85,6 +115,19 @@ final class PanelModel {
     /// Counts copies, bumped by `AppModel` with the haptic. Its changes bounce the "Copied" checkmark,
     /// also when the row already shows it.
     var copyCount = 0
+}
+
+/// A row expanded in place: whose, what it shows, and how much taller than `PanelLayout.rowHeight` it is.
+struct NotePeek: Equatable {
+    let note: Note.ID
+    /// `Note.peekText`.
+    let text: String
+    /// `PanelLayout.peekLineCount(_:)` of `text`: the lines shown before it scrolls. 0 when it's empty.
+    let lineCount: Int
+    /// What the peek adds to its row, which the shape's height and the row's follow.
+    var extraHeight: CGFloat { PanelLayout.peekExtraHeight(lines: lineCount) }
+    /// The height of the peek's text, under the title line.
+    var bodyHeight: CGFloat { PanelLayout.peekBodyHeight(lines: lineCount) }
 }
 
 /// What the search view shows next to its field for a moment.
