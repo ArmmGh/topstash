@@ -45,6 +45,8 @@ enum PanelStyle {
     /// The query's words in a search result's preview, a weight above `meta` so a match stands out by
     /// weight, not only by its primary color.
     static let metaMatch = Font.system(size: 11, weight: .semibold).monospacedDigit()
+    /// The chevron that replaces a hovered row's age, a weight above it so the small glyph reads.
+    static let peekChevron = Font.system(size: 10, weight: .semibold)
     /// The save card's symbol: the system's Title 3 (15 pt), a step above the 13 pt text beside it,
     /// as in the prototype, so it reads as the card's icon rather than a glyph in the text.
     static let cardIcon = Font.title3.weight(.medium)

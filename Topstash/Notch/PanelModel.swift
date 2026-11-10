@@ -16,13 +16,14 @@ final class PanelModel {
     }
 
     /// Closing resets `query` and the selection, so the next open shows the recent list with an empty query.
-    /// Every change collapses the peek, so each open starts with every row collapsed.
+    /// Every change collapses the peek, so each open starts with every row collapsed, and Space types.
     /// Only `NotchPanelController` sets it, together with what the window does in each mode; views
     /// ask for changes through `PanelActions`. Setting it has no effect on windows or focus.
     var mode: Mode = .closed {
         didSet {
             if mode != oldValue {
                 peek = nil
+                spaceTogglesPeek = false
                 // The rows it shows go away without reporting the cursor leaving.
                 hoveredNote = nil
             }
@@ -55,6 +56,7 @@ final class PanelModel {
             if query != oldValue {
                 selection = 0
                 peek = nil
+                spaceTogglesPeek = false
             }
         }
     }
@@ -69,10 +71,38 @@ final class PanelModel {
         count > 0 ? min(selection, count - 1) : nil
     }
 
-    /// ↑ (-1) or ↓ (+1): moves the selection among `count` results, stopping at the ends.
+    /// ↑ (-1) or ↓ (+1): moves the selection among `count` results, stopping at the ends, and
+    /// collapses the peek. Space then toggles the selected result's peek.
     func moveSelection(by step: Int, among count: Int) {
+        peek = nil
         guard let current = selectedResult(among: count) else { return }
         selection = min(max(current + step, 0), count - 1)
+        spaceTogglesPeek = true
+    }
+
+    /// Whether Space toggles the selected result's peek rather than typing a space: only right
+    /// after ↑/↓, like Quick Look in Finder, so multi-word queries still type.
+    private(set) var spaceTogglesPeek = false
+
+    /// Space in search: toggles the selected one of `results`' peek and returns true if ↑/↓ came
+    /// last, or returns false so the field types the space.
+    func pressSpace(among results: [Note]) -> Bool {
+        guard spaceTogglesPeek, let index = selectedResult(among: results.count) else { return false }
+        togglePeek(results[index])
+        return true
+    }
+
+    /// Any key in search but plain Space and ↑/↓: the next Space types a space.
+    func pressOtherKey() {
+        spaceTogglesPeek = false
+    }
+
+    /// Esc in search: collapses the peek and returns true, or returns false with no peek, so Esc
+    /// closes the panel.
+    func pressEscape() -> Bool {
+        guard peek != nil else { return false }
+        peek = nil
+        return true
     }
 
     // MARK: Peek
