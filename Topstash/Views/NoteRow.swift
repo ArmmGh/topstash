@@ -3,6 +3,7 @@ import TopstashCore
 
 /// One note in the recent list or the search results: its title and preview, and its age on the right.
 /// Clicking it copies the note. Right-clicking offers "Preview", "Open in Editor" and "Delete".
+/// While hovered, a chevron replaces the age and toggles the peek; it's the one part that doesn't copy.
 /// In search, the keyboard-selected row has a ring on the hover fill.
 /// While it peeks, the row is taller and shows the note's text under the title in place of the preview.
 struct NoteRow: View {
@@ -59,6 +60,16 @@ struct NoteRow: View {
         }
         // Dips while pressed, like the save card.
         .buttonStyle(PressDipButtonStyle())
+        // Over the age, but outside the row's label, so clicking it doesn't copy.
+        .overlayPreferenceValue(AgeBounds.self) { age in
+            if let age, Self.trailingSlot(isHovered: isHovered, peeks: peek != nil) == .chevron {
+                GeometryReader { proxy in
+                    let bounds = proxy[age]
+                    PeekChevron(isExpanded: peek != nil, toggle: togglePeek)
+                        .position(x: bounds.maxX - PanelLayout.peekChevronSize / 2, y: bounds.midY)
+                }
+            }
+        }
         .accessibilityAddTraits(isSelected ? .isSelected : [])
         .accessibilityAction(named: "Preview", togglePeek)
         .contextMenu {
@@ -99,7 +110,24 @@ struct NoteRow: View {
                 .foregroundStyle(PanelStyle.tertiary)
                 .fixedSize()
                 .accessibilityLabel(Text(note.created, format: .relative(presentation: .named)))
+                // Keeps its place while the chevron covers it, so the title doesn't move.
+                .opacity(Self.trailingSlot(isHovered: isHovered, peeks: peek != nil) == .age ? 1 : 0)
+                .anchorPreference(key: AgeBounds.self, value: .bounds) { $0 }
         }
+    }
+
+    /// What a row shows right of its title.
+    enum TrailingSlot: Equatable {
+        /// How long ago the note was saved.
+        case age
+        /// The control that expands and collapses the peek.
+        case chevron
+    }
+
+    /// The chevron replaces the age while the row is hovered, and stays while the row peeks so it
+    /// can be collapsed.
+    static func trailingSlot(isHovered: Bool, peeks: Bool) -> TrailingSlot {
+        isHovered || peeks ? .chevron : .age
     }
 
     /// The note's preview, or in search, the snippet around its match.
@@ -129,6 +157,39 @@ struct NoteRow: View {
 
     private var rowShape: RoundedRectangle {
         RoundedRectangle(cornerRadius: PanelLayout.rowCornerRadius)
+    }
+}
+
+/// Where the row's age is, so the chevron can be drawn over it from outside the row's label.
+private struct AgeBounds: PreferenceKey {
+    static let defaultValue: Anchor<CGRect>? = nil
+
+    static func reduce(value: inout Anchor<CGRect>?, nextValue: () -> Anchor<CGRect>?) {
+        value = value ?? nextValue()
+    }
+}
+
+/// Points right on a collapsed row and down on an expanded one, turning on the row's height spring
+/// (`NoteList.togglePeek`). Doesn't turn with Reduce Motion. VoiceOver uses the row's "Preview"
+/// action instead.
+private struct PeekChevron: View {
+    let isExpanded: Bool
+    let toggle: () -> Void
+
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    var body: some View {
+        Button(action: toggle) {
+            Image(systemName: "chevron.right")
+                .font(PanelStyle.peekChevron)
+                .foregroundStyle(PanelStyle.secondary)
+                .rotationEffect(.degrees(isExpanded ? 90 : 0))
+                .transaction(value: isExpanded) { if reduceMotion { $0.animation = nil } }
+                .frame(width: PanelLayout.peekChevronSize, height: PanelLayout.peekChevronSize)
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityHidden(true)
     }
 }
 
