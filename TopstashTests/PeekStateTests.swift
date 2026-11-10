@@ -106,4 +106,52 @@ struct PeekStateTests {
 
         #expect(appModel.shapeSize.height == collapsed + 29)
     }
+
+    // MARK: Matches
+
+    /// The parts of the peek's text it highlights.
+    func highlighted(_ peek: NotePeek?) -> [String] {
+        guard let peek else { return [] }
+        return peek.matches.map { String(peek.text[$0]) }
+    }
+
+    @Test func aPeekInSearchKeepsEveryMatchOfTheQuery() throws {
+        let (appModel, notes) = try makeAppModel(.search, notes: ["Title\nOne two\ntwo ONE"])
+        appModel.panel.query = "one"
+
+        appModel.panel.togglePeek(notes[0])
+
+        #expect(highlighted(appModel.panel.peek) == ["One", "ONE"])
+    }
+
+    @Test func aMatchOnlyInTheTitleHighlightsNothing() throws {
+        let (appModel, notes) = try makeAppModel(.search, notes: [threeLines])
+        appModel.panel.query = "title"
+
+        appModel.panel.togglePeek(notes[0])
+
+        #expect(appModel.panel.peek?.matches == [])
+        #expect(appModel.panel.peek?.scrollOffset == 0)
+    }
+
+    @Test func aPeekOpensScrolledToAFirstMatchBelowItsTwelfthLine() throws {
+        let lines = (1...40).map { $0 == 20 ? "needle" : "line \($0)" }.joined(separator: "\n")
+        let (appModel, notes) = try makeAppModel(.search, notes: ["Title\n" + lines + "\nneedle"])
+        appModel.panel.query = "needle"
+
+        appModel.panel.togglePeek(notes[0])
+
+        // Line 20 is second from the top: 18 lines of 14 pt above it.
+        #expect(Double(appModel.panel.peek?.scrollOffset ?? 0) == 18 * 14)
+    }
+
+    @Test func aPeekInTheRecentListHighlightsNothing() throws {
+        let (appModel, notes) = try makeAppModel(.search, notes: [threeLines])
+        appModel.panel.query = "one"
+        appModel.panel.mode = .open
+
+        appModel.panel.togglePeek(notes[0])
+
+        #expect(appModel.panel.peek?.matches == [])
+    }
 }
