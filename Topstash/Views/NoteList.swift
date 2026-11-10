@@ -79,16 +79,24 @@ struct NoteList: View {
                 copyCount: panel.copyCount,
                 isSelected: selectedNote == note.id,
                 peek: panel.peek?.note == note.id ? panel.peek : nil,
-                togglePeek: { togglePeek(note) },
+                togglePeek: {
+                    // A force click on the chevron has already toggled.
+                    guard !panel.consumeForceClickRelease(note.id) else { return }
+                    togglePeek(note)
+                },
                 openInEditor: {
                     appModel.openInEditor(note)
                     actions.dismissAfterAction()
                 },
                 delete: { appModel.delete(note) }
             ) {
+                // A force click doesn't copy.
+                guard !panel.consumeForceClickRelease(note.id) else { return }
                 appModel.copy(note)
                 actions.dismissAfterCopy()
             }
+            // So a force click knows which row it's on.
+            .onHover { panel.hover(note, $0) }
         }
     }
 }

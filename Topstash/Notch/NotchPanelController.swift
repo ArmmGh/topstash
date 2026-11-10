@@ -1,4 +1,5 @@
 import AppKit
+import SwiftUI
 import TopstashCore
 import os
 
@@ -45,6 +46,17 @@ final class NotchPanelController {
     func start() {
         window = NotchPanel(rootView: PanelView(appModel: appModel, actions: panelActions)) { [weak self] in
             self?.panel.mode == .search
+        }
+        window?.onPressBegan = { [weak self] in self?.panel.pressBegan() }
+        window?.onForceClick = { [weak self] buttonIsDown in
+            guard let self else { return }
+            // The same spring as the other ways of peeking.
+            withAnimation(
+                Motion.shape(
+                    expanding: true, reduceMotion: NSWorkspace.shared.accessibilityDisplayShouldReduceMotion)
+            ) {
+                self.panel.forceClick(buttonIsDown: buttonIsDown)
+            }
         }
         rebuildHoverAreas()
 
