@@ -41,10 +41,11 @@ enum PanelStyle {
     /// `meta`'s size, for measuring a row's peek (`PanelLayout.peekLineCount`).
     static let metaSize: CGFloat = 11
     /// The keys in the search's key hints ("⏎", "↑↓"), a step above their `meta` labels.
-    static let metaKey = Font.system(size: 11, weight: .medium)
+    static let metaKey = Font.system(size: metaSize, weight: .medium)
     /// The query's words in a search result's preview, a weight above `meta` so a match stands out by
-    /// weight, not only by its primary color.
-    static let metaMatch = Font.system(size: 11, weight: .semibold).monospacedDigit()
+    /// weight, not only by its primary color. `PanelLayout.peekLayout` measures a peek's matches in
+    /// the same weight.
+    static let metaMatch = Font.system(size: metaSize, weight: .semibold).monospacedDigit()
     /// The chevron that replaces a hovered row's age, a weight above it so the small glyph reads.
     static let peekChevron = Font.system(size: 10, weight: .semibold)
     /// The save card's symbol: the system's Title 3 (15 pt), a step above the 13 pt text beside it,

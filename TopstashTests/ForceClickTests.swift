@@ -25,7 +25,7 @@ struct ForceClickTests {
 
     @Test func forceClickPeeksTheHoveredRowAndItsMouseUpDoesNotCopy() throws {
         let (panel, notes) = try makePanel(notes: ["A\none", "B\ntwo"])
-        panel.hover(notes[1], true)
+        panel.hover(notes[1], isHovering: true)
 
         panel.pressBegan()
         panel.forceClick(buttonIsDown: true)
@@ -38,7 +38,7 @@ struct ForceClickTests {
 
     @Test func lookUpAndStageTwoInOnePressToggleOnce() throws {
         let (panel, notes) = try makePanel(notes: ["A\none"])
-        panel.hover(notes[0], true)
+        panel.hover(notes[0], isHovering: true)
 
         panel.pressBegan()
         panel.forceClick(buttonIsDown: true)
@@ -54,7 +54,7 @@ struct ForceClickTests {
 
     @Test func threeFingerTapsToggleEachTimeAndTheNextClickCopies() throws {
         let (panel, notes) = try makePanel(notes: ["A\none"])
-        panel.hover(notes[0], true)
+        panel.hover(notes[0], isHovering: true)
 
         panel.forceClick(buttonIsDown: false)
         #expect(panel.peekedNote == notes[0].id)
@@ -66,8 +66,8 @@ struct ForceClickTests {
 
     @Test func forceClickOffTheRowsDoesNothing() throws {
         let (panel, notes) = try makePanel(notes: ["A\none"])
-        panel.hover(notes[0], true)
-        panel.hover(notes[0], false)
+        panel.hover(notes[0], isHovering: true)
+        panel.hover(notes[0], isHovering: false)
 
         panel.pressBegan()
         panel.forceClick(buttonIsDown: true)
@@ -78,9 +78,9 @@ struct ForceClickTests {
 
     @Test func leavingTheLastRowAfterEnteringTheNextKeepsTheNext() throws {
         let (panel, notes) = try makePanel(notes: ["A\none", "B\ntwo"])
-        panel.hover(notes[0], true)
-        panel.hover(notes[1], true)
-        panel.hover(notes[0], false)
+        panel.hover(notes[0], isHovering: true)
+        panel.hover(notes[1], isHovering: true)
+        panel.hover(notes[0], isHovering: false)
 
         panel.pressBegan()
         panel.forceClick(buttonIsDown: true)
@@ -90,7 +90,7 @@ struct ForceClickTests {
 
     @Test func aForceClickReleasedOffTheRowDoesNotEatTheNextClick() throws {
         let (panel, notes) = try makePanel(notes: ["A\none"])
-        panel.hover(notes[0], true)
+        panel.hover(notes[0], isHovering: true)
         panel.pressBegan()
         panel.forceClick(buttonIsDown: true)
         // Its mouse-up landed elsewhere, so the row's action never ran.
@@ -100,9 +100,48 @@ struct ForceClickTests {
         #expect(!panel.consumeForceClickRelease(notes[0].id))
     }
 
+    @Test func aForceClickReleasedOffTheRowDoesNotEatTheChevronOrPreview() throws {
+        let (panel, notes) = try makePanel(notes: ["A\none"])
+        panel.hover(notes[0], isHovering: true)
+        panel.pressBegan()
+        panel.forceClick(buttonIsDown: true)
+        // Its mouse-up landed off the row, so the row's action never ran.
+        panel.pressEnded()
+
+        // VoiceOver's Preview, or a chevron click whose mouse-down nothing reported.
+        #expect(!panel.consumeForceClickRelease(notes[0].id))
+    }
+
+    @Test func aPressWhoseMouseDownWentUnseenStillForceClicks() throws {
+        let (panel, notes) = try makePanel(notes: ["A\none"])
+        panel.hover(notes[0], isHovering: true)
+        panel.pressBegan()
+        panel.forceClick(buttonIsDown: true)
+        #expect(panel.consumeForceClickRelease(notes[0].id))
+        panel.pressEnded()
+
+        // The Look up hook, with no mouse-down reported for this press.
+        panel.forceClick(buttonIsDown: true)
+
+        #expect(panel.peekedNote == nil)
+    }
+
+    @Test func theReleaseIsHeldBackUntilThePressEnds() throws {
+        let (panel, notes) = try makePanel(notes: ["A\none"])
+        panel.hover(notes[0], isHovering: true)
+        panel.pressBegan()
+        panel.forceClick(buttonIsDown: true)
+        // Pressure stage 2 repeats while held, and doesn't toggle again.
+        panel.forceClick(buttonIsDown: true)
+
+        #expect(panel.peekedNote == notes[0].id)
+        #expect(panel.consumeForceClickRelease(notes[0].id))
+        panel.pressEnded()
+    }
+
     @Test func aModeChangeForgetsTheHoveredRow() throws {
         let (panel, notes) = try makePanel(notes: ["A\none"])
-        panel.hover(notes[0], true)
+        panel.hover(notes[0], isHovering: true)
 
         panel.mode = .closed
         panel.mode = .open

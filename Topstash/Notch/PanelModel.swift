@@ -22,8 +22,7 @@ final class PanelModel {
     var mode: Mode = .closed {
         didSet {
             if mode != oldValue {
-                peek = nil
-                spaceTogglesPeek = false
+                resetPeek()
                 // The rows it shows go away without reporting the cursor leaving.
                 hoveredNote = nil
             }
@@ -55,8 +54,7 @@ final class PanelModel {
         didSet {
             if query != oldValue {
                 selection = 0
-                peek = nil
-                spaceTogglesPeek = false
+                resetPeek()
             }
         }
     }
@@ -121,16 +119,20 @@ final class PanelModel {
         } else {
             let text = note.peekText
             let matches = mode == .search ? SearchSnippet.matches(of: query, in: text) : []
-            let scrollOffset = matches.first.map { PanelLayout.peekScrollOffset(showing: $0.lowerBound, in: text) }
+            let scrollOffset = matches.first.map {
+                PanelLayout.peekScrollOffset(showing: $0.lowerBound, in: text, matches: matches)
+            }
             peek = NotePeek(
-                note: note.id, text: text, lineCount: PanelLayout.peekLineCount(text), matches: matches,
+                note: note.id, text: text, lineCount: PanelLayout.peekLineCount(text, matches: matches),
+                matches: matches,
                 scrollOffset: scrollOffset ?? 0)
         }
     }
 
-    /// Collapses the row that peeks, if any.
-    func collapsePeek() {
+    /// Collapses the peek, and makes the next Space type.
+    private func resetPeek() {
         peek = nil
+        spaceTogglesPeek = false
     }
 
     // MARK: Force click
@@ -145,7 +147,7 @@ final class PanelModel {
 
     /// A row reports the cursor entering (`true`) or leaving it. Leaving one row may be reported
     /// after entering the next, so it only clears the row it's about.
-    func hover(_ note: Note, _ isHovering: Bool) {
+    func hover(_ note: Note, isHovering: Bool) {
         if isHovering {
             hoveredNote = note
         } else if hoveredNote?.id == note.id {
@@ -156,6 +158,13 @@ final class PanelModel {
     /// A mouse button went down in the panel. A new press starts uncounted, and a force click
     /// released off its row doesn't swallow this click.
     func pressBegan() {
+        pressEnded()
+    }
+
+    /// A mouse button came up in the panel, after the row under it, if any, has handled the click.
+    /// A force click's mouse-up that landed off its row doesn't swallow a later click or VoiceOver's
+    /// Preview, and a press whose mouse-down went unreported isn't counted as the last one.
+    func pressEnded() {
         pressForceClicked = false
         forceClickReleaseNote = nil
     }
@@ -210,13 +219,14 @@ struct NotePeek: Equatable {
     let note: Note.ID
     /// `Note.peekText`.
     let text: String
-    /// `PanelLayout.peekLineCount(_:)` of `text`: the lines shown before it scrolls. 0 when it's empty.
+    /// `PanelLayout.peekLineCount(_:matches:)` of `text` and `matches`: the lines shown before it
+    /// scrolls. 0 when it's empty.
     let lineCount: Int
     /// In search, every place a query word appears in `text` (`SearchSnippet.matches(of:in:)`),
     /// shown in `metaMatch`. Empty in the recent list.
     var matches: [Range<String.Index>] = []
     /// How far the peek opens scrolled, to show the first of `matches`
-    /// (`PanelLayout.peekScrollOffset(showing:in:)`). 0 without matches.
+    /// (`PanelLayout.peekScrollOffset(showing:in:matches:)`). 0 without matches.
     var scrollOffset: CGFloat = 0
     /// What the peek adds to its row, which the shape's height and the row's follow.
     var extraHeight: CGFloat { PanelLayout.peekExtraHeight(lines: lineCount) }

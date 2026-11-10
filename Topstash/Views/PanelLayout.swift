@@ -171,14 +171,8 @@ enum PanelLayout {
     /// The peek of `maxPeekLines` lines.
     static let maxPeekExtraHeight: CGFloat = peekExtraHeight(lines: maxPeekLines)
 
-    /// How much taller than `rowHeight` a row is while it peeks at `text`: the lines `text` wraps to,
-    /// up to `maxPeekLines`, in place of the one preview line. Measured with the peek's font and
-    /// width, so the shape can animate to the taller row before layout.
-    static func peekExtraHeight(for text: String) -> CGFloat {
-        peekExtraHeight(lines: peekLineCount(text))
-    }
-
-    /// A peek of this many lines in place of the preview line. With none, the row stays as it is.
+    /// How much taller than `rowHeight` a row is while it peeks at `peekLineCount(_:matches:)` lines,
+    /// in place of the one preview line. With none, the row stays as it is.
     static func peekExtraHeight(lines: Int) -> CGFloat {
         lines == 0 ? 0 : peekBodyHeight(lines: lines) - previewLineHeight
     }
@@ -188,10 +182,12 @@ enum PanelLayout {
         CGFloat(lines) * peekLineHeight
     }
 
-    /// How many lines, up to `maxPeekLines`, `text` wraps to in a row's peek. 0 when it's empty.
-    static func peekLineCount(_ text: String) -> Int {
+    /// How many lines, up to `maxPeekLines`, `text` wraps to in a row's peek, with `matches` in
+    /// `metaMatch`'s heavier weight. 0 when it's empty. Measured with the peek's fonts and width, so
+    /// the shape can animate to the taller row before layout.
+    static func peekLineCount(_ text: String, matches: [Range<String.Index>] = []) -> Int {
         guard !text.isEmpty else { return 0 }
-        let (storage, container) = peekLayout(of: text, maxLines: maxPeekLines)
+        let (storage, container) = peekLayout(of: text, matches: matches, maxLines: maxPeekLines)
         let layoutManager = storage.layoutManagers[0]
         var lines = 0
         layoutManager.enumerateLineFragments(
@@ -202,9 +198,11 @@ enum PanelLayout {
 
     /// How far to scroll a peek of `text` so the character at `index`, its first search match, is in
     /// view: not at all when it's on one of the first `maxPeekLines` lines, or else enough to put its
-    /// line second, under a line of context. Measured like `peekLineCount(_:)`.
-    static func peekScrollOffset(showing index: String.Index, in text: String) -> CGFloat {
-        let (storage, _) = peekLayout(of: text, maxLines: 0)
+    /// line second, under a line of context. Measured like `peekLineCount(_:matches:)`.
+    static func peekScrollOffset(
+        showing index: String.Index, in text: String, matches: [Range<String.Index>] = []
+    ) -> CGFloat {
+        let (storage, _) = peekLayout(of: text, matches: matches, maxLines: 0)
         let layoutManager = storage.layoutManagers[0]
         let glyph = layoutManager.glyphIndexForCharacter(at: NSRange(index..<index, in: text).location)
         var line = 0
@@ -223,11 +221,18 @@ enum PanelLayout {
         return CGFloat(line - 1) * peekLineHeight
     }
 
-    /// `text` laid out as a peek draws it: in `meta`, wrapped at `peekWidth`, up to `maxLines` lines (0 for all).
-    private static func peekLayout(of text: String, maxLines: Int) -> (NSTextStorage, NSTextContainer) {
+    /// `text` laid out as a peek draws it: in `meta` with `matches` in `metaMatch`, wrapped at
+    /// `peekWidth`, up to `maxLines` lines (0 for all).
+    private static func peekLayout(
+        of text: String, matches: [Range<String.Index>], maxLines: Int
+    ) -> (NSTextStorage, NSTextContainer) {
         let storage = NSTextStorage(
             string: text,
             attributes: [.font: NSFont.monospacedDigitSystemFont(ofSize: PanelStyle.metaSize, weight: .regular)])
+        let matchFont = NSFont.monospacedDigitSystemFont(ofSize: PanelStyle.metaSize, weight: .semibold)
+        for match in matches {
+            storage.addAttribute(.font, value: matchFont, range: NSRange(match, in: text))
+        }
         let layoutManager = NSLayoutManager()
         let container = NSTextContainer(size: CGSize(width: peekWidth, height: .greatestFiniteMagnitude))
         container.lineFragmentPadding = 0

@@ -1,4 +1,4 @@
-import CoreGraphics
+import Foundation
 import Testing
 
 @testable import Topstash
@@ -9,30 +9,54 @@ import Testing
 /// apart as SwiftUI draws 11 pt text, so a peek of one line is 1 pt taller than the preview.
 @MainActor
 struct PeekLayoutTests {
+    /// The extra height of a peek at `text`, as `PanelModel.togglePeek` works it out.
+    func extraHeight(for text: String, matches: [Range<String.Index>] = []) -> CGFloat {
+        NotePeek(
+            note: URL(filePath: "/note.md"), text: text, lineCount: PanelLayout.peekLineCount(text, matches: matches)
+        )
+        .extraHeight
+    }
+
+    /// The longest run of "w" that fits on one line of a peek in `meta`'s regular weight.
+    let fullLine: String = {
+        var count = 1
+        while PanelLayout.peekLineCount(String(repeating: "w", count: count + 1)) == 1 { count += 1 }
+        return String(repeating: "w", count: count)
+    }()
+
     @Test func aOneLinePeekIsOnePointTallerThanThePreview() {
-        #expect(PanelLayout.peekExtraHeight(for: "one line") == 1)
+        #expect(extraHeight(for: "one line") == 1)
     }
 
     @Test func anEmptyPeekLeavesTheRowAsItIs() {
-        #expect(PanelLayout.peekExtraHeight(for: "") == 0)
+        #expect(extraHeight(for: "") == 0)
     }
 
     @Test func eachMoreLineAddsFourteenPoints() {
-        #expect(PanelLayout.peekExtraHeight(for: "one\ntwo\nthree") == 29)
+        #expect(extraHeight(for: "one\ntwo\nthree") == 29)
     }
 
     @Test func longLinesWrapAtTheRowsTextWidth() {
         // Far wider than the row's 352 pt at 11 pt, so it wraps to more than one line.
-        let extra = PanelLayout.peekExtraHeight(for: String(repeating: "wrap ", count: 40))
+        let extra = extraHeight(for: String(repeating: "wrap ", count: 40))
 
         #expect(extra > 1)
         #expect((extra - 1).truncatingRemainder(dividingBy: 14) == 0)
     }
 
+    @Test func matchesAreMeasuredInTheirHeavierWeight() {
+        // A full line in regular weight is wider than the row in `metaMatch`'s semibold, so it wraps.
+        let text = fullLine
+        let wholeLine = [text.startIndex..<text.endIndex]
+
+        #expect(extraHeight(for: text) == 1)
+        #expect(extraHeight(for: text, matches: wholeLine) == 15)
+    }
+
     @Test func stopsAtTwelveLinesForA195PointRow() {
         let text = (1...40).map(String.init).joined(separator: "\n")
 
-        #expect(PanelLayout.peekExtraHeight(for: text) == 155)
+        #expect(extraHeight(for: text) == 155)
         #expect(PanelLayout.maxPeekExtraHeight == 155)
         #expect(PanelLayout.rowHeight + PanelLayout.maxPeekExtraHeight == 195)
     }
@@ -62,6 +86,19 @@ struct PeekLayoutTests {
         let text = String(repeating: "wrap ", count: 40) + "\n" + fortyLines
 
         #expect(Double(scrollOffset(toLine: "20", in: text)) > 238)
+    }
+
+    @Test func matchesAboveTheFirstShownOneAreMeasuredInTheirHeavierWeight() {
+        // Twelve full lines, each wrapping in semibold, then the forty: "20" is 12 lines further
+        // down with every full line matched.
+        let text = Array(repeating: fullLine, count: 12).joined(separator: "\n") + "\n" + fortyLines
+        let fullLines = text.ranges(of: fullLine)
+        let match = text.range(of: "\n20\n")!
+
+        let regular = PanelLayout.peekScrollOffset(showing: match.lowerBound, in: text)
+        let semibold = PanelLayout.peekScrollOffset(showing: match.lowerBound, in: text, matches: fullLines)
+
+        #expect(Double(semibold - regular) == 12 * 14)
     }
 
     // MARK: Shape
