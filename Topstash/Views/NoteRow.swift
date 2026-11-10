@@ -35,8 +35,12 @@ struct NoteRow: View {
             VStack(alignment: .leading, spacing: PanelLayout.rowLineSpacing) {
                 titleLine(preview: preview, peeks: peekText != nil)
                 if let peek, let peekText, !isCopied {
-                    PeekBody(text: peekText, height: peek.bodyHeight)
-                        .transition(Motion.copiedLine(reduceMotion: reduceMotion))
+                    PeekBody(
+                        text: Self.highlighted(
+                            peekText, matches: peek.matches, matchColor: PanelStyle.primary.color(contrast: contrast)),
+                        height: peek.bodyHeight, scrollOffset: peek.scrollOffset
+                    )
+                    .transition(Motion.copiedLine(reduceMotion: reduceMotion))
                 }
             }
             .padding(.horizontal, PanelLayout.inset)
@@ -112,10 +116,14 @@ struct NoteRow: View {
     /// The snippet with its matches in `PanelStyle.metaMatch` and `matchColor`, so they stand out by
     /// weight as well as color. The rest takes the row's preview style.
     static func snippetText(_ snippet: SearchSnippet, matchColor: Color) -> AttributedString {
-        let text = snippet.text
+        highlighted(snippet.text, matches: snippet.matches, matchColor: matchColor)
+    }
+
+    /// `text` with `matches` in `PanelStyle.metaMatch` and `matchColor`: the snippet's, or the peek's.
+    static func highlighted(_ text: String, matches: [Range<String.Index>], matchColor: Color) -> AttributedString {
         var attributed = AttributedString()
         var rest = text.startIndex
-        for range in snippet.matches {
+        for range in matches {
             attributed += AttributedString(text[rest..<range.lowerBound])
             var match = AttributedString(text[range])
             match.swiftUI.font = PanelStyle.metaMatch
@@ -135,21 +143,57 @@ struct NoteRow: View {
 /// A peeking row's text under its title: raw, wrapped, with its line breaks, in `meta` and the
 /// secondary color. `height` fits up to `PanelLayout.maxPeekLines` lines; longer text scrolls here.
 /// Not selectable, since a click on it copies the note like a click anywhere on the row.
+/// In search, its matches stand out, and it opens `scrollOffset` down to show the first.
 private struct PeekBody: View {
-    let text: String
+    let text: AttributedString
     let height: CGFloat
+    let scrollOffset: CGFloat
 
     var body: some View {
         ScrollView {
-            Text(verbatim: text)
+            Text(text)
                 .font(PanelStyle.meta)
                 .foregroundStyle(PanelStyle.secondary)
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .fixedSize(horizontal: false, vertical: true)
+                .background { if scrollOffset > 0 { InitialScroll(offset: scrollOffset) } }
         }
         // Only text that overflows scrolls, so a short peek leaves scrolling to the results list.
         .scrollBounceBehavior(.basedOnSize)
         .frame(height: height)
+    }
+}
+
+/// Scrolls the `NSScrollView` it's drawn in to `offset` once, when it's first in a window, like
+/// `RowScroller` does for the results: SwiftUI's `scrollTo` would need a view per line.
+private struct InitialScroll: NSViewRepresentable {
+    let offset: CGFloat
+
+    func makeNSView(context: Context) -> NSView { ScrollingView(offset: offset) }
+
+    func updateNSView(_ view: NSView, context: Context) {}
+
+    final class ScrollingView: NSView {
+        let offset: CGFloat
+
+        init(offset: CGFloat) {
+            self.offset = offset
+            super.init(frame: .zero)
+        }
+
+        required init?(coder: NSCoder) { fatalError("init(coder:) is not used") }
+
+        override func viewDidMoveToWindow() {
+            super.viewDidMoveToWindow()
+            guard window != nil else { return }
+            // The text is laid out, and the document view as tall as it, on the next turn.
+            DispatchQueue.main.async { [weak self] in
+                guard let self, let scrollView = enclosingScrollView else { return }
+                let clip = scrollView.contentView
+                clip.scroll(to: NSPoint(x: clip.bounds.minX, y: offset))
+                scrollView.reflectScrolledClipView(clip)
+            }
+        }
     }
 }
 

@@ -25,7 +25,7 @@ public struct SearchSnippet: Equatable, Sendable {
         }
         let start = Self.start(of: line, before: firstMatch)
         text = (start > line.startIndex ? "…" : "") + line[start...].prefix(NoteFile.previewLength)
-        matches = Self.ranges(of: words, in: text)
+        matches = Self.matches(of: words, in: text)
     }
 
     /// `leadingContext` characters before `match`, moved forward to the start of a word unless that
@@ -40,7 +40,13 @@ public struct SearchSnippet: Equatable, Sendable {
         return line.index(after: space)
     }
 
-    private static func ranges(of words: [Substring], in text: String) -> [Range<String.Index>] {
+    /// Every place a word of `query` appears in `text`, in order, with overlapping matches merged.
+    /// Matching follows `NotesStore.search`, so the snippet and the peek highlight the same words.
+    public static func matches(of query: String, in text: String) -> [Range<String.Index>] {
+        matches(of: NotesStore.searchWords(of: query), in: text)
+    }
+
+    private static func matches(of words: [Substring], in text: String) -> [Range<String.Index>] {
         var found: [Range<String.Index>] = []
         for word in words {
             var searchStart = text.startIndex

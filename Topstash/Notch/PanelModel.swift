@@ -79,13 +79,18 @@ final class PanelModel {
     var peekedNote: Note.ID? { peek?.note }
 
     /// Expands the note's row in place, collapsing any other, or collapses it if it already peeks.
-    /// Never copies. The text and the row's extra height are worked out here, once per expansion.
+    /// Never copies. The text, its search matches and the row's extra height are worked out here,
+    /// once per expansion; a new query collapses the peek, so its matches never go stale.
     func togglePeek(_ note: Note) {
         if peek?.note == note.id {
             peek = nil
         } else {
             let text = note.peekText
-            peek = NotePeek(note: note.id, text: text, lineCount: PanelLayout.peekLineCount(text))
+            let matches = mode == .search ? SearchSnippet.matches(of: query, in: text) : []
+            let scrollOffset = matches.first.map { PanelLayout.peekScrollOffset(showing: $0.lowerBound, in: text) }
+            peek = NotePeek(
+                note: note.id, text: text, lineCount: PanelLayout.peekLineCount(text), matches: matches,
+                scrollOffset: scrollOffset ?? 0)
         }
     }
 
@@ -124,6 +129,12 @@ struct NotePeek: Equatable {
     let text: String
     /// `PanelLayout.peekLineCount(_:)` of `text`: the lines shown before it scrolls. 0 when it's empty.
     let lineCount: Int
+    /// In search, every place a query word appears in `text` (`SearchSnippet.matches(of:in:)`),
+    /// shown in `metaMatch`. Empty in the recent list.
+    var matches: [Range<String.Index>] = []
+    /// How far the peek opens scrolled, to show the first of `matches`
+    /// (`PanelLayout.peekScrollOffset(showing:in:)`). 0 without matches.
+    var scrollOffset: CGFloat = 0
     /// What the peek adds to its row, which the shape's height and the row's follow.
     var extraHeight: CGFloat { PanelLayout.peekExtraHeight(lines: lineCount) }
     /// The height of the peek's text, under the title line.
