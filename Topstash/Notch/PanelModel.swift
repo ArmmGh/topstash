@@ -21,7 +21,11 @@ final class PanelModel {
     /// ask for changes through `PanelActions`. Setting it has no effect on windows or focus.
     var mode: Mode = .closed {
         didSet {
-            if mode != oldValue { peek = nil }
+            if mode != oldValue {
+                peek = nil
+                // The rows it shows go away without reporting the cursor leaving.
+                hoveredNote = nil
+            }
             if mode == .closed {
                 query = ""
                 selection = 0
@@ -92,6 +96,54 @@ final class PanelModel {
     /// Collapses the row that peeks, if any.
     func collapsePeek() {
         peek = nil
+    }
+
+    // MARK: Force click
+
+    /// The row under the cursor, which a force click peeks. Set by `NoteList` as rows report hover.
+    private(set) var hoveredNote: Note?
+    /// The row whose next click mustn't copy: the mouse-up that ends a force click.
+    private var copySuppressedNote: Note.ID?
+    /// Set once a force click has acted during the current press, so the Look up hook and pressure
+    /// stage 2 together toggle only once.
+    private var pressForceClicked = false
+
+    /// A row reports the cursor entering (`true`) or leaving it. Leaving one row may be reported
+    /// after entering the next, so it only clears the row it's about.
+    func hover(_ note: Note, _ isHovering: Bool) {
+        if isHovering {
+            hoveredNote = note
+        } else if hoveredNote?.id == note.id {
+            hoveredNote = nil
+        }
+    }
+
+    /// The primary button went down in the panel. A new press starts uncounted, and a force click
+    /// released off its row doesn't hold back this click's copy.
+    func pressBegan() {
+        pressForceClicked = false
+        copySuppressedNote = nil
+    }
+
+    /// A force click: the Look up hook (`quickLook(with:)`) or pressure stage 2. Toggles the hovered
+    /// row's peek. With the button down, it acts once per press and the press's mouse-up then skips
+    /// the copy. With it up, it's a three-finger tap: no mouse-up follows, so nothing is held back.
+    func forceClick(buttonIsDown: Bool) {
+        guard let note = hoveredNote else { return }
+        guard buttonIsDown else {
+            togglePeek(note)
+            return
+        }
+        guard !pressForceClicked else { return }
+        pressForceClicked = true
+        togglePeek(note)
+        copySuppressedNote = note.id
+    }
+
+    /// Whether the click on the note's row should skip its copy. True once after a force click.
+    func consumeCopySuppression(_ note: Note.ID) -> Bool {
+        defer { copySuppressedNote = nil }
+        return copySuppressedNote == note
     }
 
     /// True in `.feedback`, and kept while closing from it, so the list doesn't pop in during the fade.

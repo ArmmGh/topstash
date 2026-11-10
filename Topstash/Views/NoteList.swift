@@ -86,9 +86,13 @@ struct NoteList: View {
                 },
                 delete: { appModel.delete(note) }
             ) {
+                // The mouse-up that ends a force click.
+                guard !panel.consumeCopySuppression(note.id) else { return }
                 appModel.copy(note)
                 actions.dismissAfterCopy()
             }
+            // So a force click knows which row it's on.
+            .onHover { panel.hover(note, $0) }
         }
     }
 }

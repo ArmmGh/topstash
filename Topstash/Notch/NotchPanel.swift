@@ -5,6 +5,12 @@ import SwiftUI
 /// only while `allowsKey` says so (the search field), and even then the frontmost app stays frontmost.
 final class NotchPanel: NSPanel {
     private let allowsKey: () -> Bool
+    /// The primary button went down anywhere in the panel, before any view sees it.
+    var onPressBegan: () -> Void = {}
+    /// A force click or a three-finger tap, wherever the cursor is in the panel. `buttonIsDown` is
+    /// false for the tap, which no mouse-up follows. The Look up hook and pressure stage 2 may both
+    /// report one force click.
+    var onForceClick: (_ buttonIsDown: Bool) -> Void = { _ in }
 
     init(rootView: some View, allowsKey: @escaping () -> Bool) {
         self.allowsKey = allowsKey
@@ -18,7 +24,10 @@ final class NotchPanel: NSPanel {
         isFloatingPanel = true
         level = .statusBar
         acceptsMouseMovedEvents = true
-        contentView = FirstMouseHostingView(rootView: rootView)
+        let hostingView = FirstMouseHostingView(rootView: rootView)
+        hostingView.onPressBegan = { [weak self] in self?.onPressBegan() }
+        hostingView.onForceClick = { [weak self] buttonIsDown in self?.onForceClick(buttonIsDown) }
+        contentView = hostingView
     }
 
     override var canBecomeKey: Bool { allowsKey() }
@@ -47,9 +56,54 @@ final class NotchPanel: NSPanel {
     }
 }
 
-/// Lets the first click on a card register even though the panel isn't key.
+/// Lets the first click on a card register even though the panel isn't key, and watches the whole
+/// panel for force clicks, so the rows stay SwiftUI buttons.
 private final class FirstMouseHostingView<Content: View>: NSHostingView<Content> {
+    var onPressBegan: () -> Void = {}
+    var onForceClick: (_ buttonIsDown: Bool) -> Void = { _ in }
+
+    required init(rootView: Content) {
+        super.init(rootView: rootView)
+        // The default already, set to say what the panel expects: a force click, with its haptic.
+        pressureConfiguration = NSPressureConfiguration(pressureBehavior: .primaryDeepClick)
+        let recognizer = ForceClickRecognizer()
+        recognizer.onPressBegan = { [weak self] in self?.onPressBegan() }
+        recognizer.onStageTwo = { [weak self] in self?.onForceClick(true) }
+        addGestureRecognizer(recognizer)
+    }
+
+    @available(*, unavailable)
+    required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
+
     override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
+
+    /// The system's Look up gesture: a force click or a three-finger tap, as the user's trackpad
+    /// setting says. Overridden here because it skips from the window straight to NSApp.
+    override func quickLook(with event: NSEvent) {
+        onForceClick(NSEvent.pressedMouseButtons & 1 != 0)
+    }
+}
+
+/// Reports each primary press and its pressure reaching stage 2 (a force click). Never recognizes,
+/// so the SwiftUI button under it still gets the click, its press dip, and its context menu.
+private final class ForceClickRecognizer: NSGestureRecognizer {
+    var onPressBegan: () -> Void = {}
+    var onStageTwo: () -> Void = {}
+
+    override init(target: Any? = nil, action: Selector? = nil) {
+        super.init(target: target, action: action)
+        delaysPrimaryMouseButtonEvents = false
+    }
+
+    @available(*, unavailable)
+    required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
+
+    override func mouseDown(with event: NSEvent) { onPressBegan() }
+
+    override func pressureChange(with event: NSEvent) {
+        // `PanelModel.forceClick` counts one per press, so the repeats while held don't matter.
+        if event.stage >= 2 { onStageTwo() }
+    }
 }
 
 /// An invisible, never-visible-to-the-user panel whose only job is to take key status from the
