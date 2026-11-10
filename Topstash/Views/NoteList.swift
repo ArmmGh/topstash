@@ -62,11 +62,19 @@ struct NoteList: View {
             peekExtraHeight: peek?.extraHeight ?? 0)
     }
 
-    /// One peek at a time, the rows below moving with the shape's edge on its opening spring both
-    /// ways (the closing one waits for content to fade out). Only fades with Reduce Motion.
+    /// One peek at a time, on `Motion.peek`.
     private func togglePeek(_ note: Note) {
-        withAnimation(Motion.shape(expanding: true, reduceMotion: reduceMotion)) {
+        withAnimation(Motion.peek(reduceMotion: reduceMotion)) {
             panel.togglePeek(note)
+        }
+    }
+
+    /// Runs a click on the note's row, unless it's the mouse-up ending a force click, which has
+    /// already toggled the peek: that click neither copies nor toggles again.
+    private func unlessForceClickRelease(_ note: Note, _ action: @escaping () -> Void) -> () -> Void {
+        {
+            guard !panel.consumeForceClickRelease(note.id) else { return }
+            action()
         }
     }
 
@@ -79,24 +87,19 @@ struct NoteList: View {
                 copyCount: panel.copyCount,
                 isSelected: selectedNote == note.id,
                 peek: panel.peek?.note == note.id ? panel.peek : nil,
-                togglePeek: {
-                    // A force click on the chevron has already toggled.
-                    guard !panel.consumeForceClickRelease(note.id) else { return }
-                    togglePeek(note)
-                },
+                togglePeek: unlessForceClickRelease(note) { togglePeek(note) },
                 openInEditor: {
                     appModel.openInEditor(note)
                     actions.dismissAfterAction()
                 },
-                delete: { appModel.delete(note) }
-            ) {
-                // A force click doesn't copy.
-                guard !panel.consumeForceClickRelease(note.id) else { return }
-                appModel.copy(note)
-                actions.dismissAfterCopy()
-            }
+                delete: { appModel.delete(note) },
+                action: unlessForceClickRelease(note) {
+                    appModel.copy(note)
+                    actions.dismissAfterCopy()
+                }
+            )
             // So a force click knows which row it's on.
-            .onHover { panel.hover(note, $0) }
+            .onHover { panel.hover(note, isHovering: $0) }
         }
     }
 }

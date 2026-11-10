@@ -86,6 +86,12 @@ enum Motion {
         }
     }
 
+    /// A row peeking or collapsing, however it's toggled: the rows below move with the shape's edge
+    /// on its opening spring both ways. Only fades with Reduce Motion.
+    static func peek(reduceMotion: Bool) -> Animation {
+        shape(expanding: true, reduceMotion: reduceMotion)
+    }
+
     /// Panel content appearing and leaving: in with opacity, blur, and scale from the top;
     /// out with opacity only. Only opacity with Reduce Motion.
     static func content(reduceMotion: Bool) -> AnyTransition {

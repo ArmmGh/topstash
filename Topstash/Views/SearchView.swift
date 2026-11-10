@@ -51,7 +51,9 @@ struct SearchView: View {
                     // Space and Esc reach `onKeyPress` before the field types or closes. While an
                     // input method composes, they're its keys.
                     .onKeyPress(.space, phases: [.down, .repeat]) { press in
-                        guard !fieldHasMarkedText else { return .ignored }
+                        // Only plain Space peeks: ⇧Space and the rest type, whatever runs first.
+                        guard press.modifiers.isDisjoint(with: Self.shortcutModifiers), !fieldHasMarkedText
+                        else { return .ignored }
                         // A held Space doesn't toggle again, nor type spaces after a toggle.
                         if press.phase == .repeat { return panel.spaceTogglesPeek ? .handled : .ignored }
                         return animatingPeek { panel.pressSpace(among: results) } ? .handled : .ignored
@@ -64,9 +66,7 @@ struct SearchView: View {
                     // Outermost, so it runs first: every key but plain Space makes Space type again.
                     // ↑/↓ then let it peek again.
                     .onKeyPress(phases: .down) { press in
-                        if press.key != .space
-                            || !press.modifiers.isDisjoint(with: [.shift, .control, .option, .command])
-                        {
+                        if press.key != .space || !press.modifiers.isDisjoint(with: Self.shortcutModifiers) {
                             panel.pressOtherKey()
                         }
                         return .ignored
@@ -156,10 +156,13 @@ struct SearchView: View {
         return .handled
     }
 
-    /// Runs `change` on the motion `NoteList` gives a row that peeks or collapses.
+    /// Runs `change` on `Motion.peek`, as a row peeks or collapses.
     private func animatingPeek<Result>(_ change: () -> Result) -> Result {
-        withAnimation(Motion.shape(expanding: true, reduceMotion: reduceMotion), change)
+        withAnimation(Motion.peek(reduceMotion: reduceMotion), change)
     }
+
+    /// The modifiers that make Space a different key: with any of them, Space types and never peeks.
+    private static let shortcutModifiers: EventModifiers = [.shift, .control, .option, .command]
 
     /// Whether an input method is composing in the field: the field editor has marked text.
     private var fieldHasMarkedText: Bool {

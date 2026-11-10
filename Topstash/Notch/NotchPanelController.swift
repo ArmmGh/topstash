@@ -48,13 +48,10 @@ final class NotchPanelController {
             self?.panel.mode == .search
         }
         window?.onPressBegan = { [weak self] in self?.panel.pressBegan() }
+        window?.onPressEnded = { [weak self] in self?.panel.pressEnded() }
         window?.onForceClick = { [weak self] buttonIsDown in
             guard let self else { return }
-            // The same spring as the other ways of peeking.
-            withAnimation(
-                Motion.shape(
-                    expanding: true, reduceMotion: NSWorkspace.shared.accessibilityDisplayShouldReduceMotion)
-            ) {
+            withAnimation(Motion.peek(reduceMotion: NSWorkspace.shared.accessibilityDisplayShouldReduceMotion)) {
                 self.panel.forceClick(buttonIsDown: buttonIsDown)
             }
         }
