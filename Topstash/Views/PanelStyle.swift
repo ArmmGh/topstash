@@ -37,7 +37,9 @@ enum PanelStyle {
     /// `body`'s size, for measuring the preview's lines (`PanelLayout.previewLineCount`).
     static let bodySize: CGFloat = 13
     /// Small lines: row previews, ages, counts, and hints. Digits are monospaced so counts don't jitter.
-    static let meta = Font.system(size: 11).monospacedDigit()
+    static let meta = Font.system(size: metaSize).monospacedDigit()
+    /// `meta`'s size, for measuring a row's peek (`PanelLayout.peekLineCount`).
+    static let metaSize: CGFloat = 11
     /// The keys in the search's key hints ("⏎", "↑↓"), a step above their `meta` labels.
     static let metaKey = Font.system(size: 11, weight: .medium)
     /// The query's words in a search result's preview, a weight above `meta` so a match stands out by

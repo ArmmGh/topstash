@@ -260,7 +260,24 @@ final class AppModel {
     /// `NotchPanelController` hit-tests against it.
     var shapeSize: CGSize {
         let resultCount = panel.mode == .search ? searchResults.count : 0
-        return PanelLayout.shapeSize(for: panel, noteCount: store.notes.count, resultCount: resultCount)
+        return PanelLayout.shapeSize(
+            for: panel, noteCount: store.notes.count, resultCount: resultCount, peekExtraHeight: shownPeekExtraHeight)
+    }
+
+    /// The notes listed in the current mode: the newest in the list, the results in search.
+    var shownNotes: [Note] {
+        switch panel.mode {
+        case .open: store.recent(limit: PanelLayout.recentCount)
+        case .search: searchResults
+        case .closed, .feedback: []
+        }
+    }
+
+    /// The peek's extra height while its row is listed. A note deleted or moved out of the list
+    /// while it peeks makes nothing taller.
+    private var shownPeekExtraHeight: CGFloat {
+        guard let peek = panel.peek, shownNotes.contains(where: { $0.id == peek.note }) else { return 0 }
+        return peek.extraHeight
     }
 
     /// The notes matching `panel.query`, newest first: the search's results and, through their

@@ -18,6 +18,9 @@ struct NoteList: View {
 
     /// Scrolls the results to keep the selection in view.
     @State private var scroller = RowScroller()
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    private var panel: PanelModel { appModel.panel }
 
     var body: some View {
         if notes.isEmpty {
@@ -31,11 +34,39 @@ struct NoteList: View {
                     .background(EnclosingScrollView(scroller: scroller))
             }
             .onChange(of: selectedNote) { _, selected in
-                guard let selected, let index = notes.firstIndex(where: { $0.id == selected }) else { return }
-                scroller.show(row: index)
+                guard let selected else { return }
+                show(selected)
+            }
+            .onChange(of: panel.peekedNote) { _, peeked in
+                guard let peeked else { return }
+                // The results' scroll view grows only once the taller row is laid out: try on the
+                // next turn of the run loop, and again once the row has finished growing.
+                DispatchQueue.main.async { show(peeked) }
+                DispatchQueue.main.asyncAfter(
+                    deadline: .now() + Motion.expandSettleDuration(reduceMotion: reduceMotion)
+                ) {
+                    if panel.peekedNote == peeked { show(peeked) }
+                }
             }
         } else {
             VStack(spacing: PanelLayout.rowSpacing) { rows }
+        }
+    }
+
+    /// Scrolls the results just far enough to show the note's row, taller while it peeks.
+    private func show(_ note: Note.ID) {
+        guard let index = notes.firstIndex(where: { $0.id == note }) else { return }
+        let peek = panel.peek
+        scroller.show(
+            row: index, peekedRow: peek.flatMap { peek in notes.firstIndex { $0.id == peek.note } },
+            peekExtraHeight: peek?.extraHeight ?? 0)
+    }
+
+    /// One peek at a time, the rows below moving with the shape's edge on its opening spring both
+    /// ways (the closing one waits for content to fade out). Only fades with Reduce Motion.
+    private func togglePeek(_ note: Note) {
+        withAnimation(Motion.shape(expanding: true, reduceMotion: reduceMotion)) {
+            panel.togglePeek(note)
         }
     }
 
@@ -44,9 +75,11 @@ struct NoteList: View {
             NoteRow(
                 note: note,
                 query: query,
-                isCopied: appModel.panel.copiedNote == note.id,
-                copyCount: appModel.panel.copyCount,
+                isCopied: panel.copiedNote == note.id,
+                copyCount: panel.copyCount,
                 isSelected: selectedNote == note.id,
+                peek: panel.peek?.note == note.id ? panel.peek : nil,
+                togglePeek: { togglePeek(note) },
                 openInEditor: {
                     appModel.openInEditor(note)
                     actions.dismissAfterAction()
@@ -67,12 +100,13 @@ struct NoteList: View {
 private final class RowScroller {
     weak var scrollView: NSScrollView?
 
-    func show(row index: Int) {
+    func show(row index: Int, peekedRow: Int?, peekExtraHeight: CGFloat) {
         guard let scrollView else { return }
         let clip = scrollView.contentView
         guard
             let offset = PanelLayout.scrollOffset(
-                showingRow: index, offset: clip.bounds.minY, viewportHeight: clip.bounds.height)
+                showingRow: index, peekedRow: peekedRow, peekExtraHeight: peekExtraHeight,
+                offset: clip.bounds.minY, viewportHeight: clip.bounds.height)
         else { return }
         clip.scroll(to: NSPoint(x: clip.bounds.minX, y: offset))
         scrollView.reflectScrolledClipView(clip)
