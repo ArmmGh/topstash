@@ -7,7 +7,7 @@ enum PanelLayout {
     /// only the SwiftUI content does.
     static let windowSize = CGSize(
         width: panelWidth + 2 * (topCornerRadius + shadowPadding),
-        height: max(maxPanelHeight, maxSearchHeight) + shadowPadding
+        height: max(maxPanelHeight + maxPeekExtraHeight, maxSearchHeight) + shadowPadding
     )
     /// Room around the shape for the shadow drawn in SwiftUI.
     static let shadowPadding: CGFloat = 30
@@ -130,21 +130,117 @@ enum PanelLayout {
     static let rowCornerRadius: CGFloat = bottomCornerRadius - inset
     /// Between a row's title and preview.
     static let rowLineSpacing: CGFloat = 2
+    /// Above a row's title and below its preview: what's left of `rowHeight` around the two lines.
+    static let rowVerticalPadding: CGFloat =
+        (rowHeight - cardTextLineHeight - rowLineSpacing - previewLineHeight) / 2
     /// Between a row's text and its age.
     static let rowAgeSpacing: CGFloat = 8
+    /// The peek chevron's hit area, over the row's age and flush with its right edge.
+    static let peekChevronSize: CGFloat = 20
     /// Between the header, the save card or search field, and the list.
     static let sectionSpacing: CGFloat = 8
 
     /// Where to scroll the search results so the row at `index` is fully in view: just far enough
-    /// to bring it to the top or bottom edge, or `nil` when it's already in view. `offset` is how far
-    /// the results are scrolled. Rows are `rowHeight` apart, so this needs no layout: `NoteRow` fixes
-    /// its height to `rowHeight`, and nothing sits above the rows in the scroll view.
-    static func scrollOffset(showingRow index: Int, offset: CGFloat, viewportHeight: CGFloat) -> CGFloat? {
-        let top = CGFloat(index) * (rowHeight + rowSpacing)
-        let bottom = top + rowHeight
-        if top < offset { return top }
+    /// to bring it to the top or bottom edge, or `nil` when it's already in view. A row taller than
+    /// the view is brought to the top. `offset` is how far the results are scrolled. This needs no
+    /// layout: `NoteRow` fixes its height to `rowHeight`, or `rowHeight + peekExtraHeight` for the
+    /// row at `peekedRow`, and nothing sits above the rows in the scroll view.
+    static func scrollOffset(
+        showingRow index: Int, peekedRow: Int? = nil, peekExtraHeight: CGFloat = 0, offset: CGFloat,
+        viewportHeight: CGFloat
+    ) -> CGFloat? {
+        let shift = peekedRow.map { $0 < index } == true ? peekExtraHeight : 0
+        let top = CGFloat(index) * (rowHeight + rowSpacing) + shift
+        let bottom = top + rowHeight + (peekedRow == index ? peekExtraHeight : 0)
+        if top < offset || bottom - top > viewportHeight { return top }
         if bottom > offset + viewportHeight { return bottom - viewportHeight }
         return nil
+    }
+
+    // MARK: - Peek
+
+    /// The most lines a row's peek shows before it scrolls: a 195 pt row, which fits the window.
+    static let maxPeekLines = 12
+    /// The distance between lines of the 11 pt peek as SwiftUI draws them: a point more than
+    /// `previewLineHeight`, which `NSLayoutManager` gives the same font.
+    static let peekLineHeight: CGFloat = 14
+    /// The height of a row's one 11 pt preview line, which the peek replaces.
+    static let previewLineHeight: CGFloat = 13
+    /// The width the peek wraps at: the row's text, from inset to inset inside the row.
+    static let peekWidth: CGFloat = panelWidth - 4 * inset
+    /// The peek of `maxPeekLines` lines.
+    static let maxPeekExtraHeight: CGFloat = peekExtraHeight(lines: maxPeekLines)
+
+    /// How much taller than `rowHeight` a row is while it peeks at `peekLineCount(_:matches:)` lines,
+    /// in place of the one preview line. With none, the row stays as it is.
+    static func peekExtraHeight(lines: Int) -> CGFloat {
+        lines == 0 ? 0 : peekBodyHeight(lines: lines) - previewLineHeight
+    }
+
+    /// The height of a peek's text that shows this many lines; longer text scrolls inside it.
+    static func peekBodyHeight(lines: Int) -> CGFloat {
+        CGFloat(lines) * peekLineHeight
+    }
+
+    /// How many lines, up to `maxPeekLines`, `text` wraps to in a row's peek, with `matches` in
+    /// `metaMatch`'s heavier weight. 0 when it's empty. Measured with the peek's fonts and width, so
+    /// the shape can animate to the taller row before layout.
+    static func peekLineCount(_ text: String, matches: [Range<String.Index>] = []) -> Int {
+        guard !text.isEmpty else { return 0 }
+        let (storage, container) = peekLayout(of: text, matches: matches, maxLines: maxPeekLines)
+        let layoutManager = storage.layoutManagers[0]
+        var lines = 0
+        layoutManager.enumerateLineFragments(
+            forGlyphRange: layoutManager.glyphRange(for: container)
+        ) { _, _, _, _, _ in lines += 1 }
+        return min(max(1, lines), maxPeekLines)
+    }
+
+    /// How far to scroll a peek of `text` so the character at `index`, its first search match, is in
+    /// view: not at all when it's on one of the first `maxPeekLines` lines, or else enough to put its
+    /// line second, under a line of context. Measured like `peekLineCount(_:matches:)`.
+    static func peekScrollOffset(
+        showing index: String.Index, in text: String, matches: [Range<String.Index>] = []
+    ) -> CGFloat {
+        let (storage, _) = peekLayout(of: text, matches: matches, maxLines: 0)
+        let layoutManager = storage.layoutManagers[0]
+        let glyph = layoutManager.glyphIndexForCharacter(at: NSRange(index..<index, in: text).location)
+        var line = 0
+        var found = false
+        layoutManager.enumerateLineFragments(
+            forGlyphRange: NSRange(location: 0, length: layoutManager.numberOfGlyphs)
+        ) { _, _, _, glyphs, stop in
+            if NSLocationInRange(glyph, glyphs) {
+                found = true
+                stop.pointee = true
+            } else {
+                line += 1
+            }
+        }
+        guard found, line >= maxPeekLines else { return 0 }
+        return CGFloat(line - 1) * peekLineHeight
+    }
+
+    /// `text` laid out as a peek draws it: in `meta` with `matches` in `metaMatch`, wrapped at
+    /// `peekWidth`, up to `maxLines` lines (0 for all).
+    private static func peekLayout(
+        of text: String, matches: [Range<String.Index>], maxLines: Int
+    ) -> (NSTextStorage, NSTextContainer) {
+        let storage = NSTextStorage(
+            string: text,
+            attributes: [.font: NSFont.monospacedDigitSystemFont(ofSize: PanelStyle.metaSize, weight: .regular)])
+        let matchFont = NSFont.monospacedDigitSystemFont(ofSize: PanelStyle.metaSize, weight: .semibold)
+        for match in matches {
+            storage.addAttribute(.font, value: matchFont, range: NSRange(match, in: text))
+        }
+        let layoutManager = NSLayoutManager()
+        let container = NSTextContainer(size: CGSize(width: peekWidth, height: .greatestFiniteMagnitude))
+        container.lineFragmentPadding = 0
+        container.maximumNumberOfLines = maxLines
+        layoutManager.addTextContainer(container)
+        storage.addLayoutManager(layoutManager)
+        // The storage, which owns the layout manager: the manager doesn't keep its text alive.
+        return (storage, container)
     }
 
     /// The ring around the keyboard-selected search result.
@@ -160,21 +256,27 @@ enum PanelLayout {
     static let maxPanelHeight: CGFloat = recentPanelHeight(
         rowCount: recentCount, saveCardHeight: maxSaveCardHeight, headerHeight: maxHeaderHeight)
 
-    /// The shape's height with this many recent rows under a header and card this tall. With none,
-    /// "No notes yet" takes one row's height. Matches `PanelView`'s recent content, so the shape can
-    /// animate to it before the content is laid out.
-    static func recentPanelHeight(rowCount: Int, saveCardHeight: CGFloat, headerHeight: CGFloat) -> CGFloat {
+    /// The shape's height with this many recent rows under a header and card this tall, one of the
+    /// rows taller by `peekExtraHeight` while it peeks. With none, "No notes yet" takes one row's
+    /// height. Matches `PanelView`'s recent content, so the shape can animate to it before the
+    /// content is laid out.
+    static func recentPanelHeight(
+        rowCount: Int, saveCardHeight: CGFloat, headerHeight: CGFloat, peekExtraHeight: CGFloat = 0
+    ) -> CGFloat {
         let listHeight =
             rowCount == 0
             ? rowHeight
-            : CGFloat(rowCount) * rowHeight + CGFloat(rowCount - 1) * rowSpacing
+            : CGFloat(rowCount) * rowHeight + CGFloat(rowCount - 1) * rowSpacing + peekExtraHeight
         return headerHeight + sectionSpacing + saveCardHeight + sectionSpacing + listHeight + inset
     }
 
     /// The size of the shape's body (without the outward top corners) in the panel's mode: closed,
     /// just inside the notch (or the hover strip with no height, on screens without one); open, the header, the card,
     /// and up to `recentCount` of the store's `noteCount` notes; search, its `resultCount` results.
-    @MainActor static func shapeSize(for panel: PanelModel, noteCount: Int, resultCount: Int = 0) -> CGSize {
+    /// In both, a row that peeks adds `peekExtraHeight`.
+    @MainActor static func shapeSize(
+        for panel: PanelModel, noteCount: Int, resultCount: Int = 0, peekExtraHeight: CGFloat = 0
+    ) -> CGSize {
         switch panel.mode {
         case .closed:
             // Without a notch the closed shape has no height and draws nothing.
@@ -188,11 +290,12 @@ enum PanelLayout {
                 width: panelWidth,
                 height: recentPanelHeight(
                     rowCount: min(noteCount, recentCount), saveCardHeight: panel.saveCardHeight,
-                    headerHeight: panel.headerHeight))
+                    headerHeight: panel.headerHeight, peekExtraHeight: peekExtraHeight))
         case .search:
             CGSize(
                 width: panelWidth,
-                height: searchPanelHeight(resultCount: resultCount, headerHeight: panel.headerHeight))
+                height: searchPanelHeight(
+                    resultCount: resultCount, headerHeight: panel.headerHeight, peekExtraHeight: peekExtraHeight))
         case .feedback:
             // Only the save card, under the header's band.
             CGSize(
@@ -210,12 +313,13 @@ enum PanelLayout {
     /// The shape's height in search with this many results under a header this tall: the header,
     /// the search field, the rows (or "No matches" in one row's height), and the key hints when
     /// there are results. Matches `SearchView`'s layout, so the shape can animate to it before the
-    /// content is laid out. Stops at `maxSearchHeight`, where the results scroll.
-    static func searchPanelHeight(resultCount: Int, headerHeight: CGFloat) -> CGFloat {
+    /// content is laid out. One result is taller by `peekExtraHeight` while it peeks. Stops at
+    /// `maxSearchHeight`, where the results scroll.
+    static func searchPanelHeight(resultCount: Int, headerHeight: CGFloat, peekExtraHeight: CGFloat = 0) -> CGFloat {
         let listHeight =
             resultCount == 0
             ? rowHeight
-            : CGFloat(resultCount) * rowHeight + CGFloat(resultCount - 1) * rowSpacing
+            : CGFloat(resultCount) * rowHeight + CGFloat(resultCount - 1) * rowSpacing + peekExtraHeight
         let hintsHeight = resultCount == 0 ? 0 : sectionSpacing + keyHintsHeight
         let height =
             headerHeight + sectionSpacing + searchFieldHeight + sectionSpacing + listHeight + hintsHeight + inset

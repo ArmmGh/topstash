@@ -5,6 +5,15 @@ import SwiftUI
 /// only while `allowsKey` says so (the search field), and even then the frontmost app stays frontmost.
 final class NotchPanel: NSPanel {
     private let allowsKey: () -> Bool
+    /// The primary or secondary button went down anywhere in the panel, before any view sees it.
+    var onPressBegan: () -> Void = {}
+    /// The primary or secondary button came up in the panel, after the view under it has handled
+    /// the click.
+    var onPressEnded: () -> Void = {}
+    /// A force click (pressure stage 2) or a three-finger tap, wherever the cursor is in the panel.
+    /// `buttonIsDown` is false for the tap, which no mouse-up follows. The Look up hook and pressure
+    /// stage 2 may both report one force click.
+    var onForceClick: (_ buttonIsDown: Bool) -> Void = { _ in }
 
     init(rootView: some View, allowsKey: @escaping () -> Bool) {
         self.allowsKey = allowsKey
@@ -18,11 +27,35 @@ final class NotchPanel: NSPanel {
         isFloatingPanel = true
         level = .statusBar
         acceptsMouseMovedEvents = true
-        contentView = FirstMouseHostingView(rootView: rootView)
+        let hostingView = FirstMouseHostingView(rootView: rootView)
+        hostingView.onLookUp = { [weak self] buttonIsDown in self?.onForceClick(buttonIsDown) }
+        contentView = hostingView
     }
 
     override var canBecomeKey: Bool { allowsKey() }
     override var canBecomeMain: Bool { false }
+
+    /// Every press in the panel, reported here before and after the views see it, so a force
+    /// click's state never outlives its press.
+    override func sendEvent(_ event: NSEvent) {
+        switch event.type {
+        case .leftMouseDown, .rightMouseDown:
+            onPressBegan()
+            super.sendEvent(event)
+        case .leftMouseUp, .rightMouseUp:
+            super.sendEvent(event)
+            // On the next turn, in case the row's button acts on its mouse-up asynchronously.
+            DispatchQueue.main.async { [weak self] in self?.onPressEnded() }
+        case .pressure:
+            super.sendEvent(event)
+            // A force click: the second, deeper click of a press. Watched here because pressure
+            // events don't reach a gesture recognizer on the hosting view. `PanelModel.forceClick`
+            // counts one per press, so the repeats while it's held don't matter.
+            if event.stage >= 2 { onForceClick(true) }
+        default:
+            super.sendEvent(event)
+        }
+    }
 
     /// An agent app has no Edit menu, so nothing turns ⌘V, ⌘C, ⌘X, ⌘A, ⌘Z, and ⇧⌘Z into actions.
     /// Sends them to the first responder (the search field's editor) instead.
@@ -47,9 +80,21 @@ final class NotchPanel: NSPanel {
     }
 }
 
-/// Lets the first click on a card register even though the panel isn't key.
+/// Lets the first click on a card register even though the panel isn't key, and reports the
+/// system's Look up gesture, so the rows stay SwiftUI buttons.
 private final class FirstMouseHostingView<Content: View>: NSHostingView<Content> {
+    var onLookUp: (_ buttonIsDown: Bool) -> Void = { _ in }
+
     override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
+
+    /// The primary button's bit in `NSEvent.pressedMouseButtons`.
+    private static var primaryButtonMask: Int { 1 << 0 }
+
+    /// The system's Look up gesture: a force click or a three-finger tap, as the user's trackpad
+    /// setting says. Overridden here because it skips from the window straight to NSApp.
+    override func quickLook(with event: NSEvent) {
+        onLookUp(NSEvent.pressedMouseButtons & Self.primaryButtonMask != 0)
+    }
 }
 
 /// An invisible, never-visible-to-the-user panel whose only job is to take key status from the

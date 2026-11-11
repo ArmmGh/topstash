@@ -144,6 +144,37 @@ enum NoteFile {
     /// The longest preview, in characters. Wider than any row, which truncates the rest.
     static let previewLength = 140
 
+    /// What a row's peek shows under its title: the text after the title line as saved, with its
+    /// line breaks, without the blank lines around it. Starts with the full title line when the title
+    /// was cut. Cut to `limit` characters with a trailing `…`. Empty when nothing follows the title.
+    static func peekText(of body: String, limit: Int) -> String {
+        guard let (title, rest) = splitAtTitleLine(body) else { return "" }
+        var text = trimmingBlankLines(rest)
+        if title.count > titleLength { text = text.isEmpty ? title : title + "\n" + text }
+        guard let end = text.index(text.startIndex, offsetBy: limit, limitedBy: text.endIndex),
+            end < text.endIndex
+        else { return text }
+        return text[..<end] + "…"
+    }
+
+    /// The longest title, in characters, before it's cut with `…`.
+    static let titleLength = 80
+
+    /// `text` without its leading blank lines and trailing whitespace. The first line's indentation stays.
+    private static func trimmingBlankLines(_ text: Substring) -> String {
+        var start = text.startIndex
+        for index in text.indices {
+            if text[index].isNewline {
+                start = text.index(after: index)
+            } else if !text[index].isWhitespace {
+                break
+            }
+        }
+        let trimmed = text[start...]
+        guard let last = trimmed.lastIndex(where: { !$0.isWhitespace }) else { return "" }
+        return String(trimmed[...last])
+    }
+
     /// Everything after the title line, or `nil` when no line qualifies as the title.
     static func textAfterTitleLine(of body: String) -> Substring? {
         splitAtTitleLine(body)?.rest
@@ -191,7 +222,7 @@ enum NoteFile {
     /// The title line cut at 80 characters with a trailing `…`, or `Untitled`.
     static func title(of body: String) -> String {
         guard let line = titleLine(of: body) else { return "Untitled" }
-        return line.count > 80 ? line.prefix(80) + "…" : line
+        return line.count > titleLength ? line.prefix(titleLength) + "…" : line
     }
 
     /// Lowercase ASCII, hyphenated, at most 50 characters. `note` when nothing is left.

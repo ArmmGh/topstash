@@ -2,8 +2,10 @@ import SwiftUI
 import TopstashCore
 
 /// One note in the recent list or the search results: its title and preview, and its age on the right.
-/// Clicking it copies the note. Right-clicking offers "Open in Editor" and "Delete".
+/// Clicking it copies the note. Right-clicking offers "Preview", "Open in Editor" and "Delete".
+/// While hovered, a chevron replaces the age and toggles the peek; it's the one part that doesn't copy.
 /// In search, the keyboard-selected row has a ring on the hover fill.
+/// While it peeks, the row is taller and shows the note's text under the title in place of the preview.
 struct NoteRow: View {
     let note: Note
     /// The search query, so the preview shows the part of the note that matched. `nil` in the recent list.
@@ -14,6 +16,10 @@ struct NoteRow: View {
     let copyCount: Int
     /// The search result ↑/↓ selected, which Return copies.
     let isSelected: Bool
+    /// Set while this row peeks: the text it shows and how much taller it is.
+    let peek: NotePeek?
+    /// Expands or collapses this row's peek. Never copies.
+    let togglePeek: () -> Void
     let openInEditor: () -> Void
     let delete: () -> Void
     let action: () -> Void
@@ -24,37 +30,33 @@ struct NoteRow: View {
 
     var body: some View {
         let preview = previewText
+        // A one-line note's peek has no text: its row looks as it does collapsed.
+        let peekText = peek.map(\.text).flatMap { $0.isEmpty ? nil : $0 }
         Button(action: action) {
-            HStack(alignment: .firstTextBaseline, spacing: PanelLayout.rowAgeSpacing) {
-                VStack(alignment: .leading, spacing: PanelLayout.rowLineSpacing) {
-                    Text(note.title)
-                        .font(PanelStyle.title)
-                        .foregroundStyle(PanelStyle.primary)
-                    // A one-line note has no preview, so its title centers in the row.
-                    Group {
-                        if isCopied {
-                            CopiedLabel(bounceTrigger: reduceMotion ? 0 : copyCount)
-                        } else if !preview.characters.isEmpty {
-                            Text(preview)
-                                .foregroundStyle(PanelStyle.secondary)
-                        }
-                    }
-                    .font(PanelStyle.meta)
-                    .transition(Motion.copiedLine(reduceMotion: reduceMotion))
+            VStack(alignment: .leading, spacing: PanelLayout.rowLineSpacing) {
+                titleLine(preview: preview, peeks: peekText != nil)
+                if let peek, let peekText, !isCopied {
+                    PeekBody(
+                        text: Self.highlighted(
+                            peekText, matches: peek.matches, matchColor: PanelStyle.primary.color(contrast: contrast)),
+                        height: peek.bodyHeight, scrollOffset: peek.scrollOffset
+                    )
+                    // Only fades: the row's height carries the motion, and a blur or rise across 12
+                    // lines smears them.
+                    .transition(.opacity)
                 }
-                .animation(reduceMotion ? Motion.reduced : Motion.copiedSwap, value: isCopied)
-                .lineLimit(1)
-                .truncationMode(.tail)
-                Spacer(minLength: 0)
-                Text(NoteAge.text(created: note.created, now: .now))
-                    .font(PanelStyle.meta)
-                    .foregroundStyle(PanelStyle.tertiary)
-                    .fixedSize()
-                    .accessibilityLabel(Text(note.created, format: .relative(presentation: .named)))
             }
             .padding(.horizontal, PanelLayout.inset)
+            // A peek's title stays where it was collapsed, so "Copied" in a tall row doesn't move it.
+            .padding(.top, peekText == nil ? 0 : PanelLayout.rowVerticalPadding)
             // Every row is exactly this tall: `PanelLayout.scrollOffset` works out where rows are from it.
-            .frame(height: PanelLayout.rowHeight)
+            .frame(
+                height: PanelLayout.rowHeight + (peek?.extraHeight ?? 0),
+                alignment: peekText == nil ? .center : .top
+            )
+            // The peek is laid out at full height at once: clipped, the row reveals it as it grows
+            // and hides it as it shrinks, instead of drawing it over the rows below.
+            .clipped()
             .background {
                 // Hovering another row shows its fill without moving the selection. The copied row
                 // keeps its fill while it shows "Copied", wherever the cursor goes.
@@ -67,13 +69,74 @@ struct NoteRow: View {
         }
         // Dips while pressed, like the save card.
         .buttonStyle(PressDipButtonStyle())
+        // Over the age, but outside the row's label, so clicking it doesn't copy.
+        .overlayPreferenceValue(AgeBounds.self) { age in
+            if let age, Self.trailingSlot(isHovered: isHovered, peeks: peek != nil) == .chevron {
+                GeometryReader { proxy in
+                    let bounds = proxy[age]
+                    PeekChevron(isExpanded: peek != nil, toggle: togglePeek)
+                        .position(x: bounds.maxX - PanelLayout.peekChevronSize / 2, y: bounds.midY)
+                }
+            }
+        }
         .accessibilityAddTraits(isSelected ? .isSelected : [])
+        .accessibilityAction(named: "Preview", togglePeek)
         .contextMenu {
+            Button("Preview", action: togglePeek)
             Button("Open in Editor", action: openInEditor)
             Divider()
             Button("Delete", role: .destructive, action: delete)
         }
         .onHover { isHovered = $0 }
+    }
+
+    /// The title, the preview line under it (or "Copied"), and the age on the right. While the row
+    /// peeks, the peek takes the preview's place.
+    private func titleLine(preview: AttributedString, peeks: Bool) -> some View {
+        HStack(alignment: .firstTextBaseline, spacing: PanelLayout.rowAgeSpacing) {
+            VStack(alignment: .leading, spacing: PanelLayout.rowLineSpacing) {
+                Text(note.title)
+                    .font(PanelStyle.title)
+                    .foregroundStyle(PanelStyle.primary)
+                // A one-line note has no preview, so its title centers in the row.
+                Group {
+                    if isCopied {
+                        CopiedLabel(bounceTrigger: reduceMotion ? 0 : copyCount)
+                    } else if !peeks, !preview.characters.isEmpty {
+                        Text(preview)
+                            .foregroundStyle(PanelStyle.secondary)
+                    }
+                }
+                .font(PanelStyle.meta)
+                .transition(Motion.copiedLine(reduceMotion: reduceMotion))
+            }
+            .animation(reduceMotion ? Motion.reduced : Motion.copiedSwap, value: isCopied)
+            .lineLimit(1)
+            .truncationMode(.tail)
+            Spacer(minLength: 0)
+            Text(NoteAge.text(created: note.created, now: .now))
+                .font(PanelStyle.meta)
+                .foregroundStyle(PanelStyle.tertiary)
+                .fixedSize()
+                .accessibilityLabel(Text(note.created, format: .relative(presentation: .named)))
+                // Keeps its place while the chevron covers it, so the title doesn't move.
+                .opacity(Self.trailingSlot(isHovered: isHovered, peeks: peek != nil) == .age ? 1 : 0)
+                .anchorPreference(key: AgeBounds.self, value: .bounds) { $0 }
+        }
+    }
+
+    /// What a row shows right of its title.
+    enum TrailingSlot: Equatable {
+        /// How long ago the note was saved.
+        case age
+        /// The control that expands and collapses the peek.
+        case chevron
+    }
+
+    /// The chevron replaces the age while the row is hovered, and stays while the row peeks so it
+    /// can be collapsed.
+    static func trailingSlot(isHovered: Bool, peeks: Bool) -> TrailingSlot {
+        isHovered || peeks ? .chevron : .age
     }
 
     /// The note's preview, or in search, the snippet around its match.
@@ -86,10 +149,14 @@ struct NoteRow: View {
     /// The snippet with its matches in `PanelStyle.metaMatch` and `matchColor`, so they stand out by
     /// weight as well as color. The rest takes the row's preview style.
     static func snippetText(_ snippet: SearchSnippet, matchColor: Color) -> AttributedString {
-        let text = snippet.text
+        highlighted(snippet.text, matches: snippet.matches, matchColor: matchColor)
+    }
+
+    /// `text` with `matches` in `PanelStyle.metaMatch` and `matchColor`: the snippet's, or the peek's.
+    static func highlighted(_ text: String, matches: [Range<String.Index>], matchColor: Color) -> AttributedString {
         var attributed = AttributedString()
         var rest = text.startIndex
-        for range in snippet.matches {
+        for range in matches {
             attributed += AttributedString(text[rest..<range.lowerBound])
             var match = AttributedString(text[range])
             match.swiftUI.font = PanelStyle.metaMatch
@@ -103,6 +170,97 @@ struct NoteRow: View {
 
     private var rowShape: RoundedRectangle {
         RoundedRectangle(cornerRadius: PanelLayout.rowCornerRadius)
+    }
+}
+
+/// Where the row's age is, so the chevron can be drawn over it from outside the row's label.
+private struct AgeBounds: PreferenceKey {
+    static let defaultValue: Anchor<CGRect>? = nil
+
+    static func reduce(value: inout Anchor<CGRect>?, nextValue: () -> Anchor<CGRect>?) {
+        value = value ?? nextValue()
+    }
+}
+
+/// Points right on a collapsed row and down on an expanded one, turning on the row's height spring
+/// (`NoteList.togglePeek`). Doesn't turn with Reduce Motion. VoiceOver uses the row's "Preview"
+/// action instead.
+private struct PeekChevron: View {
+    let isExpanded: Bool
+    let toggle: () -> Void
+
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    var body: some View {
+        Button(action: toggle) {
+            Image(systemName: "chevron.right")
+                .font(PanelStyle.peekChevron)
+                .foregroundStyle(PanelStyle.secondary)
+                .rotationEffect(.degrees(isExpanded ? 90 : 0))
+                .transaction(value: isExpanded) { if reduceMotion { $0.animation = nil } }
+                .frame(width: PanelLayout.peekChevronSize, height: PanelLayout.peekChevronSize)
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityHidden(true)
+    }
+}
+
+/// A peeking row's text under its title: raw, wrapped, with its line breaks, in `meta` and the
+/// secondary color. `height` fits up to `PanelLayout.maxPeekLines` lines; longer text scrolls here.
+/// Not selectable, since a click on it copies the note like a click anywhere on the row.
+/// In search, its matches stand out, and it opens `scrollOffset` down to show the first.
+private struct PeekBody: View {
+    let text: AttributedString
+    let height: CGFloat
+    let scrollOffset: CGFloat
+
+    var body: some View {
+        ScrollView {
+            Text(text)
+                .font(PanelStyle.meta)
+                .foregroundStyle(PanelStyle.secondary)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .fixedSize(horizontal: false, vertical: true)
+                .background { if scrollOffset > 0 { InitialScroll(offset: scrollOffset) } }
+        }
+        // Only text that overflows scrolls, so a short peek leaves scrolling to the results list.
+        .scrollBounceBehavior(.basedOnSize)
+        .frame(height: height)
+    }
+}
+
+/// Scrolls the `NSScrollView` it's drawn in to `offset` once, when it's first in a window, like
+/// `RowScroller` does for the results: SwiftUI's `scrollTo` would need a view per line.
+private struct InitialScroll: NSViewRepresentable {
+    let offset: CGFloat
+
+    func makeNSView(context: Context) -> NSView { ScrollingView(offset: offset) }
+
+    func updateNSView(_ view: NSView, context: Context) {}
+
+    final class ScrollingView: NSView {
+        let offset: CGFloat
+
+        init(offset: CGFloat) {
+            self.offset = offset
+            super.init(frame: .zero)
+        }
+
+        @available(*, unavailable)
+        required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
+
+        override func viewDidMoveToWindow() {
+            super.viewDidMoveToWindow()
+            guard window != nil else { return }
+            // The text is laid out, and the document view as tall as it, on the next turn.
+            DispatchQueue.main.async { [weak self] in
+                guard let self, let scrollView = enclosingScrollView else { return }
+                let clip = scrollView.contentView
+                clip.scroll(to: NSPoint(x: clip.bounds.minX, y: offset))
+                scrollView.reflectScrolledClipView(clip)
+            }
+        }
     }
 }
 

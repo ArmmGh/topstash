@@ -5,7 +5,7 @@ import TopstashCore
 /// The expanded panel under the header: a search field above a scrollable list of the matching notes, newest first.
 /// Results are recomputed on every keystroke. The field keeps focus: ↑/↓ move the selection,
 /// Return copies the selected note and closes the panel, ⌥Return can also paste it (a Settings
-/// toggle), and Esc closes it.
+/// toggle), Space right after ↑/↓ peeks it, and Esc closes the peek, then the panel.
 struct SearchView: View {
     let appModel: AppModel
     let actions: PanelActions
@@ -48,6 +48,29 @@ struct SearchView: View {
                     }
                     // The field takes Return as submit before `onKeyPress` sees it.
                     .onSubmit(copySelected)
+                    // Space and Esc reach `onKeyPress` before the field types or closes. While an
+                    // input method composes, they're its keys.
+                    .onKeyPress(.space, phases: [.down, .repeat]) { press in
+                        // Only plain Space peeks: ⇧Space and the rest type, whatever runs first.
+                        guard press.modifiers.isDisjoint(with: Self.shortcutModifiers), !fieldHasMarkedText
+                        else { return .ignored }
+                        // A held Space doesn't toggle again, nor type spaces after a toggle.
+                        if press.phase == .repeat { return panel.spaceTogglesPeek ? .handled : .ignored }
+                        return animatingPeek { panel.pressSpace(among: results) } ? .handled : .ignored
+                    }
+                    // `.handled` stops `onExitCommand`, so the panel stays open.
+                    .onKeyPress(.escape, phases: .down) { _ in
+                        guard !fieldHasMarkedText else { return .ignored }
+                        return animatingPeek { panel.pressEscape() } ? .handled : .ignored
+                    }
+                    // Outermost, so it runs first: every key but plain Space makes Space type again.
+                    // ↑/↓ then let it peek again.
+                    .onKeyPress(phases: .down) { press in
+                        if press.key != .space || !press.modifiers.isDisjoint(with: Self.shortcutModifiers) {
+                            panel.pressOtherKey()
+                        }
+                        return .ignored
+                    }
                 // The shortcut's result. Not focusable, so typing continues in the field.
                 if let status = panel.searchStatus {
                     SearchStatusBadge(status: status, bounceTrigger: reduceMotion ? 0 : panel.saveCount)
@@ -122,11 +145,28 @@ struct SearchView: View {
         .fixedSize()
     }
 
-    /// ↑/↓: moves the selection and announces the newly selected row.
+    /// ↑/↓: moves the selection, collapsing the peek, and announces the newly selected row.
     private func moveSelection(by step: Int) -> KeyPress.Result {
-        panel.moveSelection(by: step, among: results.count)
+        if panel.peek == nil {
+            panel.moveSelection(by: step, among: results.count)
+        } else {
+            animatingPeek { panel.moveSelection(by: step, among: results.count) }
+        }
         announceSelection(priority: .high)
         return .handled
+    }
+
+    /// Runs `change` on `Motion.peek`, as a row peeks or collapses.
+    private func animatingPeek<Result>(_ change: () -> Result) -> Result {
+        withAnimation(Motion.peek(reduceMotion: reduceMotion), change)
+    }
+
+    /// The modifiers that make Space a different key: with any of them, Space types and never peeks.
+    private static let shortcutModifiers: EventModifiers = [.shift, .control, .option, .command]
+
+    /// Whether an input method is composing in the field: the field editor has marked text.
+    private var fieldHasMarkedText: Bool {
+        (NSApp.keyWindow?.firstResponder as? NSTextView)?.hasMarkedText() == true
     }
 
     /// Reads the selected row's title, since VoiceOver's focus stays in the field.

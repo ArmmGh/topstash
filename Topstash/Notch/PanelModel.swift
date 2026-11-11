@@ -16,10 +16,16 @@ final class PanelModel {
     }
 
     /// Closing resets `query` and the selection, so the next open shows the recent list with an empty query.
+    /// Every change collapses the peek, so each open starts with every row collapsed, and Space types.
     /// Only `NotchPanelController` sets it, together with what the window does in each mode; views
     /// ask for changes through `PanelActions`. Setting it has no effect on windows or focus.
     var mode: Mode = .closed {
         didSet {
+            if mode != oldValue {
+                resetPeek()
+                // The rows it shows go away without reporting the cursor leaving.
+                hoveredNote = nil
+            }
             if mode == .closed {
                 query = ""
                 selection = 0
@@ -45,7 +51,12 @@ final class PanelModel {
     /// The search field's text. A new query selects the first result.
     var query = "" {
         // The field sets its text again on Return, so only a different query resets the selection.
-        didSet { if query != oldValue { selection = 0 } }
+        didSet {
+            if query != oldValue {
+                selection = 0
+                resetPeek()
+            }
+        }
     }
     /// The keyboard selection: an index into the search results, which may outlast results that
     /// were deleted. Read it through `selectedResult(among:)`.
@@ -58,10 +69,126 @@ final class PanelModel {
         count > 0 ? min(selection, count - 1) : nil
     }
 
-    /// ↑ (-1) or ↓ (+1): moves the selection among `count` results, stopping at the ends.
+    /// ↑ (-1) or ↓ (+1): moves the selection among `count` results, stopping at the ends, and
+    /// collapses the peek. Space then toggles the selected result's peek.
     func moveSelection(by step: Int, among count: Int) {
+        peek = nil
         guard let current = selectedResult(among: count) else { return }
         selection = min(max(current + step, 0), count - 1)
+        spaceTogglesPeek = true
+    }
+
+    /// Whether Space toggles the selected result's peek rather than typing a space: only right
+    /// after ↑/↓, like Quick Look in Finder, so multi-word queries still type.
+    private(set) var spaceTogglesPeek = false
+
+    /// Space in search: toggles the selected one of `results`' peek and returns true if ↑/↓ came
+    /// last, or returns false so the field types the space.
+    func pressSpace(among results: [Note]) -> Bool {
+        guard spaceTogglesPeek, let index = selectedResult(among: results.count) else { return false }
+        togglePeek(results[index])
+        return true
+    }
+
+    /// Any key in search but plain Space and ↑/↓: the next Space types a space.
+    func pressOtherKey() {
+        spaceTogglesPeek = false
+    }
+
+    /// Esc in search: collapses the peek and returns true, or returns false with no peek, so Esc
+    /// closes the panel.
+    func pressEscape() -> Bool {
+        guard peek != nil else { return false }
+        peek = nil
+        return true
+    }
+
+    // MARK: Peek
+
+    /// The row expanded in place to show its note's text, if any. At most one row peeks.
+    private(set) var peek: NotePeek?
+    /// The `Note.id` of the row that peeks.
+    var peekedNote: Note.ID? { peek?.note }
+
+    /// Expands the note's row in place, collapsing any other, or collapses it if it already peeks.
+    /// Never copies. The text, its search matches and the row's extra height are worked out here,
+    /// once per expansion; a new query collapses the peek, so its matches never go stale.
+    func togglePeek(_ note: Note) {
+        if peek?.note == note.id {
+            peek = nil
+        } else {
+            let text = note.peekText
+            let matches = mode == .search ? SearchSnippet.matches(of: query, in: text) : []
+            let scrollOffset = matches.first.map {
+                PanelLayout.peekScrollOffset(showing: $0.lowerBound, in: text, matches: matches)
+            }
+            peek = NotePeek(
+                note: note.id, text: text, lineCount: PanelLayout.peekLineCount(text, matches: matches),
+                matches: matches,
+                scrollOffset: scrollOffset ?? 0)
+        }
+    }
+
+    /// Collapses the peek, and makes the next Space type.
+    private func resetPeek() {
+        peek = nil
+        spaceTogglesPeek = false
+    }
+
+    // MARK: Force click
+
+    /// The row under the cursor, which a force click peeks. Set by `NoteList` as rows report hover.
+    private(set) var hoveredNote: Note?
+    /// The row whose next click does nothing: the mouse-up that ends a force click on it.
+    private var forceClickReleaseNote: Note.ID?
+    /// Set once a force click has acted during the current press, so the Look up hook and pressure
+    /// stage 2 together toggle only once.
+    private var pressForceClicked = false
+
+    /// A row reports the cursor entering (`true`) or leaving it. Leaving one row may be reported
+    /// after entering the next, so it only clears the row it's about.
+    func hover(_ note: Note, isHovering: Bool) {
+        if isHovering {
+            hoveredNote = note
+        } else if hoveredNote?.id == note.id {
+            hoveredNote = nil
+        }
+    }
+
+    /// A mouse button went down in the panel. A new press starts uncounted, and a force click
+    /// released off its row doesn't swallow this click.
+    func pressBegan() {
+        pressEnded()
+    }
+
+    /// A mouse button came up in the panel, after the row under it, if any, has handled the click.
+    /// A force click's mouse-up that landed off its row doesn't swallow a later click or VoiceOver's
+    /// Preview, and a press whose mouse-down went unreported isn't counted as the last one.
+    func pressEnded() {
+        pressForceClicked = false
+        forceClickReleaseNote = nil
+    }
+
+    /// A force click: the Look up hook (`quickLook(with:)`) or pressure stage 2. Toggles the hovered
+    /// row's peek. With the button down, it acts once per press, and the press's mouse-up then does
+    /// nothing on the row. With it up, it's a three-finger tap: no mouse-up follows.
+    func forceClick(buttonIsDown: Bool) {
+        guard let note = hoveredNote else { return }
+        guard buttonIsDown else {
+            togglePeek(note)
+            return
+        }
+        guard !pressForceClicked else { return }
+        pressForceClicked = true
+        togglePeek(note)
+        forceClickReleaseNote = note.id
+    }
+
+    /// Whether a click on the note's row, on the row itself (copy) or its chevron (toggle), is the
+    /// mouse-up ending a force click, and so does nothing. True once after a force click.
+    func consumeForceClickRelease(_ note: Note.ID) -> Bool {
+        defer { forceClickReleaseNote = nil }
+        return forceClickReleaseNote == note
     }
 
     /// True in `.feedback`, and kept while closing from it, so the list doesn't pop in during the fade.
@@ -85,6 +212,26 @@ final class PanelModel {
     /// Counts copies, bumped by `AppModel` with the haptic. Its changes bounce the "Copied" checkmark,
     /// also when the row already shows it.
     var copyCount = 0
+}
+
+/// A row expanded in place: whose, what it shows, and how much taller than `PanelLayout.rowHeight` it is.
+struct NotePeek: Equatable {
+    let note: Note.ID
+    /// `Note.peekText`.
+    let text: String
+    /// `PanelLayout.peekLineCount(_:matches:)` of `text` and `matches`: the lines shown before it
+    /// scrolls. 0 when it's empty.
+    let lineCount: Int
+    /// In search, every place a query word appears in `text` (`SearchSnippet.matches(of:in:)`),
+    /// shown in `metaMatch`. Empty in the recent list.
+    var matches: [Range<String.Index>] = []
+    /// How far the peek opens scrolled, to show the first of `matches`
+    /// (`PanelLayout.peekScrollOffset(showing:in:matches:)`). 0 without matches.
+    var scrollOffset: CGFloat = 0
+    /// What the peek adds to its row, which the shape's height and the row's follow.
+    var extraHeight: CGFloat { PanelLayout.peekExtraHeight(lines: lineCount) }
+    /// The height of the peek's text, under the title line.
+    var bodyHeight: CGFloat { PanelLayout.peekBodyHeight(lines: lineCount) }
 }
 
 /// What the search view shows next to its field for a moment.

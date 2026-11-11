@@ -80,3 +80,34 @@ struct SearchSnippetTests {
         #expect(snippet.matches.isEmpty)
     }
 }
+
+/// `SearchSnippet.matches(of:in:)`: where a query's words appear in any text, as the snippet and the
+/// peek highlight them.
+struct SearchMatchesTests {
+    private func matched(_ query: String, in text: String) -> [String] {
+        SearchSnippet.matches(of: query, in: text).map { String(text[$0]) }
+    }
+
+    @Test func findsEveryWordWhereverItAppearsIgnoringCase() {
+        #expect(matched("seam TEST", in: "a Test at the seam,\nthen another test") == ["Test", "seam", "test"])
+    }
+
+    @Test func overlappingMatchesMergeIntoOne() {
+        #expect(matched("abc bcd", in: "xabcdx abc") == ["abcd", "abc"])
+    }
+
+    @Test func aWordInsideAnotherMergesIntoTheLongerMatch() {
+        #expect(matched("pay payment", in: "the payment") == ["payment"])
+    }
+
+    @Test func anEmptyQueryMatchesNothing() {
+        #expect(matched("  ", in: "anything").isEmpty)
+    }
+
+    @Test func aMatchPastThePeeksCharacterCapIsNotFound() {
+        let body = "Title\n" + String(repeating: "x", count: Note.peekLength) + " needle"
+
+        #expect(matched("needle", in: Note.peekText(of: body)).isEmpty)
+        #expect(matched("x", in: Note.peekText(of: body)).count == 1)
+    }
+}
