@@ -6,6 +6,8 @@ enum Motion {
     // MARK: Durations
 
     static let expandDuration: Double = 0.4
+    /// The results gliding to show a peek that opened too low to fit, once it has finished growing.
+    static let peekScrollDuration: Double = 0.25
     static let collapseDuration: Double = 0.3
     static let contentInDuration: Double = 0.22
     static let contentInDelay: Double = 0.07

@@ -39,13 +39,13 @@ struct NoteList: View {
             }
             .onChange(of: panel.peekedNote) { _, peeked in
                 guard let peeked else { return }
-                // The results' scroll view grows only once the taller row is laid out: try on the
-                // next turn of the run loop, and again once the row has finished growing.
-                DispatchQueue.main.async { show(peeked) }
+                // Only once the row and the shape have finished growing: measured earlier, the
+                // results still look too short for the taller row, and they'd jump up and back.
+                // Glides, so the row comes into view rather than snapping.
                 DispatchQueue.main.asyncAfter(
                     deadline: .now() + Motion.expandSettleDuration(reduceMotion: reduceMotion)
                 ) {
-                    if panel.peekedNote == peeked { show(peeked) }
+                    if panel.peekedNote == peeked { show(peeked, animated: !reduceMotion) }
                 }
             }
         } else {
@@ -54,12 +54,12 @@ struct NoteList: View {
     }
 
     /// Scrolls the results just far enough to show the note's row, taller while it peeks.
-    private func show(_ note: Note.ID) {
+    private func show(_ note: Note.ID, animated: Bool = false) {
         guard let index = notes.firstIndex(where: { $0.id == note }) else { return }
         let peek = panel.peek
         scroller.show(
             row: index, peekedRow: peek.flatMap { peek in notes.firstIndex { $0.id == peek.note } },
-            peekExtraHeight: peek?.extraHeight ?? 0)
+            peekExtraHeight: peek?.extraHeight ?? 0, animated: animated)
     }
 
     /// One peek at a time, on `Motion.peek`.
@@ -111,7 +111,9 @@ struct NoteList: View {
 private final class RowScroller {
     weak var scrollView: NSScrollView?
 
-    func show(row index: Int, peekedRow: Int?, peekExtraHeight: CGFloat) {
+    /// `animated` glides there, for a peek that has just opened; the selection moving with ↑/↓
+    /// jumps, like a list's.
+    func show(row index: Int, peekedRow: Int?, peekExtraHeight: CGFloat, animated: Bool = false) {
         guard let scrollView else { return }
         let clip = scrollView.contentView
         guard
@@ -119,8 +121,19 @@ private final class RowScroller {
                 showingRow: index, peekedRow: peekedRow, peekExtraHeight: peekExtraHeight,
                 offset: clip.bounds.minY, viewportHeight: clip.bounds.height)
         else { return }
-        clip.scroll(to: NSPoint(x: clip.bounds.minX, y: offset))
-        scrollView.reflectScrolledClipView(clip)
+        let origin = NSPoint(x: clip.bounds.minX, y: offset)
+        guard animated else {
+            clip.scroll(to: origin)
+            scrollView.reflectScrolledClipView(clip)
+            return
+        }
+        NSAnimationContext.runAnimationGroup { context in
+            context.duration = Motion.peekScrollDuration
+            context.timingFunction = CAMediaTimingFunction(name: .easeOut)
+            clip.animator().setBoundsOrigin(origin)
+        } completionHandler: {
+            scrollView.reflectScrolledClipView(clip)
+        }
     }
 }
 

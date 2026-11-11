@@ -41,7 +41,9 @@ struct NoteRow: View {
                             peekText, matches: peek.matches, matchColor: PanelStyle.primary.color(contrast: contrast)),
                         height: peek.bodyHeight, scrollOffset: peek.scrollOffset
                     )
-                    .transition(Motion.copiedLine(reduceMotion: reduceMotion))
+                    // Only fades: the row's height carries the motion, and a blur or rise across 12
+                    // lines smears them.
+                    .transition(.opacity)
                 }
             }
             .padding(.horizontal, PanelLayout.inset)
@@ -52,6 +54,9 @@ struct NoteRow: View {
                 height: PanelLayout.rowHeight + (peek?.extraHeight ?? 0),
                 alignment: peekText == nil ? .center : .top
             )
+            // The peek is laid out at full height at once: clipped, the row reveals it as it grows
+            // and hides it as it shrinks, instead of drawing it over the rows below.
+            .clipped()
             .background {
                 // Hovering another row shows its fill without moving the selection. The copied row
                 // keeps its fill while it shows "Copied", wherever the cursor goes.
